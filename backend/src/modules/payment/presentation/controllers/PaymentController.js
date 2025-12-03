@@ -1167,6 +1167,12 @@ class PaymentController {
         }
       );
 
+      // Disable caching for analytics
+      res.set({
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0"
+      });
       res.status(200).json({
         success: true,
         data: {
@@ -1280,6 +1286,12 @@ class PaymentController {
         }
       );
 
+      // Disable caching for analytics
+      res.set({
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0"
+      });
       res.status(200).json({
         success: true,
         data: {
@@ -1670,6 +1682,12 @@ class PaymentController {
         }
       );
 
+      // Disable caching for analytics
+      res.set({
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0"
+      });
       res.status(200).json({
         success: true,
         data: {
@@ -1753,6 +1771,12 @@ class PaymentController {
       const withdrawn = parseFloat(withdrawnData[0]?.total || 0);
       const available = Math.max(0, totalEarned - platformFees - pendingEscrow - withdrawn);
 
+      // Disable caching for analytics
+      res.set({
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0"
+      });
       res.status(200).json({
         success: true,
         data: {
