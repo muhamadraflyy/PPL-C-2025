@@ -121,13 +121,33 @@ class PaymentController {
         throw new Error('Failed to create order: ' + dbError.message);
       }
 
+      // Fetch user data from database for Midtrans customer details
+      const [userData] = await PaymentModel.sequelize.query(
+        "SELECT email, nama_depan, nama_belakang, no_telepon FROM users WHERE id = ? LIMIT 1",
+        {
+          replacements: [user_id],
+          type: Sequelize.QueryTypes.SELECT
+        }
+      );
+
+      const customerName = userData 
+        ? `${userData.nama_depan || ""} ${userData.nama_belakang || ""}`.trim()
+        : (customer_name || "Customer");
+      
+      const customerEmail = userData?.email || customer_email || "customer@example.com";
+      const customerPhone = userData?.no_telepon || "";
+
       // Now create payment
       const result = await this.createPaymentUseCase.execute({
         pesanan_id,
         user_id,
         jumlah,
         metode_pembayaran,
-        channel
+        channel,
+        customer_name: customerName,
+        customer_email: customerEmail,
+        customer_phone: customerPhone,
+        order_title: order_title || "SkillConnect Service"
       });
 
       res.status(201).json({
