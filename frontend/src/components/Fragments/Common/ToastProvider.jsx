@@ -8,7 +8,7 @@ export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([])
 
   const api = useMemo(() => ({
-    show: (message, type = 'info', timeout = 3000) => {
+    show: (message, type = 'info', timeout = 4000) => {
       const id = ++idCounter
       setToasts((t) => [...t, { id, message, type }])
       if (timeout) setTimeout(() => dismiss(id), timeout)

@@ -75,11 +75,16 @@ export default function LoginPage() {
   }, [navigate, toast]);
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Clear previous errors
+    setErrors({});
+    
     const emailErr = validateEmail(form.email);
     const passErr = validatePassword(form.password);
     const newErrors = { email: emailErr, password: passErr };
     setErrors(newErrors);
     if (emailErr || passErr) return;
+    
     try {
       await login(form);
       toast.show("Logged in successfully", "success");
@@ -91,8 +96,18 @@ export default function LoginPage() {
       } else {
         navigate("/dashboard", { replace: true });
       }
-    } catch (_) {
-      toast.show("Invalid email or password", "error");
+    } catch (err) {
+      // Clear password field on error (keep email)
+      setForm(prev => ({ ...prev, password: "" }));
+      
+      // Check if error is email not verified
+      if (err.response?.data?.code === 'EMAIL_NOT_VERIFIED') {
+        setErrors({ password: "Email belum diverifikasi. Silakan cek email Anda." });
+        toast.show("Email belum diverifikasi. Silakan cek email Anda.", "error", 5000);
+      } else {
+        setErrors({ password: "Email atau password salah" });
+        toast.show("Email atau password salah", "error", 5000);
+      }
     }
   };
 
