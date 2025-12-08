@@ -116,9 +116,13 @@ const OrderDetailPage = () => {
           (item.url ? item.url.split('/').pop() : '') ||
           `lampiran-${idx + 1}`
 
+        // Hindari nilai URL dummy seperti '#' yang akan menghasilkan /public/#
+        const rawUrl = item.url || item.path || ''
+        const sanitizedUrl = rawUrl === '#' ? '' : rawUrl
+
         return {
           name,
-          url: item.url || item.path || '',
+          url: sanitizedUrl,
           size: item.size || item.filesize || item.fileSize || ''
         }
       })
@@ -266,16 +270,10 @@ const OrderDetailPage = () => {
 
     setActionLoading(true)
     try {
-      // data.files adalah array of files, convert ke format yang dibutuhkan backend
-      const lampiranFreelancer = data.files.map(file => ({
-        name: file.name,
-        url: file.url || '#', // Nanti disesuaikan kalau ada upload service
-        size: file.size
-      }))
-
+      // Kirim file asli ke backend, backend yang akan membentuk URL publik
       const result = await orderService.completeOrder(
         id,
-        lampiranFreelancer,
+        data.files,
         data.note,
       )
 
@@ -494,6 +492,11 @@ const OrderDetailPage = () => {
 
   const handleDownloadClientAttachment = async (file) => {
     try {
+      if (!file?.url) {
+        openInfoModal('File Tidak Tersedia', 'File lampiran tidak memiliki URL valid untuk diunduh.')
+        return
+      }
+
       const urlToFetch = buildMediaUrl(file.url || '')
       const response = await fetch(urlToFetch)
       if (!response.ok) {
@@ -625,7 +628,11 @@ const OrderDetailPage = () => {
                     {order.lampiran_freelancer.map((file, idx) => (
                       <a
                         key={idx}
-                        href={buildMediaUrl(file.url)}
+                        href={file.url ? buildMediaUrl(file.url) : '#'}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          handleDownloadClientAttachment(file)
+                        }}
                         className="flex items-center p-3 bg-green-50 rounded-lg hover:bg-green-100 transition-colors border border-green-200"
                       >
                         <svg className="w-5 h-5 text-green-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">

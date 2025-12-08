@@ -124,11 +124,22 @@ export const orderService = {
   },
 
   // Freelancer: Complete order
-  async completeOrder(orderId, lampiranFreelancer, catatanFreelancer) {
+  async completeOrder(orderId, files, catatanFreelancer) {
     try {
-      const response = await api.patch(`/orders/${orderId}/complete`, {
-        lampiranFreelancer,
-        catatanFreelancer,
+      const formData = new FormData()
+      if (Array.isArray(files)) {
+        files.forEach((file) => {
+          if (file) formData.append('lampiranFreelancer', file)
+        })
+      }
+      if (catatanFreelancer) {
+        formData.append('catatanFreelancer', catatanFreelancer)
+      }
+
+      const response = await api.patch(`/orders/${orderId}/complete`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
       })
       return response.data
     } catch (error) {
