@@ -280,7 +280,7 @@ const CreateOrderPage = () => {
                     Harga layanan
                   </span>
                   <span className="font-semibold text-neutral-900">
-                    {formatRupiah(service?.harga || 0)}
+                    {formatRupiah(Number(service?.harga || 0))}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
@@ -289,7 +289,7 @@ const CreateOrderPage = () => {
                     Biaya platform (10%)
                   </span>
                   <span className="font-semibold text-neutral-900">
-                    {formatRupiah((service?.harga || 0) * 0.1)}
+                    {formatRupiah(Number(service?.harga || 0) * 0.1)}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
@@ -298,7 +298,7 @@ const CreateOrderPage = () => {
                     Waktu pengerjaan
                   </span>
                   <span className="font-semibold text-neutral-900">
-                    {service?.waktu_pengerjaan || 7} hari
+                    {service?.waktu_pengerjaan || '1–3 Minggu'}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
@@ -307,7 +307,7 @@ const CreateOrderPage = () => {
                     Batas revisi
                   </span>
                   <span className="font-semibold text-neutral-900">
-                    {service?.batas_revisi === 99 ? 'Unlimited' : `${service?.batas_revisi || 3}x`}
+                    {service?.batas_revisi || '3x revisi besar'}
                   </span>
                 </div>
               </div>
@@ -316,7 +316,7 @@ const CreateOrderPage = () => {
                 <div className="flex justify-between mb-6">
                   <span className="font-bold text-neutral-900 text-lg">Total Pembayaran</span>
                   <span className="text-2xl font-bold bg-gradient-to-r from-[#4782BE] to-[#1D375B] bg-clip-text text-transparent">
-                    {formatRupiah((service?.harga || 0) + (service?.harga || 0) * 0.1)}
+                    {formatRupiah(Number(service?.harga || 0) + Number(service?.harga || 0) * 0.1)}
                   </span>
                 </div>
 
