@@ -189,7 +189,14 @@ const OrderDetailPage = () => {
         return
       }
 
-      const result = await paymentService.releaseEscrow(escrowId)
+      // Get current user ID
+      const currentUser = authService.getCurrentUser()
+      if (!currentUser?.id) {
+        alert('User tidak terautentikasi')
+        return
+      }
+
+      const result = await paymentService.releaseEscrow(escrowId, currentUser.id, 'Order completed successfully')
       if (result.success) {
         alert('✅ Dana escrow berhasil dirilis ke freelancer!')
         await loadOrder()

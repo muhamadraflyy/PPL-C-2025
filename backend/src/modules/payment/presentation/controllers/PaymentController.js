@@ -121,13 +121,33 @@ class PaymentController {
         throw new Error('Failed to create order: ' + dbError.message);
       }
 
+      // Fetch user data from database for Midtrans customer details
+      const [userData] = await PaymentModel.sequelize.query(
+        "SELECT email, nama_depan, nama_belakang, no_telepon FROM users WHERE id = ? LIMIT 1",
+        {
+          replacements: [user_id],
+          type: Sequelize.QueryTypes.SELECT
+        }
+      );
+
+      const customerName = userData 
+        ? `${userData.nama_depan || ""} ${userData.nama_belakang || ""}`.trim()
+        : (customer_name || "Customer");
+      
+      const customerEmail = userData?.email || customer_email || "customer@example.com";
+      const customerPhone = userData?.no_telepon || "";
+
       // Now create payment
       const result = await this.createPaymentUseCase.execute({
         pesanan_id,
         user_id,
         jumlah,
         metode_pembayaran,
-        channel
+        channel,
+        customer_name: customerName,
+        customer_email: customerEmail,
+        customer_phone: customerPhone,
+        order_title: order_title || "SkillConnect Service"
       });
 
       res.status(201).json({
@@ -376,10 +396,27 @@ class PaymentController {
     try {
       const { escrow_id, reason } = req.body;
       const user_id = req.user?.userId || req.user?.id || req.body.user_id;
+      const user_role = req.user?.role;
+
+      // Validate user_id and role are present
+      if (!user_id) {
+        return res.status(401).json({
+          success: false,
+          message: 'User authentication required'
+        });
+      }
+
+      if (!user_role) {
+        return res.status(403).json({
+          success: false,
+          message: 'User role not found in token. Please login again.'
+        });
+      }
 
       const result = await this.releaseEscrowUseCase.execute({
         escrow_id,
         user_id,
+        user_role,
         reason
       });
 
@@ -390,7 +427,13 @@ class PaymentController {
       });
     } catch (error) {
       console.error('[PAYMENT CONTROLLER] Release escrow error:', error);
-      res.status(400).json({
+
+      // Return 403 for authorization errors, 400 for other errors
+      const statusCode = error.message.includes('not authorized') || error.message.includes('Unauthorized')
+        ? 403
+        : 400;
+
+      res.status(statusCode).json({
         success: false,
         message: error.message
       });
@@ -420,6 +463,75 @@ class PaymentController {
       });
     } catch (error) {
       console.error('[PAYMENT CONTROLLER] Get escrow error:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
+  /**
+   * GET /api/payments/escrow
+   * Get all escrow records (Admin only)
+   */
+  async getAllEscrows(req, res) {
+    try {
+      const { status, limit = 50, offset = 0 } = req.query;
+      const userRole = req.user?.role;
+
+      // Admin-only endpoint
+      if (userRole !== 'admin') {
+        return res.status(403).json({
+          success: false,
+          message: 'Only admins can access all escrow records'
+        });
+      }
+
+      const where = {};
+      if (status) {
+        where.status = status;
+      }
+
+      // Get escrows with related order and payment data
+      const escrows = await EscrowModel.sequelize.query(
+        `SELECT
+          e.*,
+          p.transaction_id,
+          p.jumlah as payment_amount,
+          o.nomor_pesanan,
+          o.judul as order_title,
+          o.client_id,
+          o.freelancer_id,
+          u_client.email as client_email,
+          u_freelancer.email as freelancer_email
+        FROM escrow e
+        INNER JOIN pembayaran p ON e.pembayaran_id = p.id
+        INNER JOIN pesanan o ON e.pesanan_id = o.id
+        LEFT JOIN users u_client ON o.client_id = u_client.id
+        LEFT JOIN users u_freelancer ON o.freelancer_id = u_freelancer.id
+        ${status ? 'WHERE e.status = ?' : ''}
+        ORDER BY e.created_at DESC
+        LIMIT ? OFFSET ?`,
+        {
+          replacements: status ? [status, parseInt(limit), parseInt(offset)] : [parseInt(limit), parseInt(offset)],
+          type: Sequelize.QueryTypes.SELECT
+        }
+      );
+
+      const total = await EscrowModel.count({ where });
+
+      res.status(200).json({
+        success: true,
+        data: {
+          escrows,
+          total,
+          limit: parseInt(limit),
+          offset: parseInt(offset)
+        }
+      });
+
+    } catch (error) {
+      console.error('[PAYMENT CONTROLLER] Get all escrows error:', error);
       res.status(500).json({
         success: false,
         message: error.message
@@ -1167,6 +1279,12 @@ class PaymentController {
         }
       );
 
+      // Disable caching for analytics
+      res.set({
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0"
+      });
       res.status(200).json({
         success: true,
         data: {
@@ -1280,6 +1398,12 @@ class PaymentController {
         }
       );
 
+      // Disable caching for analytics
+      res.set({
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0"
+      });
       res.status(200).json({
         success: true,
         data: {
@@ -1670,6 +1794,12 @@ class PaymentController {
         }
       );
 
+      // Disable caching for analytics
+      res.set({
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0"
+      });
       res.status(200).json({
         success: true,
         data: {
@@ -1753,6 +1883,12 @@ class PaymentController {
       const withdrawn = parseFloat(withdrawnData[0]?.total || 0);
       const available = Math.max(0, totalEarned - platformFees - pendingEscrow - withdrawn);
 
+      // Disable caching for analytics
+      res.set({
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0"
+      });
       res.status(200).json({
         success: true,
         data: {

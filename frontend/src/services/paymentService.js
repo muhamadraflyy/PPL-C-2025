@@ -89,15 +89,37 @@ export const paymentService = {
   /**
    * Release escrow to freelancer
    * @param {string} escrowId - Escrow ID
+   * @param {string} userId - User ID (client who releases)
+   * @param {string} reason - Release reason
    */
-  async releaseEscrow(escrowId) {
+  async releaseEscrow(escrowId, userId, reason = 'Order completed successfully') {
     try {
-      const response = await api.post(`/payments/escrow/${escrowId}/release`)
+      const response = await api.post('/payments/escrow/release', {
+        escrow_id: escrowId,
+        user_id: userId,
+        reason: reason
+      })
       return response.data
     } catch (error) {
       return {
         success: false,
         message: error.response?.data?.message || 'Failed to release escrow'
+      }
+    }
+  },
+
+  /**
+   * Get all escrow records (Admin only)
+   * @param {Object} params - { status, limit, offset }
+   */
+  async getAllEscrows(params = {}) {
+    try {
+      const response = await api.get('/payments/escrow', { params })
+      return response.data
+    } catch (error) {
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Failed to get escrow records'
       }
     }
   },
