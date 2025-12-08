@@ -9,6 +9,8 @@ import Footer from '../../components/Fragments/Common/Footer'
 import { orderService } from '../../services/orderService'
 import { authService } from '../../services/authService'
 import paymentService from '../../services/paymentService'
+import { buildMediaUrl } from '../../utils/mediaUrl'
+import { Download } from 'lucide-react'
 
 // Normalisasi berbagai bentuk payload riwayat status/timeline yang dikirim BE
 const normalizeStatusHistory = (raw = []) => {
@@ -79,6 +81,36 @@ const OrderDetailPage = () => {
     setInfoModal({ open: false, title: '', message: '' })
   }
 
+  const normalizeAttachments = (attachments = []) => {
+    if (!Array.isArray(attachments)) return []
+
+    return attachments
+      .filter(Boolean)
+      .map((item, idx) => {
+        if (typeof item === 'string') {
+          const filename = item.split('/').pop() || `lampiran-${idx + 1}`
+          return {
+            name: filename,
+            url: item,
+            size: ''
+          }
+        }
+
+        const name =
+          item.name ||
+          item.filename ||
+          item.originalname ||
+          (item.url ? item.url.split('/').pop() : '') ||
+          `lampiran-${idx + 1}`
+
+        return {
+          name,
+          url: item.url || item.path || '',
+          size: item.size || item.filesize || item.fileSize || ''
+        }
+      })
+  }
+
   const loadOrder = async () => {
     setLoading(true)
     setError('')
@@ -117,8 +149,8 @@ const OrderDetailPage = () => {
           waktu_pengerjaan: o.waktu_pengerjaan ?? o.duration_days ?? 0,
           deskripsi: o.deskripsi ?? o.description ?? '',
           catatan_client: o.catatan_client ?? o.client_note ?? '',
-          lampiran_client: o.lampiran_client ?? o.client_attachments ?? [],
-          lampiran_freelancer: o.lampiran_freelancer ?? o.freelancer_attachments ?? [],
+          lampiran_client: normalizeAttachments(o.lampiran_client ?? o.client_attachments ?? []),
+          lampiran_freelancer: normalizeAttachments(o.lampiran_freelancer ?? o.freelancer_attachments ?? []),
           tenggat_waktu: o.tenggat_waktu ?? o.deadline ?? o.due_date ?? null,
           // Client normalization
           client:
@@ -546,7 +578,11 @@ const OrderDetailPage = () => {
                     {order.lampiran_client.map((file, idx) => (
                       <a
                         key={idx}
-                        href={file.url}
+                        href={buildMediaUrl(file.url)}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          handleDownloadClientAttachment(file)
+                        }}
                         className="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                       >
                         <svg className="w-5 h-5 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -554,8 +590,9 @@ const OrderDetailPage = () => {
                         </svg>
                         <div className="flex-1">
                           <span className="text-gray-900 font-medium">{file.name}</span>
-                          <span className="text-gray-500 text-sm ml-2">({file.size})</span>
+                          {file.size ? <span className="text-gray-500 text-sm ml-2">({file.size})</span> : null}
                         </div>
+                        <Download className="w-5 h-5 text-gray-700 ml-3 flex-shrink-0" strokeWidth={2.25} />
                       </a>
                     ))}
                   </div>
@@ -569,7 +606,7 @@ const OrderDetailPage = () => {
                     {order.lampiran_freelancer.map((file, idx) => (
                       <a
                         key={idx}
-                        href={file.url}
+                        href={buildMediaUrl(file.url)}
                         className="flex items-center p-3 bg-green-50 rounded-lg hover:bg-green-100 transition-colors border border-green-200"
                       >
                         <svg className="w-5 h-5 text-green-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -577,8 +614,9 @@ const OrderDetailPage = () => {
                         </svg>
                         <div className="flex-1">
                           <span className="text-gray-900 font-medium">{file.name}</span>
-                          <span className="text-gray-500 text-sm ml-2">({file.size})</span>
+                          {file.size ? <span className="text-gray-500 text-sm ml-2">({file.size})</span> : null}
                         </div>
+                        <Download className="w-5 h-5 text-green-700 ml-3 flex-shrink-0" strokeWidth={2.25} />
                       </a>
                     ))}
                   </div>
