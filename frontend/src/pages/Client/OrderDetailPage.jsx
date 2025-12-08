@@ -9,6 +9,7 @@ import Footer from '../../components/Fragments/Common/Footer'
 import { orderService } from '../../services/orderService'
 import { authService } from '../../services/authService'
 import paymentService from '../../services/paymentService'
+import { buildMediaUrl } from '../../utils/mediaUrl'
 
 // Normalisasi berbagai bentuk payload riwayat status/timeline yang dikirim BE
 const normalizeStatusHistory = (raw = []) => {
@@ -87,6 +88,25 @@ const OrderDetailPage = () => {
     const normalizedHistory = normalizeStatusHistory(rawStatusHistory)
 
     // Normalisasi ke bentuk yang dipakai UI saat ini
+    const rawLampiranClient = o?.lampiran_client ?? o?.client_attachments ?? []
+    const lampiranClient = Array.isArray(rawLampiranClient)
+      ? rawLampiranClient.map((f) => {
+          if (typeof f === 'string') {
+            const url = buildMediaUrl(f)
+            const name = (url || f).split('/').pop() || 'Lampiran'
+            return { url, name, size: '' }
+          }
+          const rawUrl = f.url || f.href || f.link || f.path || ''
+          const url = buildMediaUrl(rawUrl)
+          const name =
+            f.name ||
+            (rawUrl ? rawUrl.split('/').pop() : '') ||
+            'Lampiran'
+          const size = f.size || f.filesize || ''
+          return { url, name, size }
+        })
+      : []
+
     const normalized = o
       ? {
           id: o.id ?? o.order_id ?? id,
@@ -99,7 +119,7 @@ const OrderDetailPage = () => {
           waktu_pengerjaan: o.waktu_pengerjaan ?? o.duration_days ?? 0,
           deskripsi: o.deskripsi ?? o.description ?? '',
           catatan_client: o.catatan_client ?? o.client_note ?? '',
-          lampiran_client: o.lampiran_client ?? o.client_attachments ?? [],
+          lampiran_client: lampiranClient,
           lampiran_freelancer: o.lampiran_freelancer ?? o.freelancer_attachments ?? [],
           tenggat_waktu: o.tenggat_waktu ?? o.deadline ?? o.due_date ?? null,
           // Client normalization
@@ -419,6 +439,29 @@ const OrderDetailPage = () => {
     return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase()
   })()
 
+  const handleDownloadClientAttachment = async (file) => {
+    try {
+      const urlToFetch = buildMediaUrl(file.url || '')
+      const response = await fetch(urlToFetch)
+      if (!response.ok) {
+        throw new Error('Gagal mengunduh lampiran')
+      }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = file.name || 'lampiran'
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Error downloading client attachment:', err)
+      alert('Gagal mengunduh lampiran. Silakan coba lagi.')
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Navbar />
@@ -497,19 +540,20 @@ const OrderDetailPage = () => {
                   <h3 className="text-sm font-medium text-gray-700 mb-2">Lampiran Client</h3>
                   <div className="space-y-2">
                     {order.lampiran_client.map((file, idx) => (
-                      <a
+                      <button
                         key={idx}
-                        href={file.url}
-                        className="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                        type="button"
+                        onClick={() => handleDownloadClientAttachment(file)}
+                        className="w-full flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors text-left"
                       >
                         <svg className="w-5 h-5 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
                         <div className="flex-1">
                           <span className="text-gray-900 font-medium">{file.name}</span>
                           <span className="text-gray-500 text-sm ml-2">({file.size})</span>
                         </div>
-                      </a>
+                      </button>
                     ))}
                   </div>
                 </div>

@@ -57,6 +57,7 @@ class SequelizeOrderRepository {
     const result = await this.OrderModel.findByPk(id, {
       attributes: [
         'id', 'nomor_pesanan', 'judul', 'deskripsi', 'catatan_client',
+        'lampiran_client', 'lampiran_freelancer',
         'status', 'harga', 'biaya_platform', 'total_bayar', 'waktu_pengerjaan',
         'tenggat_waktu', 'dikirim_pada', 'selesai_pada',
         'client_id', 'freelancer_id', 'layanan_id', 'created_at', 'updated_at'

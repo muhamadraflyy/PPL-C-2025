@@ -2,12 +2,32 @@ import api from '../utils/axiosConfig'
 
 export const orderService = {
   // Client: Buat order baru
-  async createOrder({ serviceId, paketId, catatanClient }) {
+  async createOrder({ serviceId, paketId, catatanClient, attachments }) {
     try {
+      // Jika ada file attachments, gunakan FormData (multipart)
+      if (Array.isArray(attachments) && attachments.length > 0) {
+        const formData = new FormData()
+        formData.append('layanan_id', serviceId)
+        if (paketId) formData.append('paket_id', paketId)
+        if (catatanClient) formData.append('catatan_client', catatanClient)
+
+        attachments.forEach((file) => {
+          formData.append('lampiran_client', file)
+        })
+
+        const response = await api.post('/orders', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        })
+        return response.data
+      }
+
+      // Tanpa file: kirim JSON biasa (lampiran_client bisa berupa array URL kalau perlu)
       const response = await api.post('/orders', {
         layanan_id: serviceId,
         paket_id: paketId || null,
-        catatan_client: catatanClient || ''
+        catatan_client: catatanClient || '',
       })
       return response.data
     } catch (error) {

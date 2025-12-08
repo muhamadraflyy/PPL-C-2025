@@ -88,7 +88,8 @@ const CreateOrderPage = () => {
       const response = await orderService.createOrder({
         serviceId: service.id,
         paketId: service.paket_id || null,
-        catatanClient: formData.catatan_client
+        catatanClient: formData.catatan_client,
+        attachments,
       })
 
       if (response.success && response.data) {
