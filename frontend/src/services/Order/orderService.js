@@ -104,10 +104,11 @@ export const orderService = {
   },
 
   // Freelancer: Complete order
-  async completeOrder(orderId, lampiranFreelancer) {
+  async completeOrder(orderId, lampiranFreelancer, catatanFreelancer) {
     try {
       const response = await api.patch(`/orders/${orderId}/complete`, {
-        lampiranFreelancer
+        lampiranFreelancer,
+        catatanFreelancer,
       })
       return response.data
     } catch (error) {

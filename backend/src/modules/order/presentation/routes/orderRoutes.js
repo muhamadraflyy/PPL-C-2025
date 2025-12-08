@@ -161,7 +161,13 @@ module.exports = (orderController) => {
    *       401:
    *         $ref: '#/components/responses/UnauthorizedError'
    */
-  router.patch('/:id/complete', authMiddleware, orderValidation.validateUUID, (req, res) => orderController.completeOrder(req, res));
+  router.patch(
+    '/:id/complete',
+    authMiddleware,
+    orderValidation.validateUUID,
+    orderValidation.completeOrder,
+    (req, res) => orderController.completeOrder(req, res)
+  );
 
   /**
    * @swagger
