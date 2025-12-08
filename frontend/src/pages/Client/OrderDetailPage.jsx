@@ -81,6 +81,19 @@ const OrderDetailPage = () => {
     setInfoModal({ open: false, title: '', message: '' })
   }
 
+  const formatFileSize = (size) => {
+    if (!size || Number.isNaN(Number(size))) return ''
+
+    const bytes = Number(size)
+    if (bytes < 1024) return `${bytes} B`
+
+    const kb = bytes / 1024
+    if (kb < 1024) return `${kb.toFixed(1)} KB`
+
+    const mb = kb / 1024
+    return `${mb.toFixed(2)} MB`
+  }
+
   const normalizeAttachments = (attachments = []) => {
     if (!Array.isArray(attachments)) return []
 
@@ -260,7 +273,11 @@ const OrderDetailPage = () => {
         size: file.size
       }))
 
-      const result = await orderService.completeOrder(id, lampiranFreelancer)
+      const result = await orderService.completeOrder(
+        id,
+        lampiranFreelancer,
+        data.note,
+      )
 
       if (result.success) {
         openInfoModal('Berhasil', 'Pesanan berhasil diselesaikan.')
@@ -590,7 +607,9 @@ const OrderDetailPage = () => {
                         </svg>
                         <div className="flex-1">
                           <span className="text-gray-900 font-medium">{file.name}</span>
-                          {file.size ? <span className="text-gray-500 text-sm ml-2">({file.size})</span> : null}
+                          {file.size ? (
+                            <span className="text-gray-500 text-sm ml-2">({formatFileSize(file.size)})</span>
+                          ) : null}
                         </div>
                         <Download className="w-5 h-5 text-gray-700 ml-3 flex-shrink-0" strokeWidth={2.25} />
                       </a>
@@ -614,7 +633,9 @@ const OrderDetailPage = () => {
                         </svg>
                         <div className="flex-1">
                           <span className="text-gray-900 font-medium">{file.name}</span>
-                          {file.size ? <span className="text-gray-500 text-sm ml-2">({file.size})</span> : null}
+                          {file.size ? (
+                            <span className="text-gray-500 text-sm ml-2">({formatFileSize(file.size)})</span>
+                          ) : null}
                         </div>
                         <Download className="w-5 h-5 text-green-700 ml-3 flex-shrink-0" strokeWidth={2.25} />
                       </a>
@@ -691,6 +712,7 @@ const OrderDetailPage = () => {
                 onReject={handleReject}
                 onComplete={handleComplete}
                 loading={actionLoading}
+                showInfo={(title, message) => openInfoModal(title, message)}
               />
             )}
 
