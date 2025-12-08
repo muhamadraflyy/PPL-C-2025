@@ -44,13 +44,20 @@ class CompleteOrder {
 
     const now = new Date();
 
+    // Hanya simpan URL ke DB (seperti lampiran_client) untuk menjaga struktur simpel
+    const freelancerAttachmentUrls = Array.isArray(lampiranFreelancer)
+      ? lampiranFreelancer
+          .map((att) => (att && typeof att.url === 'string' ? att.url : null))
+          .filter(Boolean)
+      : [];
+
     // Update status jadi 'menunggu_review', set tanggal kirim & simpan lampiran hasil
     const updatedOrder = await this.orderRepository.update(orderId, {
       status: 'menunggu_review',
       dikirim_pada: now,
       selesai_pada: now,
-      // Simpan ke kolom JSON lampiran_freelancer di tabel pesanan
-      lampiran_freelancer: Array.isArray(lampiranFreelancer) ? lampiranFreelancer : [],
+      // Simpan ke kolom JSON lampiran_freelancer di tabel pesanan sebagai array URL sederhana
+      lampiran_freelancer: freelancerAttachmentUrls,
     });
 
     // Catat riwayat perubahan status (work completed, waiting review)

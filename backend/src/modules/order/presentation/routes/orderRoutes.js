@@ -8,6 +8,7 @@ const router = express.Router();
 const authMiddleware = require('../../../../shared/middleware/authMiddleware');
 const orderValidation = require('../middleware/orderValidation');
 const uploadClientAttachments = require('../middleware/uploadAttachments');
+const uploadFreelancerAttachments = require('../middleware/uploadFreelancerAttachments');
 
 module.exports = (orderController) => {
   /**
@@ -165,6 +166,7 @@ module.exports = (orderController) => {
     '/:id/complete',
     authMiddleware,
     orderValidation.validateUUID,
+    uploadFreelancerAttachments,
     orderValidation.completeOrder,
     (req, res) => orderController.completeOrder(req, res)
   );
