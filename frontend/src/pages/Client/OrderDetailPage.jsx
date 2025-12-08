@@ -166,6 +166,12 @@ const OrderDetailPage = () => {
           waktu_pengerjaan: o.waktu_pengerjaan ?? o.duration_days ?? 0,
           deskripsi: o.deskripsi ?? o.description ?? '',
           catatan_client: o.catatan_client ?? o.client_note ?? '',
+          catatan_freelancer:
+            o.catatan_freelancer ??
+            o.freelancer_note ??
+            o.note_for_client ??
+            o.metadata?.note_for_client ??
+            '',
           lampiran_client: normalizeAttachments(o.lampiran_client ?? o.client_attachments ?? []),
           lampiran_freelancer: normalizeAttachments(o.lampiran_freelancer ?? o.freelancer_attachments ?? []),
           tenggat_waktu: o.tenggat_waktu ?? o.deadline ?? o.due_date ?? null,
@@ -586,7 +592,7 @@ const OrderDetailPage = () => {
                 <div className="mb-4">
                   <h3 className="text-sm font-medium text-gray-700 mb-2">Catatan Client</h3>
                   <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-gray-900">{order.catatan_client}</p>
+                    <p className="text-gray-900 whitespace-pre-line">{order.catatan_client}</p>
                   </div>
                 </div>
               )}
@@ -647,6 +653,15 @@ const OrderDetailPage = () => {
                         <Download className="w-5 h-5 text-green-700 ml-3 flex-shrink-0" strokeWidth={2.25} />
                       </a>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {order.catatan_freelancer && (
+                <div className="mb-4">
+                  <h3 className="text-sm font-medium text-gray-700 mb-2">Catatan Freelancer</h3>
+                  <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                    <p className="text-gray-900 whitespace-pre-line">{order.catatan_freelancer}</p>
                   </div>
                 </div>
               )}
