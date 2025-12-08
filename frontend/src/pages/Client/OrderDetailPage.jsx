@@ -10,6 +10,45 @@ import { orderService } from '../../services/orderService'
 import { authService } from '../../services/authService'
 import paymentService from '../../services/paymentService'
 
+// Normalisasi berbagai bentuk payload riwayat status/timeline yang dikirim BE
+const normalizeStatusHistory = (raw = []) => {
+  if (!Array.isArray(raw)) return []
+
+  const mapped = raw.map((item) => {
+    const from = item.from ?? item.from_status ?? item.old_status ?? null
+    const to = item.to ?? item.to_status ?? item.status ?? item.new_status ?? null
+    const note = item.note ?? item.label ?? item.metadata?.note ?? item.metadata?.message ?? null
+    const reason = item.reason ?? item.metadata?.reason ?? null
+    const changedBy = item.changedBy ?? item.changed_by ?? item.changed_by_user_id ?? item.user_id ?? item.by ?? null
+    const changedByRole = item.changedByRole ?? item.changed_by_role ?? item.role ?? item.by ?? null
+    const metadata = item.metadata ?? {}
+    const changedAt =
+      item.changedAt ??
+      item.changed_at ??
+      item.created_at ??
+      item.updated_at ??
+      item.updatedAt ??
+      item.at ??
+      null
+
+    return {
+      id: item.id ?? item.key ?? `${to}-${changedAt ?? Math.random()}`,
+      from,
+      to,
+      note,
+      reason,
+      changedBy,
+      changedByRole,
+      metadata,
+      changedAt,
+    }
+  })
+
+  return mapped
+    .filter((item) => item.to && item.changedAt)
+    .sort((a, b) => new Date(b.changedAt) - new Date(a.changedAt))
+}
+
 const OrderDetailPage = () => {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -36,6 +75,16 @@ const OrderDetailPage = () => {
 
     // Ambil payload fleksibel
     const o = res?.data?.order || res?.data || res
+
+    // Ambil sumber riwayat status/timeline dari berbagai bentuk field
+    const rawStatusHistory =
+      o?.statusHistory ||
+      o?.history ||
+      o?.timeline ||
+      o?.status_history ||
+      []
+
+    const normalizedHistory = normalizeStatusHistory(rawStatusHistory)
 
     // Normalisasi ke bentuk yang dipakai UI saat ini
     const normalized = o
@@ -78,7 +127,7 @@ const OrderDetailPage = () => {
               : null),
           client_id: o.client_id ?? o.clientId ?? o.client?.id,
           freelancer_id: o.freelancer_id ?? o.freelancerId ?? o.freelancer?.id,
-          statusHistory: o.statusHistory || o.history || [],
+          statusHistory: normalizedHistory,
           payment_id: o.payment_id ?? o.paymentId ?? o.pembayaran_id ?? null,
           escrow_id: o.escrow_id ?? o.escrowId ?? null
         }
