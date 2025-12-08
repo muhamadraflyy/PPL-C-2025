@@ -202,7 +202,9 @@ const OrderDetailPage = () => {
           freelancer_id: o.freelancer_id ?? o.freelancerId ?? o.freelancer?.id,
           statusHistory: normalizedHistory,
           payment_id: o.payment_id ?? o.paymentId ?? o.pembayaran_id ?? null,
-          escrow_id: o.escrow_id ?? o.escrowId ?? null
+          escrow_id: o.escrow_id ?? o.escrowId ?? null,
+          refund_status: o.refund_status ?? o.refundStatus ?? null,
+          refund_reason: o.refund_reason ?? o.refundReason ?? null
         }
       : null
 
@@ -775,18 +777,38 @@ const OrderDetailPage = () => {
             {isClient && ['dibayar', 'dikerjakan', 'dispute'].includes(order.status) && (
               <div className="bg-white rounded-lg border border-gray-200 shadow p-6">
                 <h3 className="font-semibold text-lg mb-2">Refund</h3>
-                <p className="text-sm text-gray-600 mb-4">
-                  Ada masalah dengan pesanan ini?
-                </p>
-                <button
-                  onClick={() => {
-                    setRefundAmount(order.total_bayar)
-                    setShowRefundModal(true)
-                  }}
-                  className="w-full px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
-                >
-                  Request Refund
-                </button>
+                {order.refund_status === 'pending' || order.refund_status === 'processing' ? (
+                  <div>
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-3">
+                      <p className="text-sm font-medium text-yellow-800 mb-1">
+                        🕐 Refund Sedang Diproses
+                      </p>
+                      <p className="text-xs text-yellow-700">
+                        Permintaan refund Anda sedang dievaluasi oleh tim admin dan akan disampaikan ke freelancer. Kami akan memberitahu Anda segera setelah ada keputusan.
+                      </p>
+                    </div>
+                    {order.refund_reason && (
+                      <p className="text-xs text-gray-600">
+                        <span className="font-medium">Alasan:</span> {order.refund_reason}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Ada masalah dengan pesanan ini?
+                    </p>
+                    <button
+                      onClick={() => {
+                        setRefundAmount(order.total_bayar)
+                        setShowRefundModal(true)
+                      }}
+                      className="w-full px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
+                    >
+                      Request Refund
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 

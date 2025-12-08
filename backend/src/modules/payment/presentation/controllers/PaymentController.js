@@ -2065,7 +2065,7 @@ class PaymentController {
    */
   async requestRefundAlt(req, res) {
     try {
-      const { payment_id, alasan, jumlah_refund } = req.body;
+      const { payment_id, alasan, reason, jumlah_refund, amount } = req.body;
       const user_id = req.user?.userId || req.user?.id;
 
       if (!payment_id) {
@@ -2075,11 +2075,15 @@ class PaymentController {
         });
       }
 
+      // Support both 'alasan' and 'reason', 'jumlah_refund' and 'amount'
+      const refundReason = alasan || reason;
+      const refundAmount = jumlah_refund || amount;
+
       const result = await this.requestRefundUseCase.execute({
         pembayaran_id: payment_id,
         user_id,
-        alasan,
-        jumlah_refund
+        alasan: refundReason,
+        jumlah_refund: refundAmount
       });
 
       res.status(201).json({

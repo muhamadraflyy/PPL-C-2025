@@ -52,8 +52,13 @@ class SequelizeOrderRepository {
   async findById(id) {
     // Lazy-require Payment model and set association once
     const PaymentModel = this.sequelize.models.pembayaran || require('../../../payment/infrastructure/models/PaymentModel');
+    const RefundModel = this.sequelize.models.refund || require('../../../payment/infrastructure/models/RefundModel');
+
     if (!this.OrderModel.associations.pembayaran) {
       this.OrderModel.hasMany(PaymentModel, { foreignKey: 'pesanan_id', as: 'pembayaran' });
+    }
+    if (!PaymentModel.associations.refund) {
+      PaymentModel.hasMany(RefundModel, { foreignKey: 'pembayaran_id', as: 'refund' });
     }
 
     const result = await this.OrderModel.findByPk(id, {
@@ -83,6 +88,14 @@ class SequelizeOrderRepository {
             'metode_pembayaran', 'channel', 'payment_gateway',
             'jumlah', 'biaya_platform', 'total_bayar', 'status',
             'dibayar_pada', 'kadaluarsa_pada', 'created_at'
+          ],
+          include: [
+            {
+              model: RefundModel,
+              as: 'refund',
+              attributes: ['id', 'alasan', 'jumlah', 'status', 'created_at'],
+              required: false
+            }
           ]
         }
       ]
@@ -132,6 +145,17 @@ class SequelizeOrderRepository {
       if (successfulPayment) {
         plainResult.payment_id = successfulPayment.id;
         plainResult.pembayaran_id = successfulPayment.id;
+
+        // Add refund status if exists
+        if (successfulPayment.refund && successfulPayment.refund.length > 0) {
+          const activeRefund = successfulPayment.refund.find(r => ['pending', 'processing'].includes(r.status));
+          if (activeRefund) {
+            plainResult.refund_status = activeRefund.status;
+            plainResult.refund_reason = activeRefund.alasan;
+            plainResult.refund_amount = activeRefund.jumlah;
+            plainResult.refund_id = activeRefund.id;
+          }
+        }
       }
     }
 
