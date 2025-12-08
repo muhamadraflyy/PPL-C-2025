@@ -45,8 +45,21 @@ class CancelOrder {
       throw error;
     }
 
+    const fromStatus = order.status;
+    const changedByRole = isClient ? 'client' : (isFreelancer ? 'freelancer' : 'system');
+
     // Update status jadi 'dibatalkan'
     const updatedOrder = await this.orderRepository.cancel(orderId, reason);
+
+    // Catat riwayat perubahan status (cancel)
+    await this.orderRepository.addStatusHistory({
+      pesanan_id: order.id,
+      from_status: fromStatus,
+      to_status: 'dibatalkan',
+      changed_by_user_id: userId,
+      changed_by_role: changedByRole,
+      reason: reason || `Order dibatalkan oleh ${changedByRole}`,
+    });
 
     return updatedOrder;
   }

@@ -39,8 +39,20 @@ class AcceptOrder {
       throw error;
     }
 
+    const fromStatus = order.status;
+
     // Update status jadi 'dikerjakan'
     const updatedOrder = await this.orderRepository.updateStatus(orderId, 'dikerjakan');
+
+    // Catat riwayat perubahan status
+    await this.orderRepository.addStatusHistory({
+      pesanan_id: order.id,
+      from_status: fromStatus,
+      to_status: 'dikerjakan',
+      changed_by_user_id: userId,
+      changed_by_role: 'freelancer',
+      reason: 'Order diterima oleh freelancer',
+    });
 
     return updatedOrder;
   }

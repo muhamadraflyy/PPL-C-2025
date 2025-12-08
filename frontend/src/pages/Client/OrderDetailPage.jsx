@@ -10,6 +10,45 @@ import { orderService } from '../../services/orderService'
 import { authService } from '../../services/authService'
 import paymentService from '../../services/paymentService'
 
+// Normalisasi berbagai bentuk payload riwayat status/timeline yang dikirim BE
+const normalizeStatusHistory = (raw = []) => {
+  if (!Array.isArray(raw)) return []
+
+  const mapped = raw.map((item) => {
+    const from = item.from ?? item.from_status ?? item.old_status ?? null
+    const to = item.to ?? item.to_status ?? item.status ?? item.new_status ?? null
+    const note = item.note ?? item.label ?? item.metadata?.note ?? item.metadata?.message ?? null
+    const reason = item.reason ?? item.metadata?.reason ?? null
+    const changedBy = item.changedBy ?? item.changed_by ?? item.changed_by_user_id ?? item.user_id ?? item.by ?? null
+    const changedByRole = item.changedByRole ?? item.changed_by_role ?? item.role ?? item.by ?? null
+    const metadata = item.metadata ?? {}
+    const changedAt =
+      item.changedAt ??
+      item.changed_at ??
+      item.created_at ??
+      item.updated_at ??
+      item.updatedAt ??
+      item.at ??
+      null
+
+    return {
+      id: item.id ?? item.key ?? `${to}-${changedAt ?? Math.random()}`,
+      from,
+      to,
+      note,
+      reason,
+      changedBy,
+      changedByRole,
+      metadata,
+      changedAt,
+    }
+  })
+
+  return mapped
+    .filter((item) => item.to && item.changedAt)
+    .sort((a, b) => new Date(b.changedAt) - new Date(a.changedAt))
+}
+
 const OrderDetailPage = () => {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -21,6 +60,24 @@ const OrderDetailPage = () => {
   const [refundReason, setRefundReason] = useState('')
   const [refundAmount, setRefundAmount] = useState(0)
   const [processingPayment, setProcessingPayment] = useState(false)
+  const [confirmModal, setConfirmModal] = useState({ open: false, title: '', message: '', onConfirm: null })
+  const [infoModal, setInfoModal] = useState({ open: false, title: '', message: '' })
+
+  const openConfirmModal = (title, message, onConfirm) => {
+    setConfirmModal({ open: true, title, message, onConfirm })
+  }
+
+  const closeConfirmModal = () => {
+    setConfirmModal({ open: false, title: '', message: '', onConfirm: null })
+  }
+
+  const openInfoModal = (title, message) => {
+    setInfoModal({ open: true, title, message })
+  }
+
+  const closeInfoModal = () => {
+    setInfoModal({ open: false, title: '', message: '' })
+  }
 
   const loadOrder = async () => {
     setLoading(true)
@@ -36,6 +93,16 @@ const OrderDetailPage = () => {
 
     // Ambil payload fleksibel
     const o = res?.data?.order || res?.data || res
+
+    // Ambil sumber riwayat status/timeline dari berbagai bentuk field
+    const rawStatusHistory =
+      o?.statusHistory ||
+      o?.history ||
+      o?.timeline ||
+      o?.status_history ||
+      []
+
+    const normalizedHistory = normalizeStatusHistory(rawStatusHistory)
 
     // Normalisasi ke bentuk yang dipakai UI saat ini
     const normalized = o
@@ -78,7 +145,7 @@ const OrderDetailPage = () => {
               : null),
           client_id: o.client_id ?? o.clientId ?? o.client?.id,
           freelancer_id: o.freelancer_id ?? o.freelancerId ?? o.freelancer?.id,
-          statusHistory: o.statusHistory || o.history || [],
+          statusHistory: normalizedHistory,
           payment_id: o.payment_id ?? o.paymentId ?? o.pembayaran_id ?? null,
           escrow_id: o.escrow_id ?? o.escrowId ?? null
         }
@@ -95,36 +162,39 @@ const OrderDetailPage = () => {
   }, [id])
 
   // Real API handlers
-  const handleAccept = async () => {
+  const handleAccept = () => {
     if (actionLoading) return
 
-    if (!window.confirm('Apakah Anda yakin ingin menerima pesanan ini?')) {
-      return
-    }
+    openConfirmModal(
+      'Terima Pesanan',
+      'Apakah Anda yakin ingin menerima pesanan ini?',
+      async () => {
+        setActionLoading(true)
+        try {
+          const result = await orderService.acceptOrder(id)
 
-    setActionLoading(true)
-    try {
-      const result = await orderService.acceptOrder(id)
-
-      if (result.success) {
-        alert('✅ Pesanan berhasil diterima!')
-        await loadOrder() // Reload order data
-      } else {
-        alert(`❌ Gagal menerima pesanan: ${result.message}`)
+          if (result.success) {
+            openInfoModal('Berhasil', 'Pesanan berhasil diterima.')
+            await loadOrder() // Reload order data
+          } else {
+            openInfoModal('Gagal', `Gagal menerima pesanan: ${result.message}`)
+          }
+        } catch (err) {
+          console.error('Error accepting order:', err)
+          openInfoModal('Terjadi Kesalahan', 'Terjadi kesalahan saat menerima pesanan. Silakan coba lagi.')
+        } finally {
+          setActionLoading(false)
+          closeConfirmModal()
+        }
       }
-    } catch (err) {
-      console.error('Error accepting order:', err)
-      alert('❌ Terjadi kesalahan saat menerima pesanan')
-    } finally {
-      setActionLoading(false)
-    }
+    )
   }
 
   const handleReject = async (reason) => {
     if (actionLoading) return
 
     if (!reason || reason.trim() === '') {
-      alert('Harap masukkan alasan penolakan')
+      openInfoModal('Validasi', 'Harap masukkan alasan penolakan.')
       return
     }
 
@@ -133,14 +203,14 @@ const OrderDetailPage = () => {
       const result = await orderService.cancelOrder(id, reason)
 
       if (result.success) {
-        alert('✅ Pesanan berhasil ditolak!')
+        openInfoModal('Berhasil', 'Pesanan berhasil ditolak.')
         await loadOrder() // Reload order data
       } else {
-        alert(`❌ Gagal menolak pesanan: ${result.message}`)
+        openInfoModal('Gagal', `Gagal menolak pesanan: ${result.message}`)
       }
     } catch (err) {
       console.error('Error rejecting order:', err)
-      alert('❌ Terjadi kesalahan saat menolak pesanan')
+      openInfoModal('Terjadi Kesalahan', 'Terjadi kesalahan saat menolak pesanan. Silakan coba lagi.')
     } finally {
       setActionLoading(false)
     }
@@ -161,53 +231,63 @@ const OrderDetailPage = () => {
       const result = await orderService.completeOrder(id, lampiranFreelancer)
 
       if (result.success) {
-        alert('✅ Pesanan berhasil diselesaikan!')
+        openInfoModal('Berhasil', 'Pesanan berhasil diselesaikan.')
         await loadOrder() // Reload order data
       } else {
-        alert(`❌ Gagal menyelesaikan pesanan: ${result.message}`)
+        openInfoModal('Gagal', `Gagal menyelesaikan pesanan: ${result.message}`)
       }
     } catch (err) {
       console.error('Error completing order:', err)
-      alert('❌ Terjadi kesalahan saat menyelesaikan pesanan')
+      openInfoModal('Terjadi Kesalahan', 'Terjadi kesalahan saat menyelesaikan pesanan. Silakan coba lagi.')
     } finally {
       setActionLoading(false)
     }
   }
 
   // Release Escrow - Client approves completed work
-  const handleReleaseEscrow = async () => {
-    if (!window.confirm('Apakah Anda yakin ingin melepas dana escrow ke freelancer? Dana akan segera ditransfer.')) {
-      return
-    }
+  const handleReleaseEscrow = () => {
+    openConfirmModal(
+      'Release Payment',
+      'Apakah Anda yakin ingin melepas dana escrow ke freelancer? Dana akan segera ditransfer.',
+      async () => {
+        setProcessingPayment(true)
+        try {
+          // Get escrow ID from order (assuming order has escrow_id or payment_id)
+          const escrowId = order.escrow_id || order.payment_id
+          if (!escrowId) {
+            openInfoModal('Data Tidak Lengkap', 'Escrow ID tidak ditemukan untuk order ini.')
+            return
+          }
 
-    setProcessingPayment(true)
-    try {
-      // Get escrow ID from order (assuming order has escrow_id or payment_id)
-      const escrowId = order.escrow_id || order.payment_id
-      if (!escrowId) {
-        alert('Escrow ID tidak ditemukan untuk order ini')
-        return
-      }
+          // Get current user ID
+          const currentUser = authService.getCurrentUser()
+          if (!currentUser?.id) {
+            openInfoModal('Autentikasi', 'User tidak terautentikasi. Silakan login kembali.')
+            return
+          }
 
-      const result = await paymentService.releaseEscrow(escrowId)
-      if (result.success) {
-        alert('✅ Dana escrow berhasil dirilis ke freelancer!')
-        await loadOrder()
-      } else {
-        alert(`❌ Gagal merilis escrow: ${result.message}`)
+          const result = await paymentService.releaseEscrow(escrowId, currentUser.id, 'Order completed successfully')
+          if (result.success) {
+            openInfoModal('Berhasil', 'Dana escrow berhasil dirilis ke freelancer.')
+            await loadOrder()
+          } else {
+            openInfoModal('Gagal', `Gagal merilis escrow: ${result.message}`)
+          }
+        } catch (err) {
+          console.error('Error releasing escrow:', err)
+          openInfoModal('Terjadi Kesalahan', 'Terjadi kesalahan saat merilis escrow. Silakan coba lagi.')
+        } finally {
+          setProcessingPayment(false)
+          closeConfirmModal()
+        }
       }
-    } catch (err) {
-      console.error('Error releasing escrow:', err)
-      alert('❌ Terjadi kesalahan saat merilis escrow')
-    } finally {
-      setProcessingPayment(false)
-    }
+    )
   }
 
   // Request Refund - Client requests refund
   const handleRequestRefund = async () => {
     if (!refundReason.trim()) {
-      alert('Harap masukkan alasan refund')
+      openInfoModal('Validasi', 'Harap masukkan alasan refund.')
       return
     }
 
@@ -220,17 +300,17 @@ const OrderDetailPage = () => {
       })
 
       if (result.success) {
-        alert('✅ Permintaan refund berhasil diajukan! Tim kami akan segera memprosesnya.')
+        openInfoModal('Berhasil', 'Permintaan refund berhasil diajukan. Tim kami akan segera memprosesnya.')
         setShowRefundModal(false)
         setRefundReason('')
         setRefundAmount(0)
         await loadOrder()
       } else {
-        alert(`❌ Gagal mengajukan refund: ${result.message}`)
+        openInfoModal('Gagal', `Gagal mengajukan refund: ${result.message}`)
       }
     } catch (err) {
       console.error('Error requesting refund:', err)
-      alert('❌ Terjadi kesalahan saat mengajukan refund')
+      openInfoModal('Terjadi Kesalahan', 'Terjadi kesalahan saat mengajukan refund. Silakan coba lagi.')
     } finally {
       setProcessingPayment(false)
     }
@@ -242,7 +322,7 @@ const OrderDetailPage = () => {
     try {
       const paymentId = order.payment_id
       if (!paymentId) {
-        alert('Payment ID tidak ditemukan')
+        openInfoModal('Data Tidak Lengkap', 'Payment ID tidak ditemukan untuk order ini.')
         return
       }
 
@@ -258,11 +338,11 @@ const OrderDetailPage = () => {
         link.remove()
         window.URL.revokeObjectURL(url)
       } else {
-        alert(result.message || 'Gagal mengunduh invoice')
+        openInfoModal('Gagal', result.message || 'Gagal mengunduh invoice.')
       }
     } catch (err) {
       console.error('Error downloading invoice:', err)
-      alert('Terjadi kesalahan saat mengunduh invoice')
+      openInfoModal('Terjadi Kesalahan', 'Terjadi kesalahan saat mengunduh invoice. Silakan coba lagi.')
     } finally {
       setProcessingPayment(false)
     }
@@ -277,13 +357,13 @@ const OrderDetailPage = () => {
     try {
       const result = await paymentService.sendInvoiceEmail(order.payment_id, email)
       if (result.success) {
-        alert('✅ Invoice berhasil dikirim ke email!')
+        openInfoModal('Berhasil', 'Invoice berhasil dikirim ke email.')
       } else {
-        alert(result.message || 'Gagal mengirim invoice')
+        openInfoModal('Gagal', result.message || 'Gagal mengirim invoice.')
       }
     } catch (err) {
       console.error('Error sending invoice:', err)
-      alert('Terjadi kesalahan saat mengirim invoice')
+      openInfoModal('Terjadi Kesalahan', 'Terjadi kesalahan saat mengirim invoice. Silakan coba lagi.')
     } finally {
       setProcessingPayment(false)
     }
@@ -362,6 +442,29 @@ const OrderDetailPage = () => {
     if (parts.length === 1) return parts[0].charAt(0).toUpperCase()
     return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase()
   })()
+
+  const handleDownloadClientAttachment = async (file) => {
+    try {
+      const urlToFetch = buildMediaUrl(file.url || '')
+      const response = await fetch(urlToFetch)
+      if (!response.ok) {
+        throw new Error('Gagal mengunduh lampiran')
+      }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = file.name || 'lampiran'
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Error downloading client attachment:', err)
+      openInfoModal('Terjadi Kesalahan', 'Gagal mengunduh lampiran. Silakan coba lagi.')
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -642,7 +745,8 @@ const OrderDetailPage = () => {
 
       {/* Refund Modal */}
       {showRefundModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-40">
+
           <div className="bg-white rounded-lg max-w-md w-full p-6">
             <h3 className="text-xl font-bold mb-4">Request Refund</h3>
             <div className="space-y-4">
@@ -692,6 +796,52 @@ const OrderDetailPage = () => {
                   {processingPayment ? 'Memproses...' : 'Ajukan Refund'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Info Modal */}
+      {infoModal.open && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <h3 className="text-xl font-bold mb-4">{infoModal.title || 'Informasi'}</h3>
+            <p className="text-gray-700 mb-6">{infoModal.message}</p>
+            <div className="flex justify-end">
+              <button
+                onClick={closeInfoModal}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Modal */}
+      {confirmModal.open && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <h3 className="text-xl font-bold mb-4">{confirmModal.title || 'Konfirmasi'}</h3>
+            <p className="text-gray-700 mb-6">{confirmModal.message}</p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={closeConfirmModal}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Batal
+              </button>
+              <button
+                onClick={() => {
+                  if (typeof confirmModal.onConfirm === 'function') {
+                    confirmModal.onConfirm()
+                  }
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Ya, Lanjutkan
+              </button>
             </div>
           </div>
         </div>

@@ -19,9 +19,24 @@ const orderValidation = {
       paket_id: Joi.string().uuid().allow(null, '').optional().messages({
         'string.uuid': 'paket_id harus berformat UUID'
       }),
-      catatan_client: Joi.string().max(1000).allow(null, '').optional().messages({
-        'string.max': 'catatan_client maksimal 1000 karakter'
-      })
+      // Wajib diisi minimal beberapa karakter supaya deskripsi order tidak kosong total
+      catatan_client: Joi.string().trim().min(10).max(1000).required().messages({
+        'string.empty': 'Catatan tidak boleh kosong!',
+        'string.min': 'Catatan minimal 10 karakter!',
+        'string.max': 'Catatan maksimal 1000 karakter!',
+        'any.required': 'Catatan wajib diisi!'
+      }),
+      // Lampiran client berupa array string (biasanya URL/file path)
+      lampiran_client: Joi.array()
+        .items(Joi.string().trim().max(500).messages({
+          'string.max': 'Setiap lampiran maksimal 500 karakter',
+        }))
+        .max(10)
+        .optional()
+        .allow(null)
+        .messages({
+          'array.max': 'Maksimal 10 lampiran yang boleh dikirim',
+        }),
     });
 
     const { error } = schema.validate(req.body, { abortEarly: false });
@@ -32,9 +47,12 @@ const orderValidation = {
         message: detail.message
       }));
 
+      // Pakai pesan error pertama sebagai message utama agar FE langsung dapat info yang jelas
+      const firstMessage = errors[0]?.message || 'Data pesanan tidak valid';
+
       return res.status(400).json({
         success: false,
-        message: 'Validasi gagal',
+        message: firstMessage,
         errors
       });
     }
@@ -60,9 +78,11 @@ const orderValidation = {
         message: detail.message
       }));
 
+      const firstMessage = errors[0]?.message || 'Data pembatalan pesanan tidak valid';
+
       return res.status(400).json({
         success: false,
-        message: 'Validasi gagal',
+        message: firstMessage,
         errors
       });
     }
@@ -123,9 +143,11 @@ const orderValidation = {
         message: detail.message
       }));
 
+      const firstMessage = errors[0]?.message || 'Parameter pencarian pesanan tidak valid';
+
       return res.status(400).json({
         success: false,
-        message: 'Validasi gagal',
+        message: firstMessage,
         errors
       });
     }
