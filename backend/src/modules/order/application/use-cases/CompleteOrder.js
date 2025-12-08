@@ -40,10 +40,22 @@ class CompleteOrder {
       throw error;
     }
 
+    const fromStatus = order.status;
+
     // Update status jadi 'menunggu_review' dan set tanggal selesai
     const updatedOrder = await this.orderRepository.update(orderId, {
       status: 'menunggu_review',
       selesai_pada: new Date()
+    });
+
+    // Catat riwayat perubahan status (work completed, waiting review)
+    await this.orderRepository.addStatusHistory({
+      pesanan_id: order.id,
+      from_status: fromStatus,
+      to_status: 'menunggu_review',
+      changed_by_user_id: userId,
+      changed_by_role: 'freelancer',
+      reason: 'Freelancer menandai order selesai dan menunggu review client',
     });
 
     return updatedOrder;

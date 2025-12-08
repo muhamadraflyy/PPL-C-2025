@@ -90,6 +90,18 @@ class CreateOrder {
       status: 'menunggu_pembayaran'
     });
 
+    // Catat riwayat status awal
+    if (order && order.id) {
+      await this.orderRepository.addStatusHistory({
+        pesanan_id: order.id,
+        from_status: null,
+        to_status: 'menunggu_pembayaran',
+        changed_by_user_id: userId,
+        changed_by_role: 'client',
+        reason: 'Order dibuat oleh client',
+      });
+    }
+
     return order;
   }
 

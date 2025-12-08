@@ -13,6 +13,9 @@ class SequelizeOrderRepository {
     this.sequelize = sequelize;
     // Pastikan model Pesanan terdaftar
     this.OrderModel = this.sequelize.models.pesanan || require('../models/OrderModel');
+    // Model riwayat status pesanan
+    this.OrderStatusHistoryModel =
+      this.sequelize.models.pesanan_status_history || require('../models/OrderStatusHistoryModel');
 
     const { DataTypes } = require('sequelize');
     // Related models (lightweight definitions if not present)
@@ -310,6 +313,37 @@ class SequelizeOrderRepository {
   async update(id, orderData) {
     await this.OrderModel.update(orderData, { where: { id } });
     return await this.findById(id);
+  }
+
+  async addStatusHistory({
+    pesanan_id,
+    from_status = null,
+    to_status,
+    changed_by_user_id = null,
+    changed_by_role = 'system',
+    reason = null,
+    metadata = null,
+  }) {
+    const record = await this.OrderStatusHistoryModel.create({
+      pesanan_id,
+      from_status,
+      to_status,
+      changed_by_user_id,
+      changed_by_role,
+      reason,
+      metadata,
+    });
+
+    return record.get({ plain: true });
+  }
+
+  async getStatusHistory(orderId) {
+    const rows = await this.OrderStatusHistoryModel.findAll({
+      where: { pesanan_id: orderId },
+      order: [['created_at', 'ASC']],
+    });
+
+    return rows.map((row) => row.get({ plain: true }));
   }
 }
 
