@@ -9,7 +9,7 @@
 
 /**
  * Bangun timeline sederhana berdasarkan informasi yang sudah tersedia di record pesanan.
- * Catatan: ini BUKAN audit history penuh; hanya derivasi dari field status + timestamp.
+ * Dipakai sebagai fallback jika belum ada data history di DB.
  */
 function buildOrderTimeline(order) {
   const events = [];
@@ -93,6 +93,25 @@ function buildOrderTimeline(order) {
     .sort((a, b) => new Date(a.at) - new Date(b.at));
 }
 
+/**
+ * Bangun timeline dari data history di tabel pesanan_status_history.
+ * Ini yang akan dipakai kalau data history sudah ada di DB.
+ */
+function buildTimelineFromHistory(history, order) {
+  if (!Array.isArray(history) || history.length === 0) return [];
+
+  return history
+    .map((h) => ({
+      key: `${h.id}`,
+      status: h.to_status,
+      label: h.reason || `Status berubah dari ${h.from_status || '-'} ke ${h.to_status}`,
+      by: h.changed_by_role || 'system',
+      at: h.created_at || h.createdAt || order.created_at,
+    }))
+    .filter((e) => !!e.at)
+    .sort((a, b) => new Date(a.at) - new Date(b.at));
+}
+
 class GetOrderById {
   constructor(orderRepository) {
     this.orderRepository = orderRepository;
@@ -135,8 +154,11 @@ class GetOrderById {
       role: isAdmin ? 'admin' : (isClient ? 'client' : 'freelancer'),
     };
 
-    const timeline = buildOrderTimeline(order);
     const statusHistory = await this.orderRepository.getStatusHistory(orderId);
+    const timeline =
+      statusHistory && statusHistory.length > 0
+        ? buildTimelineFromHistory(statusHistory, order)
+        : buildOrderTimeline(order);
 
     return {
       success: true,
