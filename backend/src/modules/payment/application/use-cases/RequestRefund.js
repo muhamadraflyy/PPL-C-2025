@@ -5,6 +5,7 @@
 
 const PaymentModel = require('../../infrastructure/models/PaymentModel');
 const EscrowModel = require('../../infrastructure/models/EscrowModel');
+const RefundModel = require('../../infrastructure/models/RefundModel');
 const { v4: uuidv4 } = require('uuid');
 
 class RequestRefund {
@@ -18,12 +19,13 @@ class RequestRefund {
       }
 
       // Validasi status pembayaran
-      if (!['paid', 'success', 'settlement'].includes(payment.status)) {
+      // Status: 'berhasil' = paid/success, 'menunggu' = pending, 'gagal' = failed, 'kadaluarsa' = expired
+      if (!['berhasil', 'paid', 'success', 'settlement'].includes(payment.status)) {
         throw new Error('Payment belum dibayar atau sudah direfund');
       }
 
       // Check if already refunded
-      const existingRefund = await payment.sequelize.models.refund.findOne({
+      const existingRefund = await RefundModel.findOne({
         where: {
           pembayaran_id,
           status: ['pending', 'disetujui']
@@ -43,7 +45,7 @@ class RequestRefund {
       }
 
       // Create refund record
-      const refund = await payment.sequelize.models.refund.create({
+      const refund = await RefundModel.create({
         id: uuidv4(),
         pembayaran_id,
         user_id,
@@ -61,9 +63,10 @@ class RequestRefund {
         where: { pembayaran_id }
       });
 
-      if (escrow && escrow.status === 'ditahan') {
+      // Escrow status: 'held' = ditahan, 'released' = dirilis, 'refunded' = dikembalikan
+      if (escrow && escrow.status === 'held') {
         await escrow.update({
-          status: 'refund_pending'
+          status: 'disputed'
         });
       }
 

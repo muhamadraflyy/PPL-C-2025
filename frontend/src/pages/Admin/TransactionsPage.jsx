@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useToast } from '../../components/Fragments/Common/ToastProvider';
 import { Sidebar } from '../../components/Fragments/Admin/Sidebar';
 import { Header } from '../../components/Fragments/Admin/Header';
 import { adminService } from '../../services/adminService';
 import Button from '../../components/Elements/Buttons/Button';
 import Badge from '../../components/Elements/Common/Badge';
-import { Search, Filter, Download, ChevronDown } from 'lucide-react';
+import { Search, Filter, Download, ChevronDown, DollarSign, Shield } from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
@@ -218,6 +219,8 @@ function TransactionToolbar({
 }
 
 export default function AdminTransactionsPage() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const toast = useToast();
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -396,6 +399,34 @@ export default function AdminTransactionsPage() {
 
       <div className="flex-1 overflow-auto">
         <Header />
+
+        {/* Tab Navigation */}
+        <div className="bg-white border-b border-gray-200 px-6">
+          <div className="flex gap-1">
+            <button
+              onClick={() => navigate('/admin/transactions')}
+              className={`flex items-center gap-2 px-6 py-3 font-medium text-sm border-b-2 transition-colors ${
+                location.pathname === '/admin/transactions'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+              }`}
+            >
+              <DollarSign size={18} />
+              Transaksi
+            </button>
+            <button
+              onClick={() => navigate('/admin/escrow')}
+              className={`flex items-center gap-2 px-6 py-3 font-medium text-sm border-b-2 transition-colors ${
+                location.pathname === '/admin/escrow'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+              }`}
+            >
+              <Shield size={18} />
+              Escrow
+            </button>
+          </div>
+        </div>
 
         <div className="p-6">
           {/* Combined Toolbar and Table */}
