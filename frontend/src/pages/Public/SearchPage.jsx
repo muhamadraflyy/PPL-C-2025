@@ -413,9 +413,9 @@ export default function SearchPage() {
         <section className="flex-1">
           {/* Header hasil pencarian */}
           <div className="mb-4 flex flex-col gap-1">
-            <p className="text-xs text-neutral-500">
+            <p className="  font-bold ">
               Hasil pencarian untuk:{" "}
-              <span className="font-semibold text-[#111827]">
+              <span className="font-semibold text-[#2261fe]">
                 {queryLabel}
               </span>
             </p>

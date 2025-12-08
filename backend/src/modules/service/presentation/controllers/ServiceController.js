@@ -14,7 +14,8 @@ class ServiceController {
     updateServiceUseCase,
     deleteServiceUseCase,
     searchServicesUseCase,
-    approveServiceUseCase
+    approveServiceUseCase,
+    getPopularServicesUseCase
   ) {
     this.getAllServicesUseCase = getAllServicesUseCase;
     this.getServiceByIdUseCase = getServiceByIdUseCase;
@@ -23,6 +24,7 @@ class ServiceController {
     this.deleteServiceUseCase = deleteServiceUseCase;
     this.searchServicesUseCase = searchServicesUseCase;
     this.approveServiceUseCase = approveServiceUseCase;
+    this.getPopularServicesUseCase = getPopularServicesUseCase;
 
     // bind semua method
     this.createService = this.createService.bind(this);
@@ -34,6 +36,7 @@ class ServiceController {
     this.updateService = this.updateService.bind(this);
     this.deleteService = this.deleteService.bind(this);
     this.updateServiceStatus = this.updateServiceStatus.bind(this);
+    this.getPopularServices = this.getPopularServices.bind(this);
   }
 
   // ---------- helpers ----------
@@ -151,6 +154,25 @@ class ServiceController {
 
       const result = await this.searchServicesUseCase.execute(filters);
       return this.ok(res, "Services search retrieved successfully", result);
+    } catch (error) {
+      return this.err(res, error, 400);
+    }
+  }
+
+  /**
+   * GET /api/services/popular
+   * Get popular services (public)
+   * Layanan terpopuler per kategori berdasarkan total pesanan selesai
+   */
+  async getPopularServices(req, res) {
+    try {
+      const filters = {
+        kategori_id: req.query.kategori_id,
+        limit: req.query.limit,
+      };
+
+      const result = await this.getPopularServicesUseCase.execute(filters);
+      return this.ok(res, "Popular services retrieved successfully", result);
     } catch (error) {
       return this.err(res, error, 400);
     }
