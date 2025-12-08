@@ -56,6 +56,10 @@ module.exports = (serviceController) => {
     serviceController.updateServiceStatus,
     "serviceController.updateServiceStatus"
   );
+  assertFn(
+    serviceController.getPopularServices,
+    "serviceController.getPopularServices"
+  );
 
   /**
    * @swagger
@@ -98,6 +102,52 @@ module.exports = (serviceController) => {
    *       200: { description: Success }
    */
   router.get("/", listServicesQueryValidator, serviceController.getAllServices);
+
+  /**
+   * @swagger
+   * /api/services/popular:
+   *   get:
+   *     tags: [Services]
+   *     summary: Get popular services (public) - Layanan terpopuler per kategori
+   *     description: |
+   *       Mengambil layanan terpopuler berdasarkan total pesanan selesai,
+   *       dikelompokkan per kategori (Top 1-10 per kategori).
+   *       Hanya menampilkan layanan dengan status aktif dan memiliki pesanan selesai.
+   *     parameters:
+   *       - in: query
+   *         name: kategori_id
+   *         schema: { type: string, format: uuid }
+   *         description: Filter berdasarkan kategori tertentu (opsional)
+   *       - in: query
+   *         name: limit
+   *         schema: { type: integer, minimum: 1, maximum: 50, default: 10 }
+   *         description: Jumlah layanan per kategori (default 10)
+   *     responses:
+   *       200:
+   *         description: Success
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 status: { type: string, example: "success" }
+   *                 message: { type: string }
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     categories:
+   *                       type: array
+   *                       items:
+   *                         type: object
+   *                         properties:
+   *                           kategori_id: { type: string }
+   *                           nama_kategori: { type: string }
+   *                           services: { type: array }
+   *                     totalServices: { type: integer }
+   *                     totalCategories: { type: integer }
+   *       400: { description: Bad request }
+   */
+  router.get("/popular", serviceController.getPopularServices);
 
   /**
    * @swagger
