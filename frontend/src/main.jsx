@@ -24,15 +24,21 @@ const queryClient = new QueryClient({
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
 createRoot(document.getElementById("root")).render(
-  <React.StrictMode>
+  // Temporarily disabled StrictMode for debugging
+  // <React.StrictMode>
     <GoogleOAuthProvider clientId={googleClientId}>
       <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
+        <BrowserRouter
+          future={{
+            v7_startTransition: true,
+            v7_relativeSplatPath: true,
+          }}
+        >
           <ToastProvider>
             <App />
           </ToastProvider>
         </BrowserRouter>
       </QueryClientProvider>
     </GoogleOAuthProvider>
-  </React.StrictMode>
+  // </React.StrictMode>
 );

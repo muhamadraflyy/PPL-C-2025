@@ -6,6 +6,7 @@ const baseURL = import.meta.env.DEV
   ? '/api'
   : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api')
 
+
 const api = axios.create({
   baseURL,
   timeout: 10000,
@@ -50,15 +51,31 @@ api.interceptors.response.use(
     // }
     return response
   },
-  (error) => {
-    // Only log actual errors
-    if (error.response?.status !== 401) {
+  async (error) => {
+    // Suppress logging for expected validation errors (already bookmarked/favorited)
+    const shouldSuppressLog =
+      error.response?.status === 400 &&
+      (error.config?.url?.includes('/bookmarks') || error.config?.url?.includes('/favorites'));
+
+    // If this is a bookmark/favorite error, fetch the message to check if it's "already exists"
+    if (shouldSuppressLog && error.response?.data?.message?.includes('sudah ada')) {
+      // Completely suppress this error - don't log anything
+      const suppressedError = new Error('Bookmark already exists (suppressed)');
+      suppressedError.response = error.response;
+      suppressedError.config = error.config;
+      suppressedError.__suppressed = true;
+      return Promise.reject(suppressedError);
+    }
+
+    // Only log actual errors (not 401 auth errors or suppressed validation errors)
+    if (!shouldSuppressLog && error.response?.status !== 401) {
       console.error('[axiosConfig] Response error:', {
         status: error.response?.status,
         url: error.config?.url,
         message: error.message
       })
     }
+
     if (error.response?.status === 401) {
       // Token expired or invalid
       localStorage.removeItem('token')

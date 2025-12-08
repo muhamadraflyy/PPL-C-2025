@@ -1,4 +1,5 @@
 const SequelizeFavoriteRepository = require('../../../favorite/infrastructure/repositories/SequelizeFavoriteRepository');
+const SequelizeServiceRepository = require('../../../service/infrastructure/repositories/SequelizeServiceRepository');
 const GetFavorites = require('../../../favorite/application/use-cases/GetFavorites');
 const AddFavorite = require('../../../favorite/application/use-cases/AddFavorite');
 const RemoveFavorite = require('../../../favorite/application/use-cases/RemoveFavorite');
@@ -10,12 +11,13 @@ const CheckFavorite = require('../../../favorite/application/use-cases/CheckFavo
  * Perbedaannya hanya pada penamaan endpoint dan konteks penggunaan di FE.
  */
 class BookmarkController {
-  constructor() {
+  constructor(sequelize) {
     const favoriteRepository = new SequelizeFavoriteRepository();
+    const layananRepository = sequelize ? new SequelizeServiceRepository(sequelize) : null;
 
     this.getBookmarksUseCase = new GetFavorites(favoriteRepository);
-    this.addBookmarkUseCase = new AddFavorite(favoriteRepository);
-    this.removeBookmarkUseCase = new RemoveFavorite(favoriteRepository);
+    this.addBookmarkUseCase = new AddFavorite(favoriteRepository, layananRepository);
+    this.removeBookmarkUseCase = new RemoveFavorite(favoriteRepository, layananRepository);
     this.checkBookmarkUseCase = new CheckFavorite(favoriteRepository);
   }
 
@@ -67,6 +69,10 @@ class BookmarkController {
    */
   addBookmark = async (req, res, next) => {
     try {
+      console.log('[BOOKMARK] POST /api/bookmarks called');
+      console.log('[BOOKMARK] User:', req.user);
+      console.log('[BOOKMARK] Body:', req.body);
+
       const userId = req.user && req.user.userId;
       if (!userId) {
         const err = new Error('Unauthorized');
@@ -82,14 +88,18 @@ class BookmarkController {
 
       const { layanan_id } = req.body;
       if (!layanan_id) {
+        console.log('[BOOKMARK] ERROR: layanan_id is missing');
         const err = new Error('layanan_id is required');
         err.statusCode = 400;
         throw err;
       }
 
-      const result = await this.addBookmarkUseCase.execute(userId, layanan_id);
+      console.log('[BOOKMARK] Calling addBookmarkUseCase with:', { userId, layanan_id, type: 'bookmark' });
+      const result = await this.addBookmarkUseCase.execute(userId, layanan_id, 'bookmark');
+      console.log('[BOOKMARK] Use case result:', result);
 
       if (!result.success) {
+        console.log('[BOOKMARK] ERROR: Use case returned failure:', result.message);
         const err = new Error(result.message);
         err.statusCode = 400;
         throw err;
@@ -101,6 +111,7 @@ class BookmarkController {
         data: result.data
       });
     } catch (err) {
+      console.log('[BOOKMARK] ERROR caught:', err.message);
       next(err);
     }
   };
@@ -131,7 +142,7 @@ class BookmarkController {
         throw err;
       }
 
-      const result = await this.removeBookmarkUseCase.execute(userId, layananId);
+      const result = await this.removeBookmarkUseCase.execute(userId, layananId, 'bookmark');
 
       if (!result.success) {
         const err = new Error(result.message);
@@ -174,7 +185,7 @@ class BookmarkController {
         throw err;
       }
 
-      const result = await this.checkBookmarkUseCase.execute(userId, layananId);
+      const result = await this.checkBookmarkUseCase.execute(userId, layananId, 'bookmark');
 
       res.json({
         success: true,

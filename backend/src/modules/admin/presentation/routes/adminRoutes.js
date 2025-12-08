@@ -348,6 +348,35 @@ module.exports = (adminController) => {
 
   /**
    * @swagger
+   * /api/admin/analytics/recommendations:
+   *   get:
+   *     tags: [Admin]
+   *     summary: Get recommendation monitoring data
+   *     description: Retrieve recommendation analytics including favorites, transactions, and top services
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: timeRange
+   *         schema:
+   *           type: string
+   *           enum: [minggu_ini, bulan_ini, tahun_ini]
+   *           default: minggu_ini
+   *         description: Time range for analytics
+   *     responses:
+   *       200:
+   *         description: Recommendation analytics retrieved successfully
+   *       401:
+   *         $ref: '#/components/responses/UnauthorizedError'
+   *       403:
+   *         $ref: '#/components/responses/ForbiddenError'
+   *       500:
+   *         $ref: '#/components/responses/ServerError'
+   */
+  router.get('/analytics/recommendations', (req, res) => adminController.getRecommendationMonitoring(req, res));
+
+  /**
+   * @swagger
    * /api/admin/analytics/orders:
    *   get:
    *     tags: [Admin]

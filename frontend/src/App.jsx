@@ -22,6 +22,7 @@ import ProfilePage from "./pages/Client/ProfilePage";
 import ProfileEditPage from "./pages/Client/ProfileEditPage";
 import BookmarkPage from "./pages/Client/BookmarkPage";
 import FavoritePage from "./pages/Client/FavoritePage";
+import HiddenRecommendationsPage from "./pages/Client/HiddenRecommendationsPage";
 import RiwayatPesananPage from "./pages/Client/RiwayatPesananPage";
 import OrderListPage from "./pages/Client/OrderListPage";
 import OrderDetailPage from "./pages/Client/OrderDetailPage";
@@ -48,6 +49,7 @@ import AdminTransactionsPage from "./pages/Admin/TransactionsPage";
 import EscrowManagementPage from "./pages/Admin/EscrowManagementPage";
 import AllNotificationsPage from "./pages/Admin/AllNotificationsPage";
 import FraudReportDetailPage from "./pages/Admin/FraudReportDetailPage";
+import RecommendationMonitoringPage from "./pages/Admin/RecommendationMonitoringPage";
 
 // Payment pages
 import PaymentSuccessPage from "./pages/payment/PaymentSuccessPage";
@@ -191,6 +193,14 @@ export default function App() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/admin/recommendations"
+        element={
+          <ProtectedRoute>
+            <RecommendationMonitoringPage />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Client bookmarks & favorite */}
       <Route
@@ -206,6 +216,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <FavoritePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/layanan-disembunyikan"
+        element={
+          <ProtectedRoute>
+            <HiddenRecommendationsPage />
           </ProtectedRoute>
         }
       />

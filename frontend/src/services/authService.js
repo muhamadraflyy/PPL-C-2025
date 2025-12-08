@@ -206,9 +206,16 @@ export const authService = {
 
   getCurrentUser() {
     const user = readStoredUser();
-    if (!user) return null;
+    console.log('[authService.getCurrentUser] readStoredUser:', user);
+    if (!user) {
+      console.log('[authService.getCurrentUser] No user found, returning null');
+      return null;
+    }
     const activeRole = readActiveRole();
-    return { ...user, role: activeRole || user.role };
+    console.log('[authService.getCurrentUser] activeRole:', activeRole);
+    const result = { ...user, role: activeRole || user.role };
+    console.log('[authService.getCurrentUser] Returning:', result);
+    return result;
   },
 
   getActiveRole() {
@@ -317,6 +324,13 @@ export const authService = {
         // This is critical for role-based access control to work correctly
         if (res.data.data.token) {
           localStorage.setItem("token", res.data.data.token);
+        }
+
+        // Dispatch custom event untuk notify components
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent('userRoleChanged', {
+            detail: { user: updatedUser, role: updatedRole }
+          }));
         }
       }
       return res.data;
