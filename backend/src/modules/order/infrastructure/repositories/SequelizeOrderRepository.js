@@ -7,6 +7,8 @@
 
 const Order = require('../../domain/entities/Order');
 const { Op } = require('sequelize');
+const path = require('path');
+const fs = require('fs');
 
 class SequelizeOrderRepository {
   constructor(sequelize) {
@@ -89,6 +91,40 @@ class SequelizeOrderRepository {
     if (!result) return null;
 
     const plainResult = result.get({ plain: true });
+
+    // Normalisasi lampiran client/freelancer: DB menyimpan array URL sederhana,
+    // tapi API mengembalikan objek { url, name, size } agar FE bisa menampilkan nama & ukuran file.
+    const mapUrlsToMeta = (value) => {
+      if (!value) return [];
+
+      const urls = Array.isArray(value) ? value : [value];
+
+      return urls
+        .map((url) => {
+          if (!url || typeof url !== 'string') return null;
+
+          let size = null;
+          try {
+            if (url.startsWith('/public/')) {
+              const filePath = path.join(process.cwd(), url.replace(/^\/+/, ''));
+              if (fs.existsSync(filePath)) {
+                const stat = fs.statSync(filePath);
+                size = typeof stat.size === 'number' ? stat.size : null;
+              }
+            }
+          } catch (e) {
+            // Abaikan error baca file; size tetap null
+          }
+
+          const name = url.split('/').pop() || 'lampiran';
+
+          return { url, name, size };
+        })
+        .filter(Boolean);
+    };
+
+    plainResult.lampiran_client = mapUrlsToMeta(plainResult.lampiran_client);
+    plainResult.lampiran_freelancer = mapUrlsToMeta(plainResult.lampiran_freelancer);
 
     // Add flat payment_id from the first successful payment
     if (plainResult.pembayaran && plainResult.pembayaran.length > 0) {

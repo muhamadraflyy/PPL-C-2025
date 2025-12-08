@@ -232,7 +232,14 @@ class OrderController {
       }
 
       const { id } = req.params;
-      const order = await this.completeOrderUseCase.execute(id, user.userId);
+      const { lampiranFreelancer, catatanFreelancer } = req.body;
+
+      const order = await this.completeOrderUseCase.execute(
+        id,
+        user.userId,
+        lampiranFreelancer,
+        catatanFreelancer,
+      );
 
       return res.json({
         success: true,

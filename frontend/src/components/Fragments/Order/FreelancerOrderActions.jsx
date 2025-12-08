@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-const FreelancerOrderActions = ({ order, onAccept, onReject, onComplete, loading }) => {
+const FreelancerOrderActions = ({ order, onAccept, onReject, onComplete, loading, showInfo }) => {
   const [showRejectForm, setShowRejectForm] = useState(false)
   const [showCompleteForm, setShowCompleteForm] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
@@ -9,7 +9,9 @@ const FreelancerOrderActions = ({ order, onAccept, onReject, onComplete, loading
 
   const handleReject = () => {
     if (!rejectReason.trim()) {
-      alert('Mohon berikan alasan penolakan')
+      if (showInfo) {
+        showInfo('Form Tidak Lengkap', 'Mohon berikan alasan penolakan')
+      }
       return
     }
     onReject(rejectReason)
@@ -18,6 +20,29 @@ const FreelancerOrderActions = ({ order, onAccept, onReject, onComplete, loading
   }
 
   const handleComplete = () => {
+    // Validasi minimal 1 file dan catatan terisi
+    if (!deliveryFiles || deliveryFiles.length === 0) {
+      if (showInfo) {
+        showInfo('Form Tidak Lengkap', 'Mohon unggah minimal 1 file hasil pekerjaan')
+      }
+      return
+    }
+
+    const trimmedNote = deliveryNote.trim()
+    if (!trimmedNote) {
+      if (showInfo) {
+        showInfo('Form Tidak Lengkap', 'Mohon isi catatan untuk client')
+      }
+      return
+    }
+
+    if (trimmedNote.length < 10) {
+      if (showInfo) {
+        showInfo('Form Tidak Lengkap', 'Catatan untuk client minimal 10 karakter')
+      }
+      return
+    }
+
     onComplete({
       files: deliveryFiles,
       note: deliveryNote
