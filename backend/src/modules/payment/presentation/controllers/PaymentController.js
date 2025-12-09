@@ -608,6 +608,7 @@ class PaymentController {
         freelancer_id,
         metode_pembayaran_id: metode_pembayaran_id || null,
         metode_pencairan: metode_pencairan || 'transfer_bank', // Must be 'transfer_bank' or 'e_wallet'
+        bank_name: bank_name,
         nomor_rekening: nomor_rekening || bank_account_number,
         nama_pemilik: nama_pemilik || bank_account_name
       });
@@ -643,9 +644,17 @@ class PaymentController {
         });
       }
 
+      // Map field names to match frontend expectations
+      const plain = withdrawal.get({ plain: true });
+      const mappedWithdrawal = {
+        ...plain,
+        bank_account_number: plain.nomor_rekening,
+        bank_account_name: plain.nama_pemilik
+      };
+
       res.status(200).json({
         success: true,
-        data: withdrawal
+        data: mappedWithdrawal
       });
     } catch (error) {
       console.error('[PAYMENT CONTROLLER] Get withdrawal error:', error);
@@ -2157,28 +2166,51 @@ class PaymentController {
   async getWithdrawalHistory(req, res) {
     try {
       const user_id = req.user?.userId || req.user?.id;
-      const { status, limit = 50, offset = 0 } = req.query;
+      const { status, limit = 50, offset = 0, page } = req.query;
 
-      const where = { user_id };
+      const where = { freelancer_id: user_id };
       if (status) {
         where.status = status;
       }
 
       const WithdrawalModel = require('../../infrastructure/models/WithdrawalModel');
+
+      // Calculate offset from page if provided
+      const actualLimit = parseInt(limit);
+      const actualOffset = page ? (parseInt(page) - 1) * actualLimit : parseInt(offset);
+
       const withdrawals = await WithdrawalModel.findAll({
         where,
-        limit: parseInt(limit),
-        offset: parseInt(offset),
+        limit: actualLimit,
+        offset: actualOffset,
         order: [['created_at', 'DESC']]
+      });
+
+      // Get total count for pagination
+      const totalCount = await WithdrawalModel.count({ where });
+
+      // Map field names to match frontend expectations
+      const mappedWithdrawals = withdrawals.map(w => {
+        const plain = w.get({ plain: true });
+        return {
+          ...plain,
+          bank_account_number: plain.nomor_rekening,
+          bank_account_name: plain.nama_pemilik
+        };
       });
 
       res.status(200).json({
         success: true,
-        data: withdrawals,
+        data: {
+          withdrawals: mappedWithdrawals,
+          totalPages: Math.ceil(totalCount / actualLimit),
+          totalItems: totalCount,
+          currentPage: page ? parseInt(page) : Math.floor(actualOffset / actualLimit) + 1
+        },
         pagination: {
-          limit: parseInt(limit),
-          offset: parseInt(offset),
-          total: withdrawals.length
+          limit: actualLimit,
+          offset: actualOffset,
+          total: totalCount
         }
       });
 

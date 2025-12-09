@@ -157,7 +157,7 @@ export default function WithdrawalPage() {
 
       <div className="max-w-6xl mx-auto px-4 py-8">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-6">
           <button
             onClick={() => navigate(-1)}
             className="flex items-center text-gray-600 hover:text-gray-900 mb-4"
@@ -170,6 +170,29 @@ export default function WithdrawalPage() {
 
           <h1 className="text-3xl font-bold text-gray-900">Penarikan Dana</h1>
           <p className="text-gray-600 mt-2">Cairkan saldo Anda ke rekening bank</p>
+        </div>
+
+        {/* Tab Navigation */}
+        <div className="mb-6 border-b border-gray-200">
+          <div className="flex space-x-8">
+            <button
+              className="pb-4 px-1 border-b-2 border-blue-500 font-medium text-blue-600 whitespace-nowrap"
+            >
+              <svg className="w-5 h-5 inline-block mr-2 -mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Tarik Dana
+            </button>
+            <button
+              onClick={() => navigate('/withdrawal/history')}
+              className="pb-4 px-1 border-b-2 border-transparent font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap transition-colors"
+            >
+              <svg className="w-5 h-5 inline-block mr-2 -mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Riwayat Penarikan
+            </button>
+          </div>
         </div>
 
         {/* Success Alert */}

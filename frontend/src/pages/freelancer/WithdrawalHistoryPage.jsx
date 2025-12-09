@@ -106,31 +106,54 @@ export default function WithdrawalHistoryPage() {
 
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <button
-                onClick={() => navigate(-1)}
-                className="flex items-center text-gray-600 hover:text-gray-900 mb-2"
-              >
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-                Kembali
-              </button>
-              <h1 className="text-3xl font-bold text-gray-900">Riwayat Penarikan</h1>
-              <p className="text-gray-600 mt-2">Lihat semua riwayat penarikan dana Anda</p>
-            </div>
+        <div className="mb-6">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center text-gray-600 hover:text-gray-900 mb-4"
+          >
+            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Kembali
+          </button>
+          <h1 className="text-3xl font-bold text-gray-900">Riwayat Penarikan</h1>
+          <p className="text-gray-600 mt-2">Lihat semua riwayat penarikan dana Anda</p>
+        </div>
 
+        {/* Tab Navigation */}
+        <div className="mb-6 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <div className="flex space-x-8">
+              <button
+                onClick={() => navigate('/freelancer/withdrawal/create')}
+                className="pb-4 px-1 border-b-2 border-transparent font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap transition-colors"
+              >
+                <svg className="w-5 h-5 inline-block mr-2 -mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Tarik Dana
+              </button>
+              <button
+                className="pb-4 px-1 border-b-2 border-blue-500 font-medium text-blue-600 whitespace-nowrap"
+              >
+                <svg className="w-5 h-5 inline-block mr-2 -mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Riwayat Penarikan
+              </button>
+            </div>
             <Button
               variant="primary"
               onClick={() => navigate('/freelancer/withdrawal/create')}
+              className="mb-4"
             >
               + Penarikan Baru
             </Button>
           </div>
+        </div>
 
-          {/* Filter Tabs */}
+        {/* Filter Tabs */}
+        <div className="mb-6">
           <div className="flex gap-2 overflow-x-auto pb-2">
             {filterOptions.map(option => (
               <button
