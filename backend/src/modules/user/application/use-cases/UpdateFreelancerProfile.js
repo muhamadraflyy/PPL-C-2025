@@ -67,12 +67,22 @@ class UpdateFreelancerProfile {
       if (profileData.kota) userUpdates.kota = profileData.kota;
       if (profileData.provinsi) userUpdates.provinsi = profileData.provinsi;
     }
+    
+    // ✅ Update avatar and foto_latar in users table (shared across roles)
     if (profileData.avatar) userUpdates.avatar = profileData.avatar;
+    if (profileData.foto_latar) userUpdates.foto_latar = profileData.foto_latar;
 
     // Validate file types and sizes for user updates using shared util
-    if (userUpdates.avatar) {
+    // Skip validation for local file paths (already validated by multer)
+    const isLocalPath = (path) => typeof path === 'string' && path.startsWith('/');
+    
+    if (userUpdates.avatar && !isLocalPath(userUpdates.avatar)) {
       validateFileType(userUpdates.avatar, 'Avatar');
       validateFileSize(userUpdates.avatar, 'Avatar');
+    }
+    if (userUpdates.foto_latar && !isLocalPath(userUpdates.foto_latar)) {
+      validateFileType(userUpdates.foto_latar, 'Cover photo');
+      validateFileSize(userUpdates.foto_latar, 'Cover photo');
     }
 
     // Apply user updates
@@ -113,11 +123,12 @@ class UpdateFreelancerProfile {
     if (profileData.foto_latar !== undefined) profilePayload.foto_latar = profileData.foto_latar;
 
     // Validate file types and sizes for profile using shared util
-    if (profilePayload.avatar) {
+    // Skip validation for local file paths (already validated by multer)
+    if (profilePayload.avatar && !isLocalPath(profilePayload.avatar)) {
       validateFileType(profilePayload.avatar, 'Avatar');
       validateFileSize(profilePayload.avatar, 'Avatar');
     }
-    if (profilePayload.foto_latar) {
+    if (profilePayload.foto_latar && !isLocalPath(profilePayload.foto_latar)) {
       validateFileType(profilePayload.foto_latar, 'Background photo');
       validateFileSize(profilePayload.foto_latar, 'Background photo');
     }
@@ -157,7 +168,8 @@ class UpdateFreelancerProfile {
         kota: user.kota,
         provinsi: user.provinsi,
         bio: user.bio,
-        avatar: user.avatar
+        avatar: user.avatar,
+        foto_latar: user.foto_latar
       }
     };
   }

@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../utils/axiosConfig";
 
-export default function useUserIdentity() {
+export function useUserIdentity() {
   const [state, setState] = useState({
     firstName: "",
     lastName: "",
     email: "",
     avatarUrl: "",
+    role: "",
     loading: true,
   });
 
@@ -22,14 +23,21 @@ export default function useUserIdentity() {
           try {
             const response = await api.get("/users/profile");
             if (response.data?.success && response.data?.data && !cancelled) {
+              const profile = response.data.data;
+              
+              // Construct avatar URL from server
+              let avatarUrl = null;
+              if (profile.avatar) {
+                const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5000';
+                avatarUrl = `${baseUrl}${profile.avatar}`;
+              }
+              
               setState({
-                firstName: response.data.data.nama_depan || "",
-                lastName: response.data.data.nama_belakang || "",
-                email: response.data.data.email || "",
-                avatarUrl:
-                  response.data.data.avatar_url ||
-                  response.data.data.avatar ||
-                  "https://i.pravatar.cc/96",
+                firstName: profile.nama_depan || "",
+                lastName: profile.nama_belakang || "",
+                email: profile.email || "",
+                avatarUrl: avatarUrl || null, // null will show initial in Avatar component
+                role: profile.role || "",
                 loading: false,
               });
               return;
@@ -48,8 +56,8 @@ export default function useUserIdentity() {
           firstName: user?.nama_depan || "",
           lastName: user?.nama_belakang || "",
           email: user?.email || "",
-          avatarUrl:
-            user?.avatar_url || user?.avatar || "https://i.pravatar.cc/96",
+          avatarUrl: user?.avatar || null,
+          role: user?.role || "",
           loading: false,
         });
       } catch {
@@ -58,8 +66,17 @@ export default function useUserIdentity() {
     }
 
     load();
+    
+    // Reload when window gains focus (user returns from profile edit)
+    const handleFocus = () => {
+      load();
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    
     return () => {
       cancelled = true;
+      window.removeEventListener('focus', handleFocus);
     };
   }, []);
 
@@ -74,5 +91,9 @@ export default function useUserIdentity() {
     fullName,
     email: state.email,
     avatarUrl: state.avatarUrl,
+    role: state.role,
   };
 }
+
+// Default export for backward compatibility
+export default useUserIdentity;

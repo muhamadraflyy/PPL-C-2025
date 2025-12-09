@@ -1,6 +1,7 @@
 class CreateFreelancerProfile {
-  constructor({ userRepository }) {
+  constructor({ userRepository, jwtService }) {
     this.userRepository = userRepository;
+    this.jwtService = jwtService;
   }
 
   async execute(userId, profileData) {
@@ -54,6 +55,9 @@ class CreateFreelancerProfile {
     // After successful creation, switch user's role to freelancer
     await user.update({ role: 'freelancer' });
 
+    // Generate new JWT token with updated role
+    const token = this.jwtService ? this.jwtService.generate(user.id, 'freelancer') : null;
+
     return {
       freelancerProfile: {
         id: profile.id,
@@ -63,12 +67,13 @@ class CreateFreelancerProfile {
       user: {
         id: user.id,
         email: user.email,
-        role: user.role,
+        role: 'freelancer', // Ensure role is 'freelancer'
         nama_depan: user.nama_depan,
         nama_belakang: user.nama_belakang,
         no_telepon: user.no_telepon,
         bio: user.bio
-      }
+      },
+      token // Include new JWT token
     };
   }
 }

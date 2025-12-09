@@ -108,6 +108,24 @@ app.use("/mock-payment", express.static("public/mock-payment"));
 // Serve static files umum (misal: thumbnail & gambar layanan)
 app.use("/public", express.static("public"));
 
+// Serve static files untuk profile images
+const path = require("path");
+const profilesPath = path.join(process.cwd(), "public", "profiles");
+const layananPath = path.join(process.cwd(), "public", "layanan");
+const portfolioPath = path.join(process.cwd(), "public", "portfolio");
+const orderAttachmentsPath = path.join(process.cwd(), "public", "order-attachments");
+
+console.log("📁 Serving static files:");
+console.log("   Profiles:", profilesPath);
+console.log("   Layanan:", layananPath);
+console.log("   Portfolio:", portfolioPath);
+console.log("   Order Attachments:", orderAttachmentsPath);
+
+app.use("/profiles", express.static(profilesPath));
+app.use("/layanan", express.static(layananPath));
+app.use("/portfolio", express.static(portfolioPath));
+app.use("/order-attachments", express.static(orderAttachmentsPath));
+
 // ==================== API DOCUMENTATION ====================
 // Serve spec with cache busting
 app.get("/api-docs.json", (req, res) => {
