@@ -57,6 +57,9 @@ import PaymentProcessingPage from "./pages/payment/PaymentProcessingPage";
 // Guards
 import ProtectedRoute from "./components/Guards/ProtectedRoute";
 
+// Chats
+import MessagesPage from "./pages/Chat/MessagePage";
+
 export default function App() {
   return (
     <Routes>
@@ -327,6 +330,11 @@ export default function App() {
           </ProtectedRoute>
         }
       />
+
+      {/* Chat */}
+      <Route
+        path="/chat"
+        element={<MessagesPage />} />
 
       {/* 404 */}
       <Route path="*" element={<NotFoundPage />} />
