@@ -1653,6 +1653,325 @@ class PaymentController {
         }
       );
 
+      // Get pending escrow
+      const [escrowData] = await PaymentModel.sequelize.query(
+        `SELECT SUM(e.jumlah_ditahan) as amount
+        FROM escrow e
+        INNER JOIN pesanan o ON e.pesanan_id = o.id
+        WHERE o.freelancer_id = ? AND e.status = 'ditahan'`,
+        {
+          replacements: [userId],
+          type: Sequelize.QueryTypes.SELECT
+        }
+      );
+
+      // Get withdrawn
+      const [withdrawnData] = await WithdrawalModel.findAll({
+        attributes: [[Sequelize.fn('SUM', Sequelize.col('jumlah')), 'total']],
+        where: { freelancer_id: userId, status: 'completed' },
+        raw: true
+      });
+
+      const totalEarned = parseFloat(earnedData.total || 0);
+      const platformFees = parseFloat(earnedData.fees || 0);
+      const pendingEscrow = parseFloat(escrowData.amount || 0);
+      const withdrawn = parseFloat(withdrawnData[0]?.total || 0);
+      const available = Math.max(0, totalEarned - platformFees - pendingEscrow - withdrawn);
+
+      res.status(200).json({
+        success: true,
+        data: {
+          total_earned: totalEarned,
+          platform_fees: platformFees,
+          pending_escrow: pendingEscrow,
+          total_withdrawn: withdrawn,
+          available_balance: available
+        }
+      });
+
+    } catch (error) {
+      console.error('[PAYMENT CONTROLLER] Get balance error:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
+  /**
+   * GET /api/payments/analytics/freelancer-earnings
+   * Get freelancer earnings analytics (NEW ENDPOINT)
+   */
+  async getFreelancerEarnings(req, res) {
+    try {
+      const userId = req.user?.userId || req.user?.id;
+      const userRole = req.user?.role;
+      const { start_date, end_date } = req.query;
+
+      // Only freelancers and admins can access
+      if (userRole !== 'freelancer' && userRole !== 'admin') {
+        return res.status(403).json({
+          success: false,
+          message: 'Only freelancers can access earnings data'
+        });
+      }
+
+      // If admin, can view any freelancer's earnings via query param
+      const freelancerId = userRole === 'admin' && req.query.freelancer_id
+        ? req.query.freelancer_id
+        : userId;
+
+      // Date range
+      const endDate = end_date ? new Date(end_date) : new Date();
+      const startDate = start_date ? new Date(start_date) : new Date(endDate.getFullYear(), 0, 1); // Start of year
+
+      // Get earnings data
+      const [earningsData] = await PaymentModel.sequelize.query(
+        `SELECT
+          COUNT(DISTINCT p.id) as total_orders,
+          SUM(CASE WHEN p.status IN ('berhasil', 'paid', 'success', 'settlement') THEN 1 ELSE 0 END) as completed_orders,
+          SUM(CASE WHEN p.status IN ('berhasil', 'paid', 'success', 'settlement') THEN p.jumlah ELSE 0 END) as total_earned,
+          SUM(CASE WHEN p.status IN ('berhasil', 'paid', 'success', 'settlement') THEN p.biaya_platform ELSE 0 END) as platform_fees,
+          AVG(CASE WHEN p.status IN ('berhasil', 'paid', 'success', 'settlement') THEN p.jumlah ELSE NULL END) as average_order_value
+        FROM pembayaran p
+        INNER JOIN pesanan o ON p.pesanan_id = o.id
+        WHERE o.freelancer_id = ?
+          AND p.created_at >= ? AND p.created_at < DATE_ADD(?, INTERVAL 1 DAY)`,
+        {
+          replacements: [freelancerId, startDate, endDate],
+          type: Sequelize.QueryTypes.SELECT
+        }
+      );
+
+      // Get pending escrow
+      const [escrowData] = await PaymentModel.sequelize.query(
+        `SELECT
+          COUNT(e.id) as pending_count,
+          SUM(e.jumlah_ditahan) as pending_amount
+        FROM escrow e
+        INNER JOIN pesanan o ON e.pesanan_id = o.id
+        WHERE o.freelancer_id = ?
+          AND e.status = 'ditahan'`,
+        {
+          replacements: [freelancerId],
+          type: Sequelize.QueryTypes.SELECT
+        }
+      );
+
+      // Get withdrawn amount
+      const [withdrawnData] = await WithdrawalModel.findAll({
+        attributes: [
+          [Sequelize.fn('SUM', Sequelize.col('jumlah')), 'total_withdrawn']
+        ],
+        where: {
+          freelancer_id: freelancerId,
+          status: 'completed'
+        },
+        raw: true
+      });
+
+      const totalEarned = parseFloat(earningsData.total_earned || 0);
+      const platformFees = parseFloat(earningsData.platform_fees || 0);
+      const pendingEscrow = parseFloat(escrowData.pending_amount || 0);
+      const totalWithdrawn = parseFloat(withdrawnData[0]?.total_withdrawn || 0);
+      const availableBalance = totalEarned - platformFees - pendingEscrow - totalWithdrawn;
+
+      // Monthly earnings breakdown
+      const monthlyEarnings = await PaymentModel.sequelize.query(
+        `SELECT
+          DATE_FORMAT(p.created_at, '%Y-%m') as month,
+          COUNT(p.id) as orders,
+          SUM(p.jumlah) as earnings
+        FROM pembayaran p
+        INNER JOIN pesanan o ON p.pesanan_id = o.id
+        WHERE o.freelancer_id = ?
+          AND p.status IN ('berhasil', 'paid', 'success', 'settlement')
+          AND p.created_at >= ? AND p.created_at < DATE_ADD(?, INTERVAL 1 DAY)
+        GROUP BY DATE_FORMAT(p.created_at, '%Y-%m')
+        ORDER BY month ASC`,
+        {
+          replacements: [freelancerId, startDate, endDate],
+          type: Sequelize.QueryTypes.SELECT
+        }
+      );
+
+      res.status(200).json({
+        success: true,
+        data: {
+          summary: {
+            total_orders: parseInt(earningsData.total_orders || 0),
+            completed_orders: parseInt(earningsData.completed_orders || 0),
+            total_earned: totalEarned,
+            platform_fees: platformFees,
+            net_earnings: totalEarned - platformFees,
+            average_order_value: parseFloat(earningsData.average_order_value || 0)
+          },
+          balance: {
+            pending_escrow: pendingEscrow,
+            available_balance: Math.max(0, availableBalance),
+            total_withdrawn: totalWithdrawn
+          },
+          monthly_earnings: monthlyEarnings,
+          period: {
+            start: startDate.toISOString().split('T')[0],
+            end: endDate.toISOString().split('T')[0]
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error('[PAYMENT CONTROLLER] Get freelancer earnings error:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
+  /**
+   * GET /api/payments/analytics/client-spending
+   * Get client spending analytics (NEW ENDPOINT)
+   */
+  async getClientSpending(req, res) {
+    try {
+      const userId = req.user?.userId || req.user?.id;
+      const userRole = req.user?.role;
+      const { start_date, end_date } = req.query;
+
+      // Only clients and admins can access
+      if (userRole !== 'client' && userRole !== 'admin') {
+        return res.status(403).json({
+          success: false,
+          message: 'Only clients can access spending data'
+        });
+      }
+
+      // If admin, can view any client's spending via query param
+      const clientId = userRole === 'admin' && req.query.client_id
+        ? req.query.client_id
+        : userId;
+
+      // Date range
+      const endDate = end_date ? new Date(end_date) : new Date();
+      const startDate = start_date ? new Date(start_date) : new Date(endDate.getFullYear(), 0, 1);
+
+      // Get spending data
+      const [spendingData] = await PaymentModel.sequelize.query(
+        `SELECT
+          COUNT(DISTINCT p.id) as total_orders,
+          SUM(CASE WHEN p.status = 'berhasil' THEN 1 ELSE 0 END) as completed_orders,
+          SUM(CASE WHEN o.status = 'dikerjakan' OR o.status = 'menunggu_review' THEN 1 ELSE 0 END) as active_orders,
+          SUM(CASE WHEN p.status = 'berhasil' THEN p.total_bayar ELSE 0 END) as total_spent,
+          AVG(CASE WHEN p.status = 'berhasil' THEN p.total_bayar ELSE NULL END) as average_order_value
+        FROM pembayaran p
+        INNER JOIN pesanan o ON p.pesanan_id = o.id
+        WHERE o.client_id = ?
+          AND p.created_at >= ? AND p.created_at < DATE_ADD(?, INTERVAL 1 DAY)`,
+        {
+          replacements: [clientId, startDate, endDate],
+          type: Sequelize.QueryTypes.SELECT
+        }
+      );
+
+      // Get refunds
+      const [refundData] = await PaymentModel.sequelize.query(
+        `SELECT
+          COUNT(r.id) as total_refunds,
+          SUM(r.jumlah_refund) as total_refunded
+        FROM refund r
+        INNER JOIN pembayaran p ON r.pembayaran_id = p.id
+        INNER JOIN pesanan o ON p.pesanan_id = o.id
+        WHERE o.client_id = ?
+          AND r.status = 'completed'`,
+        {
+          replacements: [clientId],
+          type: Sequelize.QueryTypes.SELECT
+        }
+      );
+
+      // Monthly spending breakdown
+      const monthlySpending = await PaymentModel.sequelize.query(
+        `SELECT
+          DATE_FORMAT(p.created_at, '%Y-%m') as month,
+          COUNT(p.id) as orders,
+          SUM(p.total_bayar) as spent
+        FROM pembayaran p
+        INNER JOIN pesanan o ON p.pesanan_id = o.id
+        WHERE o.client_id = ?
+          AND p.status = 'berhasil'
+          AND p.created_at >= ? AND p.created_at < DATE_ADD(?, INTERVAL 1 DAY)
+        GROUP BY DATE_FORMAT(p.created_at, '%Y-%m')
+        ORDER BY month ASC`,
+        {
+          replacements: [clientId, startDate, endDate],
+          type: Sequelize.QueryTypes.SELECT
+        }
+      );
+
+      // Disable caching for analytics
+      res.set({
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0"
+      });
+      res.status(200).json({
+        success: true,
+        data: {
+          summary: {
+            total_orders: parseInt(spendingData.total_orders || 0),
+            completed_orders: parseInt(spendingData.completed_orders || 0),
+            active_orders: parseInt(spendingData.active_orders || 0),
+            total_spent: parseFloat(spendingData.total_spent || 0),
+            average_order_value: parseFloat(spendingData.average_order_value || 0),
+            total_refunds: parseInt(refundData.total_refunds || 0),
+            total_refunded: parseFloat(refundData.total_refunded || 0),
+            success_rate: spendingData.total_orders > 0 ? Math.round((spendingData.completed_orders / spendingData.total_orders) * 100) : 0
+          },
+          monthly_spending: monthlySpending,
+          period: {
+            start: startDate.toISOString().split('T')[0],
+            end: endDate.toISOString().split('T')[0]
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error('[PAYMENT CONTROLLER] Get client spending error:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
+  /**
+   * GET /api/payments/balance
+   * Get user balance (for freelancers)
+   */
+  async getUserBalance(req, res) {
+    try {
+      const userId = req.user?.userId || req.user?.id;
+      const userRole = req.user?.role;
+
+      if (userRole !== 'freelancer') {
+        return res.status(403).json({
+          success: false,
+          message: 'Only freelancers have balance'
+        });
+      }
+
+      // Get total earned
+      const [earnedData] = await PaymentModel.sequelize.query(
+        `SELECT SUM(p.jumlah) as total, SUM(p.biaya_platform) as fees
+        FROM pembayaran p
+        INNER JOIN pesanan o ON p.pesanan_id = o.id
+        WHERE o.freelancer_id = ? AND p.status IN ('berhasil', 'paid', 'success', 'settlement')`,
+        {
+          replacements: [userId],
+          type: Sequelize.QueryTypes.SELECT
+        }
+      );
+
       // Get pending escrow (held)
       const [escrowHeldData] = await PaymentModel.sequelize.query(
         `SELECT SUM(e.jumlah_ditahan) as amount
