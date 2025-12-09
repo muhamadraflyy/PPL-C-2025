@@ -11,6 +11,7 @@ import LoadingOverlay from "../../components/Fragments/Common/LoadingOverlay";
 import { useToast } from "../../components/Fragments/Common/ToastProvider";
 import Icon from "../../components/Elements/Icons/Icon";
 import { authService } from "../../services/authService";
+import BlockedAccountModal from "../../components/Fragments/Common/BlockedAccountModal";
 
 export default function LoginPage() {
   const [form, setForm] = useState({ email: "", password: "" });
@@ -21,17 +22,12 @@ export default function LoginPage() {
   const [errors, setErrors] = useState({});
   const toast = useToast();
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [showBlockedModal, setShowBlockedModal] = useState(false);
 
   const handleGoogleLogin = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
       setGoogleLoading(true);
       try {
-        // Get user info from Google using access token
-        const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-          headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
-        });
-        const userInfo = await userInfoResponse.json();
-        
         // Use access_token to login/register with Google
         // Backend will fetch user info from Google API
         let result = await authService.loginWithGoogle(tokenResponse.access_token);
@@ -50,7 +46,12 @@ export default function LoginPage() {
             navigate("/dashboard", { replace: true });
           }
         } else {
-          toast.show(result.message || "Google authentication failed", "error");
+          // Check for specific error messages (since backend doesn't send code in error handler)
+          if (result.code === 'ACCOUNT_INACTIVE' || result.message === 'Account inactive') {
+            setShowBlockedModal(true);
+          } else {
+            toast.show(result.message || "Google authentication failed", "error");
+          }
         }
       } catch (err) {
         console.error("Google login error:", err);
@@ -75,11 +76,16 @@ export default function LoginPage() {
   }, [navigate, toast]);
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Clear previous errors
+    setErrors({});
+    
     const emailErr = validateEmail(form.email);
     const passErr = validatePassword(form.password);
     const newErrors = { email: emailErr, password: passErr };
     setErrors(newErrors);
     if (emailErr || passErr) return;
+    
     try {
       await login(form);
       toast.show("Logged in successfully", "success");
@@ -91,8 +97,22 @@ export default function LoginPage() {
       } else {
         navigate("/dashboard", { replace: true });
       }
-    } catch (_) {
-      toast.show("Invalid email or password", "error");
+    } catch (err) {
+      // Clear password field on error (keep email)
+      setForm(prev => ({ ...prev, password: "" }));
+      
+      // Get error details from the thrown error
+      const errorCode = err.code || err.response?.data?.code;
+      const errorMessage = err.message || err.response?.data?.message;
+      
+      // Check if error is email not verified
+      if (errorCode === 'EMAIL_NOT_VERIFIED') {
+        toast.show("Email belum diverifikasi. Silakan cek email Anda.", "error", 5000);
+      } else if (errorCode === 'ACCOUNT_INACTIVE' || errorMessage === 'Account inactive') {
+        setShowBlockedModal(true);
+      } else {
+        toast.show("Email atau password salah", "error", 5000);
+      }
     }
   };
 
@@ -140,6 +160,10 @@ export default function LoginPage() {
       }
     >
       <LoadingOverlay show={loading || googleLoading} text="Signing in..." />
+      <BlockedAccountModal 
+        isOpen={showBlockedModal} 
+        onClose={() => setShowBlockedModal(false)} 
+      />
       <AuthCard title="Masuk ke Skill Connect" footer={footer}>
         <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
           <FormGroup label="Alamat Email" name="email" type="email" value={form.email} onChange={handleChange} error={errors.email} />

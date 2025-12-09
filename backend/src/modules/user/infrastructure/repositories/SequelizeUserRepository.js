@@ -40,6 +40,10 @@ class SequelizeUserRepository extends IUserRepository {
     const created = await UserModel.create(userData);
     return created;
   }
+
+  async delete(userId) {
+    return UserModel.destroy({ where: { id: userId } });
+  }
 }
 
 module.exports = SequelizeUserRepository;
