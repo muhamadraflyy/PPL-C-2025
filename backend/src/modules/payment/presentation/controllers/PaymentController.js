@@ -1956,18 +1956,10 @@ class PaymentController {
       const releasedEscrow = parseFloat(escrowReleasedData.amount || 0);
       const withdrawn = parseFloat(withdrawnData?.total || 0); // FIX: withdrawnData is already first element
 
-      // Available balance = released escrow - withdrawn
-      const available = Math.max(0, releasedEscrow - withdrawn);
-
-      // DEBUG: Log balance calculation
-      console.log('[DEBUG BALANCE]', {
-        totalEarned,
-        platformFees,
-        pendingEscrow,
-        releasedEscrow,
-        withdrawn,
-        available
-      });
+      // Available balance = released escrow only
+      // When withdrawal is completed, escrow moves from 'released' to 'completed'
+      // So withdrawn amount is already NOT in releasedEscrow
+      const available = releasedEscrow;
 
       // Disable caching for analytics
       res.set({
