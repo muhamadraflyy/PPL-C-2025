@@ -204,6 +204,93 @@ class GetFavoritesDTO {
     }
 }
 
+class HideServiceDTO {
+    constructor({ userId, serviceId }) {
+        this.userId = userId;
+        this.serviceId = serviceId;
+    }
+
+    validate() {
+        const errors = [];
+
+        if (!this.userId) {
+            errors.push('User ID is required');
+        }
+
+        if (!this.serviceId) {
+            errors.push('Service ID is required');
+        }
+
+        return {
+            isValid: errors.length === 0,
+            errors
+        };
+    }
+}
+
+class UnhideServiceDTO {
+    constructor({ userId, serviceId }) {
+        this.userId = userId;
+        this.serviceId = serviceId;
+    }
+
+    validate() {
+        const errors = [];
+
+        if (!this.userId) {
+            errors.push('User ID is required');
+        }
+
+        if (!this.serviceId) {
+            errors.push('Service ID is required');
+        }
+
+        return {
+            isValid: errors.length === 0,
+            errors
+        };
+    }
+}
+
+class GetHiddenServicesDTO {
+    constructor({ userId }) {
+        this.userId = userId;
+    }
+
+    validate() {
+        const errors = [];
+
+        if (!this.userId) {
+            errors.push('User ID is required');
+        }
+
+        return {
+            isValid: errors.length === 0,
+            errors
+        };
+    }
+}
+
+class GetAdminDashboardDTO {
+    constructor({ timeRange = 'weekly' }) {
+        this.timeRange = ['daily', 'weekly', 'monthly'].includes(timeRange) ? timeRange : 'weekly';
+    }
+
+    validate() {
+        const errors = [];
+
+        const validTimeRanges = ['daily', 'weekly', 'monthly'];
+        if (!validTimeRanges.includes(this.timeRange)) {
+            errors.push(`Time range must be one of: ${validTimeRanges.join(', ')}`);
+        }
+
+        return {
+            isValid: errors.length === 0,
+            errors
+        };
+    }
+}
+
 module.exports = {
     GetRecommendationsDTO,
     GetSimilarServicesDTO,
@@ -211,5 +298,9 @@ module.exports = {
     AddFavoriteDTO,
     RemoveFavoriteDTO,
     TrackInteractionDTO,
-    GetFavoritesDTO
+    GetFavoritesDTO,
+    HideServiceDTO,
+    UnhideServiceDTO,
+    GetHiddenServicesDTO,
+    GetAdminDashboardDTO
 };

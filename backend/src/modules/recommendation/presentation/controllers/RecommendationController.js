@@ -1,15 +1,22 @@
 const RecommendationService = require('../../domain/services/RecommendationService');
 const RecommendationRepositoryImpl = require('../../infrastructure/repositories/RecommendationRepositoryImpl');
+const HiddenServiceRepositoryImpl = require('../../infrastructure/repositories/HiddenServiceRepositoryImpl');
+const AdminDashboardRepositoryImpl = require('../../infrastructure/repositories/AdminDashboardRepositoryImpl');
 const GetRecommendationsUseCase = require('../../application/use-cases/GetRecommendationsUseCase');
 const GetSimilarServicesUseCase = require('../../application/use-cases/GetSimilarServicesUseCase');
 const GetPopularServicesUseCase = require('../../application/use-cases/GetPopularServicesUseCase');
 const TrackInteractionUseCase = require('../../application/use-cases/TrackInteractionUseCase');
+const ManageHiddenServicesUseCase = require('../../application/use-cases/ManageHiddenServicesUseCase');
+const GetAdminDashboardUseCase = require('../../application/use-cases/GetAdminDashboardUseCase');
 
 const {
   GetRecommendationsDTO,
   GetSimilarServicesDTO,
   GetPopularServicesDTO,
-  TrackInteractionDTO
+  TrackInteractionDTO,
+  HideServiceDTO,
+  UnhideServiceDTO,
+  GetHiddenServicesDTO
 } = require('../../application/dtos/RecommendationDTOs');
 
 /**
@@ -22,6 +29,8 @@ class RecommendationController {
     console.log('[RecommendationController] Initializing with sequelize:', !!sequelize);
     this.sequelize = sequelize;
     this.recommendationRepository = new RecommendationRepositoryImpl(sequelize);
+    this.hiddenServiceRepository = new HiddenServiceRepositoryImpl(sequelize);
+    this.adminDashboardRepository = new AdminDashboardRepositoryImpl(sequelize);
     this.recommendationService = new RecommendationService();
 
     // Initialize use cases
@@ -43,6 +52,15 @@ class RecommendationController {
     this.trackInteractionUseCase = new TrackInteractionUseCase(
       this.recommendationRepository
     );
+
+    this.manageHiddenServicesUseCase = new ManageHiddenServicesUseCase(
+      this.hiddenServiceRepository,
+      this.recommendationRepository
+    );
+
+    this.getAdminDashboardUseCase = new GetAdminDashboardUseCase(
+      this.adminDashboardRepository
+    );
   }
 
   /**
@@ -51,27 +69,60 @@ class RecommendationController {
    */
   async getRecommendations(req, res) {
     try {
+      console.log('\n' + '='.repeat(80));
+      console.log('API ENDPOINT: GET /api/recommendations');
+      console.log('='.repeat(80));
+
+      // Get userId from authenticated user
       const userId = req.user?.userId || req.query.userId;
 
-      const dto = new GetRecommendationsDTO({
-        userId,
-        limit: parseInt(req.query.limit) || 10,
-        refresh: req.query.refresh === 'true',
-        excludeServiceIds: req.query.exclude ? req.query.exclude.split(',') : []
-      });
+      // Get kategoriId from query params (optional)
+      const kategoriId = req.query.kategoriId || null;
 
-      const result = await this.getRecommendationsUseCase.execute(dto.userId, {
-        limit: dto.limit,
-        refresh: dto.refresh,
-        excludeServiceIds: dto.excludeServiceIds
-      });
+      console.log('Request from user:', userId);
+      console.log('Category filter:', kategoriId || 'NONE (all categories)');
 
-      if (!result.success) {
-        return res.status(400).json({
+      // Validate userId
+      if (!userId) {
+        console.error('No userId provided');
+        return res.status(401).json({
           success: false,
-          message: result.error
+          message: 'User authentication required. Please login first.',
+          error: 'User ID is required'
         });
       }
+
+      // Validate kategoriId format if provided
+      if (kategoriId) {
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(kategoriId)) {
+          console.error('Invalid kategoriId format');
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid category ID format',
+            error: 'Category ID must be a valid UUID'
+          });
+        }
+      }
+
+      // Execute use case
+      console.log('\nCalling GetRecommendationsUseCase...');
+      const result = await this.getRecommendationsUseCase.execute(
+        userId,
+        kategoriId
+      );
+
+      if (!result.success) {
+        console.error('Use case returned error:', result.error);
+        return res.status(400).json({
+          success: false,
+          message: 'Failed to get recommendations',
+          error: result.error
+        });
+      }
+
+      console.log('\nSuccess! Returning', result.data.length, 'recommendations');
+      console.log('='.repeat(80) + '\n');
 
       return res.status(200).json({
         success: true,
@@ -79,12 +130,18 @@ class RecommendationController {
         data: result.data,
         metadata: result.metadata
       });
+
     } catch (error) {
-      console.error('RecommendationController.getRecommendations Error:', error);
+      console.error('\n' + '='.repeat(80));
+      console.error('CONTROLLER ERROR');
+      console.error('Error:', error.message);
+      console.error('Stack:', error.stack);
+      console.error('='.repeat(80) + '\n');
+
       return res.status(500).json({
         success: false,
         message: 'Internal server error',
-        error: error.message
+        error: process.env.NODE_ENV === 'development' ? error.message : 'An error occurred while fetching recommendations'
       });
     }
   }
@@ -249,64 +306,118 @@ class RecommendationController {
   }
 
   /**
- * POST /api/recommendations/hide/:serviceId
- * Hide service from recommendations permanently
- */
+   * POST /api/recommendations/hide/:serviceId
+   * Hide service from recommendations
+   */
   async hideService(req, res) {
     try {
-      const userId = req.user?.userId;
-      const { serviceId } = req.params;
+      console.log('\n' + '='.repeat(80));
+      console.log('API: POST /api/recommendations/hide/:serviceId');
+      console.log('='.repeat(80));
 
+      const userId = req.user?.userId;
+      let { serviceId } = req.params;
+
+      console.log('Request from user:', userId);
+      console.log('Service to hide:', serviceId);
+
+      // VALIDASI userId
       if (!userId) {
+        console.error('No userId');
         return res.status(401).json({
           success: false,
-          message: 'User not authenticated'
+          message: 'User authentication required'
         });
       }
 
-      // 🔍 Cek apakah layanan dengan ID tersebut ada
-      const [service] = await this.sequelize.query(
-        `SELECT id FROM layanan WHERE id = :serviceId LIMIT 1`,
-        {
-          replacements: { serviceId },
-          type: this.sequelize.QueryTypes.SELECT
-        }
-      );
+      // VALIDASI serviceId
+      if (!serviceId) {
+        console.error('No serviceId');
+        return res.status(400).json({
+          success: false,
+          message: 'Service ID is required'
+        });
+      }
+
+      // Trim whitespace
+      serviceId = serviceId.trim();
+
+      // VALIDASI format UUID
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(serviceId)) {
+        console.error('Invalid UUID format');
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid service ID format. Must be a valid UUID.'
+        });
+      }
+
+      // VALIDASI: Cek apakah layanan exists
+      console.log('\nValidating service existence...');
+      const [service] = await this.sequelize.query(`
+        SELECT id, judul, status 
+        FROM layanan 
+        WHERE id = :serviceId 
+        LIMIT 1
+      `, {
+        replacements: { serviceId },
+        type: this.sequelize.QueryTypes.SELECT
+      });
 
       if (!service) {
+        console.error('Service not found in database');
         return res.status(404).json({
           success: false,
           message: 'Service not found'
         });
       }
 
-      // 💾 Simpan interaksi "hide" ke tabel aktivitas_user
-      await this.sequelize.query(
-        `
-      INSERT INTO aktivitas_user (user_id, layanan_id, tipe_aktivitas, created_at)
-      VALUES (:userId, :serviceId, 'hide', NOW(), NOW())
-      `,
-        {
-          replacements: { userId, serviceId },
-          type: this.sequelize.QueryTypes.INSERT
-        }
+      console.log('Service exists:', service.judul);
+
+      // Call use case
+      console.log('\nCalling ManageHiddenServicesUseCase.hideService()...');
+      const result = await this.manageHiddenServicesUseCase.hideService(
+        userId,
+        serviceId
       );
+
+      if (!result.success) {
+        console.warn('Use case returned error:', result.error);
+
+        // Handle specific errors
+        if (result.error?.includes('already hidden')) {
+          return res.status(400).json({
+            success: false,
+            message: 'Service is already hidden from recommendations'
+          });
+        }
+
+        return res.status(400).json({
+          success: false,
+          message: result.error
+        });
+      }
+
+      console.log('\nSuccess!');
+      console.log('='.repeat(80) + '\n');
 
       return res.status(200).json({
         success: true,
-        message: 'Service hidden from recommendations',
-        data: {
-          userId,
-          serviceId,
-          hiddenAt: new Date()
-        }
+        message: 'Service hidden from recommendations successfully',
+        data: result.data
       });
+
     } catch (error) {
-      console.error('RecommendationController.hideService Error:', error);
+      console.error('\n' + '='.repeat(80));
+      console.error('CONTROLLER ERROR');
+      console.error('Error:', error.message);
+      console.error('Stack:', error.stack);
+      console.error('='.repeat(80) + '\n');
+
       return res.status(500).json({
         success: false,
         message: 'Internal server error',
-        error: error.message
+        error: process.env.NODE_ENV === 'development' ? error.message : 'An error occurred'
       });
     }
   }
@@ -317,41 +428,203 @@ class RecommendationController {
    */
   async unhideService(req, res) {
     try {
-      const userId = req.user?.userId;
-      const { serviceId } = req.params;
+      console.log('\n' + '='.repeat(80));
+      console.log('API: DELETE /api/recommendations/hide/:serviceId');
+      console.log('='.repeat(80));
 
+      const userId = req.user?.userId;
+      let { serviceId } = req.params;
+
+      console.log('Request from user:', userId);
+      console.log('Service to unhide:', serviceId);
+
+      // VALIDASI userId
       if (!userId) {
+        console.error('No userId');
         return res.status(401).json({
           success: false,
-          message: 'User not authenticated'
+          message: 'User authentication required'
         });
       }
 
-      // Delete hide interaction
-      await this.sequelize.query(`
-        DELETE FROM aktivitas_user 
-        WHERE user_id = :userId 
-        AND layanan_id = :serviceId 
-        AND tipe_aktivitas = 'hide'
-      `, {
-        replacements: { userId, serviceId },
-        type: this.sequelize.QueryTypes.DELETE
-      });
+      // VALIDASI serviceId
+      if (!serviceId) {
+        console.error('No serviceId');
+        return res.status(400).json({
+          success: false,
+          message: 'Service ID is required'
+        });
+      }
+
+      // Trim whitespace
+      serviceId = serviceId.trim();
+
+      // VALIDASI format UUID
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(serviceId)) {
+        console.error('Invalid UUID format');
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid service ID format'
+        });
+      }
+
+      // Call use case
+      console.log('\nCalling ManageHiddenServicesUseCase.unhideService()...');
+      const result = await this.manageHiddenServicesUseCase.unhideService(
+        userId,
+        serviceId
+      );
+
+      if (!result.success) {
+        console.warn('Use case returned error:', result.error);
+        return res.status(404).json({
+          success: false,
+          message: result.error
+        });
+      }
+
+      console.log('\nSuccess!');
+      console.log('='.repeat(80) + '\n');
 
       return res.status(200).json({
         success: true,
-        message: 'Service unhidden successfully',
-        data: {
-          userId,
-          serviceId
-        }
+        message: result.message,
+        data: result.data
       });
+
     } catch (error) {
-      console.error('RecommendationController.unhideService Error:', error);
+      console.error('\n' + '='.repeat(80));
+      console.error('CONTROLLER ERROR');
+      console.error('Error:', error.message);
+      console.error('='.repeat(80) + '\n');
+
       return res.status(500).json({
         success: false,
         message: 'Internal server error',
-        error: error.message
+        error: process.env.NODE_ENV === 'development' ? error.message : 'An error occurred'
+      });
+    }
+  }
+
+  /**
+   * GET /api/recommendations/hidden
+   * Get list of hidden services
+   */
+  async getHiddenServices(req, res) {
+    try {
+      console.log('\n' + '='.repeat(80));
+      console.log('API: GET /api/recommendations/hidden');
+      console.log('='.repeat(80));
+
+      const userId = req.user?.userId || req.query.userId;
+
+      console.log('Request from user:', userId);
+
+      // VALIDASI userId
+      if (!userId) {
+        console.error('No userId');
+        return res.status(401).json({
+          success: false,
+          message: 'User authentication required'
+        });
+      }
+
+      // Call use case
+      console.log('\nCalling ManageHiddenServicesUseCase.getHiddenServices()...');
+      const result = await this.manageHiddenServicesUseCase.getHiddenServices(userId);
+
+      if (!result.success) {
+        return res.status(400).json({
+          success: false,
+          message: result.error
+        });
+      }
+
+      console.log('\nSuccess! Found', result.data.length, 'hidden services');
+      console.log('='.repeat(80) + '\n');
+
+      return res.status(200).json({
+        success: true,
+        message: 'Hidden services retrieved successfully',
+        data: result.data,
+        metadata: result.metadata
+      });
+
+    } catch (error) {
+      console.error('\n' + '='.repeat(80));
+      console.error('CONTROLLER ERROR');
+      console.error('Error:', error.message);
+      console.error('='.repeat(80) + '\n');
+
+      return res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'An error occurred'
+      });
+    }
+  }
+
+  /**
+   * GET /api/recommendations/admin/stats
+   * Get recommendation statistics (ADMIN ONLY)
+   */
+  async getAdminDashboard(req, res) {
+    try {
+      console.log('\n' + '='.repeat(80));
+      console.log('API: GET /api/recommendations/admin/dashboard');
+      console.log('='.repeat(80));
+
+      // Get timeRange from query params (default: weekly)
+      const timeRange = req.query.timeRange || 'weekly';
+
+      console.log('Time Range:', timeRange);
+
+      // Validate timeRange
+      const validTimeRanges = ['daily', 'weekly', 'monthly'];
+      if (!validTimeRanges.includes(timeRange)) {
+        console.error('Invalid time range');
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid time range',
+          error: `Time range must be one of: ${validTimeRanges.join(', ')}`
+        });
+      }
+
+      // Call use case
+      console.log('\nCalling GetAdminDashboardUseCase.execute()...');
+      const result = await this.getAdminDashboardUseCase.execute(timeRange);
+
+      if (!result.success) {
+        console.error('Use case returned error:', result.error);
+        return res.status(400).json({
+          success: false,
+          message: 'Failed to get dashboard data',
+          error: result.error
+        });
+      }
+
+      console.log('\nSuccess!');
+      console.log('='.repeat(80) + '\n');
+
+      return res.status(200).json({
+        success: true,
+        message: 'Dashboard data retrieved successfully',
+        data: result.data,
+        metadata: result.metadata
+      });
+
+    } catch (error) {
+      console.error('\n' + '='.repeat(80));
+      console.error('CONTROLLER ERROR');
+      console.error('Error:', error.message);
+      console.error('Stack:', error.stack);
+      console.error('='.repeat(80) + '\n');
+
+      return res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'An error occurred'
       });
     }
   }
@@ -365,14 +638,14 @@ class RecommendationController {
       const timeRange = req.query.timeRange || '7d';
       const startDate = this._getStartDate(timeRange);
 
-      // 1. CTR (Click-Through Rate)
+      // 1. CTR (Click-Through Rate) - FIXED
       const ctrStats = await this.sequelize.query(`
         SELECT 
           COUNT(CASE WHEN tipe_aktivitas = 'lihat_layanan' THEN 1 END) as views,
           COUNT(CASE WHEN tipe_aktivitas IN ('tambah_favorit', 'buat_pesanan') THEN 1 END) as conversions,
           ROUND(
-            (COUNT(CASE WHEN tipe_aktivitas IN ('tambah_favorit', 'buat_pesanan') THEN 1 END)::numeric / 
-            NULLIF(COUNT(CASE WHEN tipe_aktivitas = 'lihat_layanan' THEN 1 END), 0) * 100), 2
+            (COUNT(CASE WHEN tipe_aktivitas IN ('tambah_favorit', 'buat_pesanan') THEN 1 END) * 100.0 / 
+            NULLIF(COUNT(CASE WHEN tipe_aktivitas = 'lihat_layanan' THEN 1 END), 0)), 2
           ) as ctr_percentage
         FROM aktivitas_user
         WHERE created_at >= :startDate
@@ -385,16 +658,17 @@ class RecommendationController {
       const topServices = await this.sequelize.query(`
         SELECT 
           l.id,
-          l.nama_layanan,
-          l.kategori,
+          l.judul as nama_layanan,
+          k.nama as kategori,
           COUNT(DISTINCT au.user_id) as unique_views,
           COUNT(*) as total_interactions,
           COUNT(CASE WHEN au.tipe_aktivitas = 'tambah_favorit' THEN 1 END) as favorites,
           COUNT(CASE WHEN au.tipe_aktivitas = 'buat_pesanan' THEN 1 END) as orders
         FROM layanan l
+        LEFT JOIN kategori k ON l.kategori_id = k.id
         LEFT JOIN aktivitas_user au ON l.id = au.layanan_id
         WHERE au.created_at >= :startDate
-        GROUP BY l.id, l.nama_layanan, l.kategori
+        GROUP BY l.id, l.judul, k.nama
         ORDER BY total_interactions DESC
         LIMIT 10
       `, {
@@ -402,12 +676,21 @@ class RecommendationController {
         type: this.sequelize.QueryTypes.SELECT
       });
 
-      // 3. User Engagement Stats
-      const engagementStats = await this.sequelize.query(`
+      // 3. User Engagement Stats - FIXED: Separate queries
+      const engagementCount = await this.sequelize.query(`
         SELECT 
           COUNT(DISTINCT user_id) as active_users,
-          COUNT(*) as total_interactions,
-          ROUND(AVG(interactions_per_user), 2) as avg_interactions_per_user
+          COUNT(*) as total_interactions
+        FROM aktivitas_user
+        WHERE created_at >= :startDate
+      `, {
+        replacements: { startDate },
+        type: this.sequelize.QueryTypes.SELECT
+      });
+
+      const avgInteractions = await this.sequelize.query(`
+        SELECT 
+          AVG(interactions_per_user) as avg_interactions_per_user
         FROM (
           SELECT 
             user_id,
@@ -415,24 +698,42 @@ class RecommendationController {
           FROM aktivitas_user
           WHERE created_at >= :startDate
           GROUP BY user_id
-        ) subquery
+        ) as subquery
       `, {
         replacements: { startDate },
         type: this.sequelize.QueryTypes.SELECT
       });
 
-      // 4. Conversion Rate by Activity Type
+      const engagementStats = {
+        active_users: engagementCount[0]?.active_users || 0,
+        total_interactions: engagementCount[0]?.total_interactions || 0,
+        avg_interactions_per_user: parseFloat(avgInteractions[0]?.avg_interactions_per_user || 0).toFixed(2)
+      };
+
+      // 4. Conversion Rate by Activity Type - FIXED: MySQL compatible
+      const totalCount = await this.sequelize.query(`
+        SELECT COUNT(*) as total
+        FROM aktivitas_user
+        WHERE created_at >= :startDate
+      `, {
+        replacements: { startDate },
+        type: this.sequelize.QueryTypes.SELECT
+      });
+
       const conversionByType = await this.sequelize.query(`
         SELECT 
           tipe_aktivitas,
           COUNT(*) as count,
-          ROUND((COUNT(*)::numeric / SUM(COUNT(*)) OVER ()) * 100, 2) as percentage
+          ROUND((COUNT(*) * 100.0 / :total), 2) as percentage
         FROM aktivitas_user
         WHERE created_at >= :startDate
         GROUP BY tipe_aktivitas
         ORDER BY count DESC
       `, {
-        replacements: { startDate },
+        replacements: {
+          startDate,
+          total: totalCount[0]?.total || 1
+        },
         type: this.sequelize.QueryTypes.SELECT
       });
 
@@ -445,10 +746,10 @@ class RecommendationController {
             start: startDate,
             end: new Date()
           },
-          ctr: ctrStats[0],
-          topServices,
-          engagement: engagementStats[0],
-          conversionByType
+          ctr: ctrStats[0] || { views: 0, conversions: 0, ctr_percentage: 0 },
+          topServices: topServices || [],
+          engagement: engagementStats,
+          conversionByType: conversionByType || []
         }
       });
     } catch (error) {
@@ -479,8 +780,8 @@ class RecommendationController {
           COUNT(CASE WHEN tipe_aktivitas = 'tambah_favorit' THEN 1 END) as favorites,
           COUNT(CASE WHEN tipe_aktivitas = 'buat_pesanan' THEN 1 END) as orders,
           ROUND(
-            (COUNT(CASE WHEN tipe_aktivitas = 'buat_pesanan' THEN 1 END)::numeric / 
-            NULLIF(COUNT(CASE WHEN tipe_aktivitas = 'lihat_layanan' THEN 1 END), 0) * 100), 2
+            (COUNT(CASE WHEN tipe_aktivitas = 'buat_pesanan' THEN 1 END) * 100.0 / 
+            NULLIF(COUNT(CASE WHEN tipe_aktivitas = 'lihat_layanan' THEN 1 END), 0)), 2
           ) as conversion_rate
         FROM aktivitas_user
         WHERE created_at >= :startDate
@@ -496,7 +797,7 @@ class RecommendationController {
         message: 'Performance metrics retrieved successfully',
         data: {
           timeRange,
-          metrics: performance
+          metrics: performance || []
         }
       });
     } catch (error) {

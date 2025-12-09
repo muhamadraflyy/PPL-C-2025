@@ -288,7 +288,7 @@ app.use("/api/chat", chatRoutes(chatController));
 const adminKategoriRoutes = require("./modules/admin/presentation/routes/adminKategoriRoutes");
 app.use("/api/admin", adminKategoriRoutes);
 
-// ===== Modul 8: Recommendation & Personalization (Dalam Pengembangan) =====
+// ===== Modul 8: Recommendation & Personalization =====
 const RecommendationController = require("./modules/recommendation/presentation/controllers/RecommendationController");
 const FavoriteController = require("./modules/recommendation/presentation/controllers/FavoriteController");
 const recommendationController = new RecommendationController(sequelize);
@@ -298,6 +298,7 @@ app.use(
   "/api/recommendations",
   recommendationRoutes(recommendationController, favoriteController)
 );
+
 
 // ==================== WEBHOOK PROXY ====================
 // GitHub Webhook Proxy to WhatsApp Notifier
