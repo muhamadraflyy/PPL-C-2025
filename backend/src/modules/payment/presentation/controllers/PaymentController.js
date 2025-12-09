@@ -13,6 +13,7 @@ const RetryPayment = require('../../application/use-cases/RetryPayment');
 const PaymentModel = require('../../infrastructure/models/PaymentModel');
 const EscrowModel = require('../../infrastructure/models/EscrowModel');
 const WithdrawalModel = require('../../infrastructure/models/WithdrawalModel');
+const OrderModel = require('../../../order/infrastructure/models/OrderModel');
 const MockPaymentGatewayService = require('../../infrastructure/services/MockPaymentGatewayService');
 const InvoiceService = require('../../infrastructure/services/InvoiceService');
 const EmailService = require('../../infrastructure/services/EmailService');
@@ -547,6 +548,11 @@ class PaymentController {
     try {
       const {
         escrow_id,
+        jumlah,
+        bank_name,
+        bank_account_number,
+        bank_account_name,
+        catatan,
         metode_pembayaran_id,
         metode_pencairan,
         nomor_rekening,
@@ -554,13 +560,57 @@ class PaymentController {
       } = req.body;
       const freelancer_id = req.user?.id || req.body.freelancer_id;
 
+      // If escrow_id not provided, find an available escrow for the freelancer
+      let selectedEscrowId = escrow_id;
+
+      if (!selectedEscrowId) {
+        // Setup associations if not already defined
+        if (!EscrowModel.associations.pembayaran) {
+          EscrowModel.belongsTo(PaymentModel, { foreignKey: 'pembayaran_id', as: 'pembayaran' });
+        }
+        if (!PaymentModel.associations.pesanan) {
+          PaymentModel.belongsTo(OrderModel, { foreignKey: 'pesanan_id', as: 'pesanan' });
+        }
+
+        // Find available escrow with released status
+        const availableEscrow = await EscrowModel.findOne({
+          where: {
+            status: 'released'
+          },
+          include: [{
+            model: PaymentModel,
+            as: 'pembayaran',
+            required: true,
+            include: [{
+              model: OrderModel,
+              as: 'pesanan',
+              required: true,
+              where: {
+                freelancer_id: freelancer_id
+              }
+            }]
+          }],
+          order: [['created_at', 'ASC']] // FIFO - first released, first withdrawn
+        });
+
+        if (!availableEscrow) {
+          return res.status(400).json({
+            success: false,
+            message: 'Tidak ada saldo yang tersedia untuk ditarik'
+          });
+        }
+
+        selectedEscrowId = availableEscrow.id;
+      }
+
       const result = await this.withdrawFundsUseCase.execute({
-        escrow_id,
+        escrow_id: selectedEscrowId,
         freelancer_id,
-        metode_pembayaran_id,
-        metode_pencairan,
-        nomor_rekening,
-        nama_pemilik
+        metode_pembayaran_id: metode_pembayaran_id || null,
+        metode_pencairan: metode_pencairan || 'transfer_bank', // Must be 'transfer_bank' or 'e_wallet'
+        bank_name: bank_name,
+        nomor_rekening: nomor_rekening || bank_account_number,
+        nama_pemilik: nama_pemilik || bank_account_name
       });
 
       res.status(201).json({
@@ -585,7 +635,7 @@ class PaymentController {
     try {
       const { id } = req.params;
 
-      const withdrawal = await WithdrawalModel.findByPk(id);
+      const withdrawal = await WithdrawalModel.findByPk(id, { raw: true });
 
       if (!withdrawal) {
         return res.status(404).json({
@@ -594,9 +644,20 @@ class PaymentController {
         });
       }
 
+      // Map field names to match frontend expectations
+      const mappedWithdrawal = {
+        ...withdrawal,
+        bank_account_number: withdrawal.nomor_rekening,
+        bank_account_name: withdrawal.nama_pemilik,
+        // Sequelize with raw:true returns camelCase dates even with underscored:true
+        created_at: withdrawal.createdAt ? new Date(withdrawal.createdAt).toISOString() : null,
+        updated_at: withdrawal.updatedAt ? new Date(withdrawal.updatedAt).toISOString() : null,
+        dicairkan_pada: withdrawal.dicairkan_pada ? new Date(withdrawal.dicairkan_pada).toISOString() : null
+      };
+
       res.status(200).json({
         success: true,
-        data: withdrawal
+        data: mappedWithdrawal
       });
     } catch (error) {
       console.error('[PAYMENT CONTROLLER] Get withdrawal error:', error);
@@ -1858,12 +1919,24 @@ class PaymentController {
         }
       );
 
-      // Get pending escrow
-      const [escrowData] = await PaymentModel.sequelize.query(
+      // Get pending escrow (held)
+      const [escrowHeldData] = await PaymentModel.sequelize.query(
         `SELECT SUM(e.jumlah_ditahan) as amount
         FROM escrow e
         INNER JOIN pesanan o ON e.pesanan_id = o.id
-        WHERE o.freelancer_id = ? AND e.status = 'ditahan'`,
+        WHERE o.freelancer_id = ? AND e.status = 'held'`,
+        {
+          replacements: [userId],
+          type: Sequelize.QueryTypes.SELECT
+        }
+      );
+
+      // Get released escrow (available to withdraw)
+      const [escrowReleasedData] = await PaymentModel.sequelize.query(
+        `SELECT SUM(e.jumlah_ditahan) as amount
+        FROM escrow e
+        INNER JOIN pesanan o ON e.pesanan_id = o.id
+        WHERE o.freelancer_id = ? AND e.status = 'released'`,
         {
           replacements: [userId],
           type: Sequelize.QueryTypes.SELECT
@@ -1879,9 +1952,14 @@ class PaymentController {
 
       const totalEarned = parseFloat(earnedData.total || 0);
       const platformFees = parseFloat(earnedData.fees || 0);
-      const pendingEscrow = parseFloat(escrowData.amount || 0);
-      const withdrawn = parseFloat(withdrawnData[0]?.total || 0);
-      const available = Math.max(0, totalEarned - platformFees - pendingEscrow - withdrawn);
+      const pendingEscrow = parseFloat(escrowHeldData.amount || 0);
+      const releasedEscrow = parseFloat(escrowReleasedData.amount || 0);
+      const withdrawn = parseFloat(withdrawnData?.total || 0); // FIX: withdrawnData is already first element
+
+      // Available balance = released escrow only
+      // When withdrawal is completed, escrow moves from 'released' to 'completed'
+      // So withdrawn amount is already NOT in releasedEscrow
+      const available = releasedEscrow;
 
       // Disable caching for analytics
       res.set({
@@ -2065,7 +2143,7 @@ class PaymentController {
    */
   async requestRefundAlt(req, res) {
     try {
-      const { payment_id, alasan, jumlah_refund } = req.body;
+      const { payment_id, alasan, reason, jumlah_refund, amount } = req.body;
       const user_id = req.user?.userId || req.user?.id;
 
       if (!payment_id) {
@@ -2075,11 +2153,15 @@ class PaymentController {
         });
       }
 
+      // Support both 'alasan' and 'reason', 'jumlah_refund' and 'amount'
+      const refundReason = alasan || reason;
+      const refundAmount = jumlah_refund || amount;
+
       const result = await this.requestRefundUseCase.execute({
         pembayaran_id: payment_id,
         user_id,
-        alasan,
-        jumlah_refund
+        alasan: refundReason,
+        jumlah_refund: refundAmount
       });
 
       res.status(201).json({
@@ -2104,28 +2186,55 @@ class PaymentController {
   async getWithdrawalHistory(req, res) {
     try {
       const user_id = req.user?.userId || req.user?.id;
-      const { status, limit = 50, offset = 0 } = req.query;
+      const { status, limit = 50, offset = 0, page } = req.query;
 
-      const where = { user_id };
+      const where = { freelancer_id: user_id };
       if (status) {
         where.status = status;
       }
 
       const WithdrawalModel = require('../../infrastructure/models/WithdrawalModel');
+
+      // Calculate offset from page if provided
+      const actualLimit = parseInt(limit);
+      const actualOffset = page ? (parseInt(page) - 1) * actualLimit : parseInt(offset);
+
       const withdrawals = await WithdrawalModel.findAll({
         where,
-        limit: parseInt(limit),
-        offset: parseInt(offset),
-        order: [['created_at', 'DESC']]
+        limit: actualLimit,
+        offset: actualOffset,
+        order: [['created_at', 'DESC']],
+        raw: true
+      });
+
+      // Get total count for pagination
+      const totalCount = await WithdrawalModel.count({ where });
+
+      // Map field names to match frontend expectations
+      const mappedWithdrawals = withdrawals.map(w => {
+        return {
+          ...w,
+          bank_account_number: w.nomor_rekening,
+          bank_account_name: w.nama_pemilik,
+          // Sequelize with raw:true returns camelCase dates even with underscored:true
+          created_at: w.createdAt ? new Date(w.createdAt).toISOString() : null,
+          updated_at: w.updatedAt ? new Date(w.updatedAt).toISOString() : null,
+          dicairkan_pada: w.dicairkan_pada ? new Date(w.dicairkan_pada).toISOString() : null
+        };
       });
 
       res.status(200).json({
         success: true,
-        data: withdrawals,
+        data: {
+          withdrawals: mappedWithdrawals,
+          totalPages: Math.ceil(totalCount / actualLimit),
+          totalItems: totalCount,
+          currentPage: page ? parseInt(page) : Math.floor(actualOffset / actualLimit) + 1
+        },
         pagination: {
-          limit: parseInt(limit),
-          offset: parseInt(offset),
-          total: withdrawals.length
+          limit: actualLimit,
+          offset: actualOffset,
+          total: totalCount
         }
       });
 

@@ -11,6 +11,7 @@ import LoadingOverlay from "../../components/Fragments/Common/LoadingOverlay";
 import { useToast } from "../../components/Fragments/Common/ToastProvider";
 import Icon from "../../components/Elements/Icons/Icon";
 import { authService } from "../../services/authService";
+import PasswordStrengthIndicator from "../../components/Fragments/Auth/PasswordStrengthIndicator";
 
 export default function RegisterClientPage() {
   const [form, setForm] = useState({ firstName: "", lastName: "", email: "", password: "", ketentuan_agree: false });
@@ -112,6 +113,8 @@ export default function RegisterClientPage() {
           <FormGroup label="Nama Terakhir" name="lastName" value={form.lastName} onChange={onChange} error={errors.lastName} />
           <FormGroup label="Email" name="email" type="email" value={form.email} onChange={onChange} error={errors.email} />
           <FormGroup label="Kata Sandi" name="password" type="password" value={form.password} onChange={onChange} error={errors.password} />
+          <PasswordStrengthIndicator password={form.password} />
+          
           <div className="text-sm text-[#112D4E] mb-4">
             <input type="checkbox" name="ketentuan_agree" checked={form.ketentuan_agree} onChange={onChange} className="mr-2" required /> Dengan membuat akun, saya setuju dengan{" "}
             <a href="#" className="underline">

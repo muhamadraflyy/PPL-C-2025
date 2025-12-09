@@ -160,6 +160,19 @@ class GetOrderById {
         ? buildTimelineFromHistory(statusHistory, order)
         : buildOrderTimeline(order);
 
+    // Ambil catatan terbaru dari freelancer yang dikirim saat complete order
+    let catatanFreelancer = null;
+    if (Array.isArray(statusHistory) && statusHistory.length > 0) {
+      // Cari dari belakang supaya dapat catatan terbaru
+      for (let i = statusHistory.length - 1; i >= 0; i -= 1) {
+        const h = statusHistory[i];
+        if (h && h.changed_by_role === 'freelancer' && h.metadata && h.metadata.note_for_client) {
+          catatanFreelancer = h.metadata.note_for_client;
+          break;
+        }
+      }
+    }
+
     return {
       success: true,
       data: {
@@ -167,6 +180,7 @@ class GetOrderById {
         viewer,
         timeline,
         status_history: statusHistory,
+        catatan_freelancer: catatanFreelancer,
       },
     };
   }

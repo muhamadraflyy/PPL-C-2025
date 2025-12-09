@@ -1,7 +1,7 @@
 // frontend/src/components/Fragments/Admin/CategoryTable.jsx
 
 import React from 'react';
-import Badge from '../../Elements/Common/Badge';
+import Badge from '../../Elements/Common/Badge'; // Menggunakan jalur impor Badge dari KODE 1
 import { Search, Edit2, Trash2, Eye, ToggleLeft, ToggleRight } from 'lucide-react';
 
 /**
@@ -37,22 +37,17 @@ export function CategoryTable({
   }
 
   return (
-    // 🚨 PERBAIKAN: Mengaktifkan kembali horizontal scrolling
     <div className="overflow-x-auto"> 
-      {/* Menggunakan min-w-full agar tabel memanjang jika kontennya lebar */}
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50 border-b border-[#D8E3F3]">
           <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-10">
-              Icon
-            </th>
+            {/* Kolom Nama Kategori - Tanpa Ikon (Seperti KODE 2) */}
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">
               Nama Kategori
             </th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">
               Slug
             </th>
-            {/* Kolom Deskripsi dengan min-w yang lebih besar */}
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[250px]">
               Deskripsi
             </th>
@@ -73,33 +68,20 @@ export function CategoryTable({
             
             return (
               <tr key={category.id} className="hover:bg-gray-50 transition-colors">
-                <td className="px-6 py-4">
-                  <div className="w-10 h-10">
-                    {category.icon ? (
-                      <img 
-                        src={category.icon} 
-                        alt={category.nama} 
-                        className="w-10 h-10 object-cover rounded-lg border border-gray-200"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 bg-gradient-to-br from-[#4782BE] to-[#9DBBDD] rounded-lg flex items-center justify-center text-white font-bold text-lg">
-                        {category.nama?.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                  </div>
-                </td>
+                {/* Kolom Nama Kategori (Mengikuti struktur KODE 2) */}
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm font-medium text-gray-900">
                     {category.nama || 'N/A'}
                   </div>
                 </td>
+                {/* Kolom Slug */}
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm text-gray-600">
                     {category.slug || '-'}
                   </div>
                 </td>
+                {/* Kolom Deskripsi */}
                 <td className="px-6 py-4">
-                  {/* Memastikan konten tetap truncate di dalam sel */}
                   <div className="text-sm text-gray-600 max-w-xs truncate">
                     {category.deskripsi ? (
                       category.deskripsi.length > 100 
@@ -108,14 +90,17 @@ export function CategoryTable({
                     ) : '-'}
                   </div>
                 </td>
+                {/* Kolom Status (Menggunakan Badge dari KODE 1) */}
                 <td className="px-6 py-4 whitespace-nowrap">
                   <Badge variant={isActive ? 'success' : 'error'}>
                     {isActive ? 'Aktif' : 'Nonaktif'}
                   </Badge>
                 </td>
+                {/* Kolom Dibuat */}
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                   {formatDate(category.created_at)}
                 </td>
+                {/* Kolom Aksi */}
                 <td className="px-6 py-4 whitespace-nowrap text-center">
                   <div className="flex items-center justify-center gap-2">
                     <button

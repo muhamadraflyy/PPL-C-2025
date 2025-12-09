@@ -24,11 +24,20 @@ class RequestRefund {
         throw new Error('Payment belum dibayar atau sudah direfund');
       }
 
+      // Get escrow record first (required for refund)
+      const escrow = await EscrowModel.findOne({
+        where: { pembayaran_id }
+      });
+
+      if (!escrow) {
+        throw new Error('Escrow tidak ditemukan untuk payment ini');
+      }
+
       // Check if already refunded
       const existingRefund = await RefundModel.findOne({
         where: {
           pembayaran_id,
-          status: ['pending', 'disetujui']
+          status: ['pending', 'processing']
         }
       });
 
@@ -48,23 +57,15 @@ class RequestRefund {
       const refund = await RefundModel.create({
         id: uuidv4(),
         pembayaran_id,
+        escrow_id: escrow.id,
         user_id,
         alasan,
         jumlah: refundAmount,
-        status: 'pending',
-        diajukan_pada: new Date(),
-        disetujui_pada: null,
-        ditolak_pada: null,
-        catatan_admin: null
-      });
-
-      // If there's escrow, update status
-      const escrow = await EscrowModel.findOne({
-        where: { pembayaran_id }
+        status: 'pending'
       });
 
       // Escrow status: 'held' = ditahan, 'released' = dirilis, 'refunded' = dikembalikan
-      if (escrow && escrow.status === 'held') {
+      if (escrow.status === 'held') {
         await escrow.update({
           status: 'disputed'
         });

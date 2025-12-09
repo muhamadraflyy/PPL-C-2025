@@ -82,10 +82,13 @@ export const authService = {
 
       return response.data;
     } catch (error) {
-      // Handle error response
+      // Handle error response - check message for specific errors since backend doesn't send code
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || "Login failed";
+      const errorCode = error.response?.data?.code || (errorMessage === 'Account inactive' ? 'ACCOUNT_INACTIVE' : undefined);
       return {
         success: false,
-        message: error.response?.data?.message || "Login failed",
+        message: errorMessage,
+        code: errorCode,
         errors: error.response?.data?.errors || [],
       };
     }
@@ -248,9 +251,12 @@ export const authService = {
 
       return response.data;
     } catch (error) {
+      // Handle error response - check message for specific errors since backend doesn't send code
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || "Google login failed";
       return {
         success: false,
-        message: error.response?.data?.message || "Google login failed",
+        message: errorMessage,
+        code: errorMessage === 'Account inactive' ? 'ACCOUNT_INACTIVE' : error.response?.data?.code,
         errors: error.response?.data?.errors || [],
       };
     }

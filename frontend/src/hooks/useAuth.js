@@ -19,7 +19,9 @@ export function useAuth() {
       } else {
         setError(result.message || "Login failed");
         setLoading(false);
-        throw new Error(result.message || "Login failed");
+        const error = new Error(result.message || "Login failed");
+        error.code = result.code;
+        throw error;
       }
     } catch (e) {
       setError(e.response?.data?.message || e.message || "Login failed");

@@ -9,6 +9,8 @@ import Footer from '../../components/Fragments/Common/Footer'
 import { orderService } from '../../services/orderService'
 import { authService } from '../../services/authService'
 import paymentService from '../../services/paymentService'
+import { buildMediaUrl } from '../../utils/mediaUrl'
+import { Download } from 'lucide-react'
 
 // Normalisasi berbagai bentuk payload riwayat status/timeline yang dikirim BE
 const normalizeStatusHistory = (raw = []) => {
@@ -79,6 +81,53 @@ const OrderDetailPage = () => {
     setInfoModal({ open: false, title: '', message: '' })
   }
 
+  const formatFileSize = (size) => {
+    if (!size || Number.isNaN(Number(size))) return ''
+
+    const bytes = Number(size)
+    if (bytes < 1024) return `${bytes} B`
+
+    const kb = bytes / 1024
+    if (kb < 1024) return `${kb.toFixed(1)} KB`
+
+    const mb = kb / 1024
+    return `${mb.toFixed(2)} MB`
+  }
+
+  const normalizeAttachments = (attachments = []) => {
+    if (!Array.isArray(attachments)) return []
+
+    return attachments
+      .filter(Boolean)
+      .map((item, idx) => {
+        if (typeof item === 'string') {
+          const filename = item.split('/').pop() || `lampiran-${idx + 1}`
+          return {
+            name: filename,
+            url: item,
+            size: ''
+          }
+        }
+
+        const name =
+          item.name ||
+          item.filename ||
+          item.originalname ||
+          (item.url ? item.url.split('/').pop() : '') ||
+          `lampiran-${idx + 1}`
+
+        // Hindari nilai URL dummy seperti '#' yang akan menghasilkan /public/#
+        const rawUrl = item.url || item.path || ''
+        const sanitizedUrl = rawUrl === '#' ? '' : rawUrl
+
+        return {
+          name,
+          url: sanitizedUrl,
+          size: item.size || item.filesize || item.fileSize || ''
+        }
+      })
+  }
+
   const loadOrder = async () => {
     setLoading(true)
     setError('')
@@ -117,8 +166,14 @@ const OrderDetailPage = () => {
           waktu_pengerjaan: o.waktu_pengerjaan ?? o.duration_days ?? 0,
           deskripsi: o.deskripsi ?? o.description ?? '',
           catatan_client: o.catatan_client ?? o.client_note ?? '',
-          lampiran_client: o.lampiran_client ?? o.client_attachments ?? [],
-          lampiran_freelancer: o.lampiran_freelancer ?? o.freelancer_attachments ?? [],
+          catatan_freelancer:
+            o.catatan_freelancer ??
+            o.freelancer_note ??
+            o.note_for_client ??
+            o.metadata?.note_for_client ??
+            '',
+          lampiran_client: normalizeAttachments(o.lampiran_client ?? o.client_attachments ?? []),
+          lampiran_freelancer: normalizeAttachments(o.lampiran_freelancer ?? o.freelancer_attachments ?? []),
           tenggat_waktu: o.tenggat_waktu ?? o.deadline ?? o.due_date ?? null,
           // Client normalization
           client:
@@ -147,7 +202,9 @@ const OrderDetailPage = () => {
           freelancer_id: o.freelancer_id ?? o.freelancerId ?? o.freelancer?.id,
           statusHistory: normalizedHistory,
           payment_id: o.payment_id ?? o.paymentId ?? o.pembayaran_id ?? null,
-          escrow_id: o.escrow_id ?? o.escrowId ?? null
+          escrow_id: o.escrow_id ?? o.escrowId ?? null,
+          refund_status: o.refund_status ?? o.refundStatus ?? null,
+          refund_reason: o.refund_reason ?? o.refundReason ?? null
         }
       : null
 
@@ -221,14 +278,12 @@ const OrderDetailPage = () => {
 
     setActionLoading(true)
     try {
-      // data.files adalah array of files, convert ke format yang dibutuhkan backend
-      const lampiranFreelancer = data.files.map(file => ({
-        name: file.name,
-        url: file.url || '#', // Nanti disesuaikan kalau ada upload service
-        size: file.size
-      }))
-
-      const result = await orderService.completeOrder(id, lampiranFreelancer)
+      // Kirim file asli ke backend, backend yang akan membentuk URL publik
+      const result = await orderService.completeOrder(
+        id,
+        data.files,
+        data.note,
+      )
 
       if (result.success) {
         openInfoModal('Berhasil', 'Pesanan berhasil diselesaikan.')
@@ -445,6 +500,11 @@ const OrderDetailPage = () => {
 
   const handleDownloadClientAttachment = async (file) => {
     try {
+      if (!file?.url) {
+        openInfoModal('File Tidak Tersedia', 'File lampiran tidak memiliki URL valid untuk diunduh.')
+        return
+      }
+
       const urlToFetch = buildMediaUrl(file.url || '')
       const response = await fetch(urlToFetch)
       if (!response.ok) {
@@ -534,7 +594,7 @@ const OrderDetailPage = () => {
                 <div className="mb-4">
                   <h3 className="text-sm font-medium text-gray-700 mb-2">Catatan Client</h3>
                   <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-gray-900">{order.catatan_client}</p>
+                    <p className="text-gray-900 whitespace-pre-line">{order.catatan_client}</p>
                   </div>
                 </div>
               )}
@@ -546,7 +606,11 @@ const OrderDetailPage = () => {
                     {order.lampiran_client.map((file, idx) => (
                       <a
                         key={idx}
-                        href={file.url}
+                        href={buildMediaUrl(file.url)}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          handleDownloadClientAttachment(file)
+                        }}
                         className="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                       >
                         <svg className="w-5 h-5 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -554,8 +618,11 @@ const OrderDetailPage = () => {
                         </svg>
                         <div className="flex-1">
                           <span className="text-gray-900 font-medium">{file.name}</span>
-                          <span className="text-gray-500 text-sm ml-2">({file.size})</span>
+                          {file.size ? (
+                            <span className="text-gray-500 text-sm ml-2">({formatFileSize(file.size)})</span>
+                          ) : null}
                         </div>
+                        <Download className="w-5 h-5 text-gray-700 ml-3 flex-shrink-0" strokeWidth={2.25} />
                       </a>
                     ))}
                   </div>
@@ -569,7 +636,11 @@ const OrderDetailPage = () => {
                     {order.lampiran_freelancer.map((file, idx) => (
                       <a
                         key={idx}
-                        href={file.url}
+                        href={file.url ? buildMediaUrl(file.url) : '#'}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          handleDownloadClientAttachment(file)
+                        }}
                         className="flex items-center p-3 bg-green-50 rounded-lg hover:bg-green-100 transition-colors border border-green-200"
                       >
                         <svg className="w-5 h-5 text-green-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -577,10 +648,22 @@ const OrderDetailPage = () => {
                         </svg>
                         <div className="flex-1">
                           <span className="text-gray-900 font-medium">{file.name}</span>
-                          <span className="text-gray-500 text-sm ml-2">({file.size})</span>
+                          {file.size ? (
+                            <span className="text-gray-500 text-sm ml-2">({formatFileSize(file.size)})</span>
+                          ) : null}
                         </div>
+                        <Download className="w-5 h-5 text-green-700 ml-3 flex-shrink-0" strokeWidth={2.25} />
                       </a>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {order.catatan_freelancer && (
+                <div className="mb-4">
+                  <h3 className="text-sm font-medium text-gray-700 mb-2">Catatan Freelancer</h3>
+                  <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                    <p className="text-gray-900 whitespace-pre-line">{order.catatan_freelancer}</p>
                   </div>
                 </div>
               )}
@@ -653,6 +736,7 @@ const OrderDetailPage = () => {
                 onReject={handleReject}
                 onComplete={handleComplete}
                 loading={actionLoading}
+                showInfo={(title, message) => openInfoModal(title, message)}
               />
             )}
 
@@ -693,18 +777,38 @@ const OrderDetailPage = () => {
             {isClient && ['dibayar', 'dikerjakan', 'dispute'].includes(order.status) && (
               <div className="bg-white rounded-lg border border-gray-200 shadow p-6">
                 <h3 className="font-semibold text-lg mb-2">Refund</h3>
-                <p className="text-sm text-gray-600 mb-4">
-                  Ada masalah dengan pesanan ini?
-                </p>
-                <button
-                  onClick={() => {
-                    setRefundAmount(order.total_bayar)
-                    setShowRefundModal(true)
-                  }}
-                  className="w-full px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
-                >
-                  Request Refund
-                </button>
+                {order.refund_status === 'pending' || order.refund_status === 'processing' ? (
+                  <div>
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-3">
+                      <p className="text-sm font-medium text-yellow-800 mb-1">
+                        🕐 Refund Sedang Diproses
+                      </p>
+                      <p className="text-xs text-yellow-700">
+                        Permintaan refund Anda sedang dievaluasi oleh tim admin dan akan disampaikan ke freelancer. Kami akan memberitahu Anda segera setelah ada keputusan.
+                      </p>
+                    </div>
+                    {order.refund_reason && (
+                      <p className="text-xs text-gray-600">
+                        <span className="font-medium">Alasan:</span> {order.refund_reason}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Ada masalah dengan pesanan ini?
+                    </p>
+                    <button
+                      onClick={() => {
+                        setRefundAmount(order.total_bayar)
+                        setShowRefundModal(true)
+                      }}
+                      className="w-full px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
+                    >
+                      Request Refund
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 

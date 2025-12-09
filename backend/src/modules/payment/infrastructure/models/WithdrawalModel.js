@@ -54,6 +54,11 @@ const WithdrawalModel = sequelize.define('pencairan_dana', {
     type: DataTypes.ENUM('transfer_bank', 'e_wallet'),
     allowNull: false
   },
+  bank_name: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+    comment: 'Nama bank untuk transfer (BCA, BRI, Mandiri, dll)'
+  },
   nomor_rekening: {
     type: DataTypes.STRING(50),
     allowNull: true
