@@ -635,7 +635,7 @@ class PaymentController {
     try {
       const { id } = req.params;
 
-      const withdrawal = await WithdrawalModel.findByPk(id);
+      const withdrawal = await WithdrawalModel.findByPk(id, { raw: true });
 
       if (!withdrawal) {
         return res.status(404).json({
@@ -645,11 +645,10 @@ class PaymentController {
       }
 
       // Map field names to match frontend expectations
-      const plain = withdrawal.get({ plain: true });
       const mappedWithdrawal = {
-        ...plain,
-        bank_account_number: plain.nomor_rekening,
-        bank_account_name: plain.nama_pemilik
+        ...withdrawal,
+        bank_account_number: withdrawal.nomor_rekening,
+        bank_account_name: withdrawal.nama_pemilik
       };
 
       res.status(200).json({
@@ -1916,12 +1915,24 @@ class PaymentController {
         }
       );
 
-      // Get pending escrow
-      const [escrowData] = await PaymentModel.sequelize.query(
+      // Get pending escrow (held)
+      const [escrowHeldData] = await PaymentModel.sequelize.query(
         `SELECT SUM(e.jumlah_ditahan) as amount
         FROM escrow e
         INNER JOIN pesanan o ON e.pesanan_id = o.id
-        WHERE o.freelancer_id = ? AND e.status = 'ditahan'`,
+        WHERE o.freelancer_id = ? AND e.status = 'held'`,
+        {
+          replacements: [userId],
+          type: Sequelize.QueryTypes.SELECT
+        }
+      );
+
+      // Get released escrow (available to withdraw)
+      const [escrowReleasedData] = await PaymentModel.sequelize.query(
+        `SELECT SUM(e.jumlah_ditahan) as amount
+        FROM escrow e
+        INNER JOIN pesanan o ON e.pesanan_id = o.id
+        WHERE o.freelancer_id = ? AND e.status = 'released'`,
         {
           replacements: [userId],
           type: Sequelize.QueryTypes.SELECT
@@ -1937,9 +1948,12 @@ class PaymentController {
 
       const totalEarned = parseFloat(earnedData.total || 0);
       const platformFees = parseFloat(earnedData.fees || 0);
-      const pendingEscrow = parseFloat(escrowData.amount || 0);
+      const pendingEscrow = parseFloat(escrowHeldData.amount || 0);
+      const releasedEscrow = parseFloat(escrowReleasedData.amount || 0);
       const withdrawn = parseFloat(withdrawnData[0]?.total || 0);
-      const available = Math.max(0, totalEarned - platformFees - pendingEscrow - withdrawn);
+
+      // Available balance = released escrow - withdrawn
+      const available = Math.max(0, releasedEscrow - withdrawn);
 
       // Disable caching for analytics
       res.set({
@@ -2183,7 +2197,8 @@ class PaymentController {
         where,
         limit: actualLimit,
         offset: actualOffset,
-        order: [['created_at', 'DESC']]
+        order: [['created_at', 'DESC']],
+        raw: true
       });
 
       // Get total count for pagination
@@ -2191,11 +2206,10 @@ class PaymentController {
 
       // Map field names to match frontend expectations
       const mappedWithdrawals = withdrawals.map(w => {
-        const plain = w.get({ plain: true });
         return {
-          ...plain,
-          bank_account_number: plain.nomor_rekening,
-          bank_account_name: plain.nama_pemilik
+          ...w,
+          bank_account_number: w.nomor_rekening,
+          bank_account_name: w.nama_pemilik
         };
       });
 
