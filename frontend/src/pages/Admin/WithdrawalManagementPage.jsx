@@ -16,7 +16,7 @@ export default function WithdrawalManagementPage() {
   const [selectedWithdrawal, setSelectedWithdrawal] = useState(null)
   const [showApproveModal, setShowApproveModal] = useState(false)
   const [showRejectModal, setShowRejectModal] = useState(false)
-  const [buktiTransfer, setBuktiTransfer] = useState('')
+  const [buktiTransferFile, setBuktiTransferFile] = useState(null)
   const [catatan, setCatatan] = useState('')
   const [rejectReason, setRejectReason] = useState('')
 
@@ -48,7 +48,7 @@ export default function WithdrawalManagementPage() {
   const handleApprove = (withdrawal) => {
     setSelectedWithdrawal(withdrawal)
     setShowApproveModal(true)
-    setBuktiTransfer('')
+    setBuktiTransferFile(null)
     setCatatan('')
   }
 
@@ -59,8 +59,8 @@ export default function WithdrawalManagementPage() {
   }
 
   const submitApproval = async () => {
-    if (!buktiTransfer.trim()) {
-      alert('URL Bukti transfer wajib diisi!')
+    if (!buktiTransferFile) {
+      alert('File bukti transfer wajib diupload!')
       return
     }
 
@@ -70,10 +70,12 @@ export default function WithdrawalManagementPage() {
 
     setProcessing(prev => ({ ...prev, [selectedWithdrawal.id]: true }))
 
-    const result = await paymentService.adminApproveWithdrawal(selectedWithdrawal.id, {
-      bukti_transfer: buktiTransfer,
-      catatan: catatan
-    })
+    // Create FormData to send file
+    const formData = new FormData()
+    formData.append('bukti_transfer', buktiTransferFile)
+    formData.append('catatan', catatan)
+
+    const result = await paymentService.adminApproveWithdrawal(selectedWithdrawal.id, formData)
 
     if (result.success) {
       alert('✅ Withdrawal berhasil diapprove!')
@@ -383,17 +385,21 @@ export default function WithdrawalManagementPage() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  URL Bukti Transfer <span className="text-red-500">*</span>
+                  Bukti Transfer <span className="text-red-500">*</span>
                 </label>
                 <input
-                  type="text"
-                  value={buktiTransfer}
-                  onChange={(e) => setBuktiTransfer(e.target.value)}
-                  placeholder="https://example.com/bukti-transfer.jpg"
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={(e) => setBuktiTransferFile(e.target.files[0])}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
                 />
-                <p className="text-xs text-gray-500 mt-1">Upload bukti transfer ke storage dan paste URL-nya di sini</p>
+                {buktiTransferFile && (
+                  <p className="text-xs text-green-600 mt-1">
+                    ✓ File dipilih: {buktiTransferFile.name} ({(buktiTransferFile.size / 1024).toFixed(2)} KB)
+                  </p>
+                )}
+                <p className="text-xs text-gray-500 mt-1">Upload bukti transfer (gambar atau PDF, max 5MB)</p>
               </div>
 
               <div>
@@ -420,7 +426,7 @@ export default function WithdrawalManagementPage() {
               </button>
               <button
                 onClick={submitApproval}
-                disabled={processing[selectedWithdrawal.id] || !buktiTransfer.trim()}
+                disabled={processing[selectedWithdrawal.id] || !buktiTransferFile}
                 className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {processing[selectedWithdrawal.id] ? 'Memproses...' : 'Approve & Transfer'}

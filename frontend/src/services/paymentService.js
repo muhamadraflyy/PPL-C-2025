@@ -386,11 +386,18 @@ export const paymentService = {
   /**
    * Approve withdrawal (Admin)
    * @param {string} withdrawalId - Withdrawal ID
-   * @param {Object} data - { bukti_transfer, catatan }
+   * @param {FormData} data - FormData with bukti_transfer file and catatan
    */
   async adminApproveWithdrawal(withdrawalId, data) {
     try {
-      const response = await api.post(`/payments/admin/withdrawals/${withdrawalId}/approve`, data)
+      // If data is FormData, let axios set Content-Type automatically
+      const config = data instanceof FormData ? {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      } : {}
+
+      const response = await api.post(`/payments/admin/withdrawals/${withdrawalId}/approve`, data, config)
       return response.data
     } catch (error) {
       return {

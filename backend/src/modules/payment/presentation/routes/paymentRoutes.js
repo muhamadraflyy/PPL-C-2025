@@ -7,6 +7,7 @@ const express = require('express');
 const router = express.Router();
 const PaymentController = require('../controllers/PaymentController');
 const authMiddleware = require('../../../../shared/middleware/authMiddleware');
+const uploadBuktiTransfer = require('../middleware/uploadBuktiTransfer');
 
 // Initialize controller
 const paymentController = new PaymentController();
@@ -1140,6 +1141,7 @@ router.get(
 router.post(
   '/admin/withdrawals/:id/approve',
   authMiddleware,
+  uploadBuktiTransfer,
   paymentController.adminApproveWithdrawal.bind(paymentController)
 );
 
