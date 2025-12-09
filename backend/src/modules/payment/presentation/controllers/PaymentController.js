@@ -649,9 +649,9 @@ class PaymentController {
         ...withdrawal,
         bank_account_number: withdrawal.nomor_rekening,
         bank_account_name: withdrawal.nama_pemilik,
-        // Ensure dates are ISO strings for frontend
-        created_at: withdrawal.created_at ? new Date(withdrawal.created_at).toISOString() : null,
-        updated_at: withdrawal.updated_at ? new Date(withdrawal.updated_at).toISOString() : null,
+        // Sequelize with raw:true returns camelCase dates even with underscored:true
+        created_at: withdrawal.createdAt ? new Date(withdrawal.createdAt).toISOString() : null,
+        updated_at: withdrawal.updatedAt ? new Date(withdrawal.updatedAt).toISOString() : null,
         dicairkan_pada: withdrawal.dicairkan_pada ? new Date(withdrawal.dicairkan_pada).toISOString() : null
       };
 
@@ -1954,10 +1954,20 @@ class PaymentController {
       const platformFees = parseFloat(earnedData.fees || 0);
       const pendingEscrow = parseFloat(escrowHeldData.amount || 0);
       const releasedEscrow = parseFloat(escrowReleasedData.amount || 0);
-      const withdrawn = parseFloat(withdrawnData[0]?.total || 0);
+      const withdrawn = parseFloat(withdrawnData?.total || 0); // FIX: withdrawnData is already first element
 
       // Available balance = released escrow - withdrawn
       const available = Math.max(0, releasedEscrow - withdrawn);
+
+      // DEBUG: Log balance calculation
+      console.log('[DEBUG BALANCE]', {
+        totalEarned,
+        platformFees,
+        pendingEscrow,
+        releasedEscrow,
+        withdrawn,
+        available
+      });
 
       // Disable caching for analytics
       res.set({
@@ -2214,9 +2224,9 @@ class PaymentController {
           ...w,
           bank_account_number: w.nomor_rekening,
           bank_account_name: w.nama_pemilik,
-          // Ensure dates are ISO strings for frontend
-          created_at: w.created_at ? new Date(w.created_at).toISOString() : null,
-          updated_at: w.updated_at ? new Date(w.updated_at).toISOString() : null,
+          // Sequelize with raw:true returns camelCase dates even with underscored:true
+          created_at: w.createdAt ? new Date(w.createdAt).toISOString() : null,
+          updated_at: w.updatedAt ? new Date(w.updatedAt).toISOString() : null,
           dicairkan_pada: w.dicairkan_pada ? new Date(w.dicairkan_pada).toISOString() : null
         };
       });
