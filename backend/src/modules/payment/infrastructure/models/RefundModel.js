@@ -39,7 +39,7 @@ const RefundModel = sequelize.define('refund', {
     field: 'jumlah_refund' // Maps to jumlah_refund column in DB
   },
   status: {
-    type: DataTypes.ENUM('pending', 'disetujui', 'ditolak', 'processing', 'completed', 'failed'),
+    type: DataTypes.ENUM('pending', 'processing', 'completed', 'failed'),
     allowNull: false,
     defaultValue: 'pending'
   },
@@ -60,7 +60,7 @@ const RefundModel = sequelize.define('refund', {
   },
   escrow_id: {
     type: DataTypes.UUID,
-    allowNull: true,
+    allowNull: false,
     references: {
       model: 'escrow',
       key: 'id'

@@ -1,5 +1,26 @@
 import StatusBadge from '../../Elements/Common/StatusBadge'
 
+const statusLabelMap = {
+  menunggu_pembayaran: 'Menunggu Pembayaran',
+  dibayar: 'Dibayar',
+  dikerjakan: 'Sedang Dikerjakan',
+  menunggu_review: 'Menunggu Review',
+  revisi: 'Revisi',
+  selesai: 'Selesai',
+  dispute: 'Dispute',
+  dibatalkan: 'Dibatalkan',
+  refunded: 'Direfund',
+}
+
+const formatStatusLabel = (code) => statusLabelMap[code] || (code ? code.replace(/_/g, ' ') : '')
+const formatRole = (role) => {
+  if (!role) return 'Pengguna'
+  if (role === 'client') return 'Client'
+  if (role === 'freelancer') return 'Freelancer'
+  if (role === 'admin') return 'Admin'
+  return role.charAt(0).toUpperCase() + role.slice(1)
+}
+
 const OrderTimeline = ({ statusHistory = [] }) => {
   if (!statusHistory || statusHistory.length === 0) {
     return (
@@ -37,7 +58,12 @@ const OrderTimeline = ({ statusHistory = [] }) => {
           <div className="ml-4 flex-1">
             <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
               <div className="flex items-start justify-between mb-2">
+              <div className="space-y-1">
                 <StatusBadge status={item.to} />
+                <p className="text-sm font-medium text-gray-900">
+                  {formatStatusLabel(item.to)}
+                </p>
+              </div>
                 <p className="text-xs text-gray-500">
                   {new Date(item.changedAt).toLocaleString('id-ID', {
                     day: 'numeric',
@@ -48,13 +74,27 @@ const OrderTimeline = ({ statusHistory = [] }) => {
                   })}
                 </p>
               </div>
-              
+
               {item.from && (
                 <p className="text-sm text-gray-600 mb-1">
-                  <span className="font-medium">Status berubah dari:</span> {item.from}
+                  <span className="font-medium">Dari:</span> {formatStatusLabel(item.from)}
                 </p>
               )}
-              
+
+              {(item.changedByRole || item.changedBy) && (
+                <p className="text-sm text-gray-600 mb-1">
+                  <span className="font-medium">Diubah oleh:</span>{' '}
+                  {formatRole(item.changedByRole)}
+                  {item.changedBy ? ` (${item.changedBy})` : ''}
+                </p>
+              )}
+
+              {item.reason && (
+                <p className="text-sm text-gray-600 mb-1">
+                  <span className="font-medium">Alasan:</span> {item.reason}
+                </p>
+              )}
+
               {item.note && (
                 <div className="mt-2 p-2 bg-gray-50 rounded text-sm text-gray-700">
                   <p className="font-medium text-gray-900 mb-1">Catatan:</p>

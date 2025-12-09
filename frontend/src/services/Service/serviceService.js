@@ -1,4 +1,4 @@
-import api from "../utils/axiosConfig";
+import api from "../../utils/axiosConfig";
 
 export const serviceService = {
   // Get all services with filters
@@ -58,6 +58,58 @@ export const serviceService = {
           "Failed to get services",
         services: [],
         pagination: {},
+      };
+    }
+  },
+
+  // Get popular services (layanan terpopuler per kategori)
+  async getPopularServices(filters = {}) {
+    try {
+      const params = {
+        ...(filters.kategori_id && { kategori_id: filters.kategori_id }),
+        ...(filters.limit && { limit: filters.limit }),
+      };
+
+      if (import.meta.env.DEV) {
+        console.log("[serviceService] Fetching popular services with params:", params);
+      }
+
+      const response = await api.get("/services/popular", { params });
+
+      if (import.meta.env.DEV) {
+        console.log("[serviceService] Popular services response:", response.data);
+      }
+
+      if (response.data.status === "success" || response.data.success) {
+        const payload = response.data.data || {};
+        return {
+          success: true,
+          categories: payload.categories || [],
+          totalServices: payload.totalServices || 0,
+          totalCategories: payload.totalCategories || 0,
+        };
+      }
+
+      return {
+        success: false,
+        message: response.data.message || "Failed to get popular services",
+        categories: [],
+        totalServices: 0,
+        totalCategories: 0,
+      };
+    } catch (error) {
+      console.error("[serviceService] Error fetching popular services:", error);
+      console.error("[serviceService] Error response:", error.response?.data);
+      console.error("[serviceService] Error config:", error.config);
+      return {
+        success: false,
+        message:
+          error.response?.data?.message ||
+          error.message ||
+          "Failed to get popular services",
+        categories: [],
+        totalServices: 0,
+        totalCategories: 0,
       };
     }
   },

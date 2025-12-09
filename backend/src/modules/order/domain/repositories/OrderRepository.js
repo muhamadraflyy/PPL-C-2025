@@ -73,6 +73,30 @@ class OrderRepository {
   async update(id, orderData) {
     throw new Error('Method update() must be implemented');
   }
+
+  /**
+   * Tambah riwayat perubahan status pesanan.
+   * @param {Object} historyData
+   * @param {string} historyData.pesanan_id
+   * @param {string|null} historyData.from_status
+   * @param {string} historyData.to_status
+   * @param {string|null} historyData.changed_by_user_id
+   * @param {string} historyData.changed_by_role - 'client' | 'freelancer' | 'admin' | 'system'
+   * @param {string|null} historyData.reason
+   * @param {Object|null} historyData.metadata
+   */
+  async addStatusHistory(historyData) {
+    throw new Error('Method addStatusHistory() must be implemented');
+  }
+
+  /**
+   * Ambil riwayat status untuk satu pesanan.
+   * @param {string} orderId
+   * @returns {Promise<Array>}
+   */
+  async getStatusHistory(orderId) {
+    throw new Error('Method getStatusHistory() must be implemented');
+  }
 }
 
 module.exports = OrderRepository;

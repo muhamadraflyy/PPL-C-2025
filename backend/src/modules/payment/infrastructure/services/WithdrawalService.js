@@ -16,6 +16,7 @@ class WithdrawalService {
     freelancer_id,
     metode_pembayaran_id,
     metode_pencairan,
+    bank_name,
     nomor_rekening,
     nama_pemilik
   }) {
@@ -62,6 +63,7 @@ class WithdrawalService {
       biaya_platform: withdrawal.biaya_platform,
       jumlah_bersih: withdrawal.jumlah_bersih,
       metode_pencairan: withdrawal.metode_pencairan,
+      bank_name: bank_name,
       nomor_rekening: withdrawal.nomor_rekening,
       nama_pemilik: withdrawal.nama_pemilik,
       status: withdrawal.status
