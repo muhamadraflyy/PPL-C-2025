@@ -1,27 +1,50 @@
 class UnblockUser {
-  constructor(userRepository, adminLogRepository) {
-    this.userRepository = userRepository;
+  constructor(sequelize, adminLogRepository) {
+    this.sequelize = sequelize;
     this.adminLogRepository = adminLogRepository;
   }
 
   async execute(adminId, userId, reason, ipAddress, userAgent) {
-    const user = await this.userRepository.findById(userId);
-    if (!user) throw new Error('User tidak ditemukan');
+    // ======== UBAH: Pakai sequelize.query langsung ========
+    const [user] = await this.sequelize.query(
+      'SELECT id FROM users WHERE id = ?',
+      { 
+        replacements: [userId], 
+        raw: true, 
+        type: this.sequelize.QueryTypes.SELECT 
+      }
+    );
 
-    await this.userRepository.update(userId, { isActive: true });
+    if (!user) {
+      throw new Error('User tidak ditemukan');
+    }
 
-    const log = new AdminActivityLog({
-      adminId,
-      action: 'unblock_user',
-      targetType: 'user',
-      targetId: userId,
-      detail: { reason },
-      ipAddress,
-      userAgent,
-    });
+    // Update user jadi aktif
+    await this.sequelize.query(
+      'UPDATE users SET is_active = 1, updated_at = NOW() WHERE id = ?',
+      { replacements: [userId] }
+    );
+    // ======================================================
 
-    await this.adminLogRepository.save(log);
-    return user;
+    // Save log
+await this.adminLogRepository.save({
+  adminId: adminId,           // <- harus camelCase sesuai repository
+  action: 'unblock_user',     // <- repository expects `action`
+  targetType: 'user',
+  targetId: userId,
+  detail: { reason },
+  ipAddress: ipAddress,
+  userAgent: userAgent
+});
+
+
+    return {
+      userId,
+      reason,
+      status: 'active',
+      unblockedAt: new Date()
+    };
   }
 }
+
 module.exports = UnblockUser;
