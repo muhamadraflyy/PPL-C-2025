@@ -2,19 +2,76 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../../components/Fragments/Common/Navbar'
 import Footer from '../../components/Fragments/Common/Footer'
-import ConfirmModal from '../../components/Elements/Common/ConfirmModal'
-import { authService } from '../../services/authService'
-import { useToast } from '../../components/Fragments/Common/ToastProvider'
 import api from '../../utils/axiosConfig'
+import { useToast } from '../../components/Fragments/Common/ToastProvider'
 
 export default function ProfilePage() {
   const navigate = useNavigate()
+  const toast = useToast()
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [stats, setStats] = useState({
+    totalPekerjaan: 0,
+    reputasi: '5/5',
+    proyekAktif: 0
+  })
+
+  // Format number to Rupiah
+  const formatRupiah = (value) => {
+    if (!value) return 'Belum diisi'
+    
+    // If already formatted (contains "Rp"), return as is
+    if (typeof value === 'string' && value.includes('Rp')) {
+      return value
+    }
+    
+    // If it's a number, format it
+    const number = typeof value === 'string' ? parseInt(value.replace(/\D/g, '')) : value
+    if (isNaN(number)) return value
+    
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(number)
+  }
 
   useEffect(() => {
+    // Always reload profile when component mounts
     loadProfile()
+    loadStats()
+    
+    // Check for pending toast message after profile update
+    const pendingMessage = sessionStorage.getItem('profileUpdateMessage')
+    if (pendingMessage) {
+      try {
+        const { message, type } = JSON.parse(pendingMessage)
+        // Show toast after a short delay
+        setTimeout(() => {
+          toast.show(message, type)
+        }, 500)
+        // Clear the message
+        sessionStorage.removeItem('profileUpdateMessage')
+      } catch (e) {
+        console.error('Error showing pending toast:', e)
+      }
+    }
+  }, [toast]) // Empty dependency = run on mount
+  
+  // Also reload when window gains focus (user returns from edit)
+  useEffect(() => {
+    const handleFocus = () => {
+      loadProfile()
+      loadStats()
+    }
+    
+    window.addEventListener('focus', handleFocus)
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+    }
   }, [])
 
   const loadProfile = async () => {
@@ -22,7 +79,15 @@ export default function ProfilePage() {
       setLoading(true)
       const response = await api.get('/users/profile')
       
+      console.log('📥 Profile API Response:', response.data)
+      
       if (response.data.success && response.data.data) {
+        console.log('✅ Profile Data:', {
+          nama_depan: response.data.data.nama_depan,
+          nama_belakang: response.data.data.nama_belakang,
+          kota: response.data.data.kota,
+          provinsi: response.data.data.provinsi
+        })
         setProfile(response.data.data)
       }
     } catch (err) {
@@ -33,24 +98,51 @@ export default function ProfilePage() {
     }
   }
 
-  const handleLogout = () => {
-    // kept for backward-compatibility; prefer confirmation modal
-    authService.logout();
-    navigate('/login')
-  }
-
-  const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const toast = useToast();
-
-  const performLogout = async () => {
+  const loadStats = async () => {
     try {
-      await authService.logout();
-      toast.show && toast.show('Anda telah logout', 'success');
-    } catch (e) {
-      // ignore
-    } finally {
-      setShowLogoutModal(false);
-      navigate('/login');
+      // Load statistics from orders (my orders as client)
+      const ordersResponse = await api.get('/orders/my')
+      
+      let totalPekerjaan = 0
+      let proyekAktif = 0
+      
+      if (ordersResponse.data.success) {
+        const orders = ordersResponse.data.data || []
+        // Status: menunggu_pembayaran, dibayar, dikerjakan, menunggu_review, revisi, selesai, dispute, dibatalkan, refunded
+        totalPekerjaan = orders.filter(o => o.status === 'selesai').length
+        proyekAktif = orders.filter(o => ['menunggu_pembayaran', 'dibayar', 'dikerjakan', 'menunggu_review', 'revisi'].includes(o.status)).length
+      }
+      
+      // Load rating from reviews
+      let reputasi = '5/5'
+      try {
+        const reviewsResponse = await api.get('/reviews/my')
+        if (reviewsResponse.data.success) {
+          const reviews = reviewsResponse.data.data || []
+          if (reviews.length > 0) {
+            // Calculate average rating
+            const totalRating = reviews.reduce((sum, review) => sum + (review.rating || 0), 0)
+            const avgRating = (totalRating / reviews.length).toFixed(1)
+            reputasi = `${avgRating}/5`
+          }
+        }
+      } catch (reviewErr) {
+        console.log('Reviews endpoint not available, using default rating')
+      }
+      
+      setStats({
+        totalPekerjaan,
+        reputasi,
+        proyekAktif
+      })
+    } catch (err) {
+      // Jika endpoint orders belum ada atau error, gunakan default stats
+      console.log('Orders endpoint not available, using default stats')
+      setStats({
+        totalPekerjaan: 0,
+        reputasi: '5/5',
+        proyekAktif: 0
+      })
     }
   }
 
@@ -60,7 +152,7 @@ export default function ProfilePage() {
         <Navbar />
         <div className="max-w-6xl mx-auto px-4 py-16 text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Memuat dashboard...</p>
+          <p className="mt-4 text-gray-600">Memuat profile...</p>
         </div>
       </div>
     )
@@ -78,234 +170,144 @@ export default function ProfilePage() {
   }
 
   const fullName = `${profile.nama_depan || ''} ${profile.nama_belakang || ''}`.trim() || profile.email?.split('@')[0] || 'User'
+  const location = [profile.kota, profile.provinsi].filter(Boolean).join(', ') || 'Bandung, Indonesia'
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
 
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        {/* Welcome Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Halo, {fullName}! 👋</h1>
-          <p className="text-gray-600">Selamat datang di dashboard profile Anda</p>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Main Info */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Profile Summary Card */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex justify-between items-start mb-6">
-                <h2 className="text-xl font-semibold text-gray-900">Informasi Profile</h2>
-                <button
-                  onClick={() => navigate('/profile/edit')}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
-                >
-                  <i className="fas fa-edit mr-2"></i>
-                  Edit Profile
-                </button>
-              </div>
-
-              <div className="flex items-start gap-6">
-                {/* Avatar */}
-                <div className="w-24 h-24 rounded-full bg-blue-100 flex items-center justify-center text-3xl font-bold text-blue-600">
-                  {fullName.charAt(0).toUpperCase()}
-                </div>
-
-                {/* Info */}
-                <div className="flex-1">
-                  <h3 className="text-2xl font-bold text-gray-900 mb-1">{fullName}</h3>
-                  <p className="text-gray-600 mb-3">{profile.email}</p>
-                  
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
-                      {profile.role === 'freelancer' ? 'Freelancer' : 'Client'}
-                    </span>
-                    {profile.is_verified && (
-                      <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
-                        <i className="fas fa-check-circle mr-1"></i>
-                        Verified
-                      </span>
-                    )}
-                  </div>
-
-                  {profile.bio && (
-                    <p className="text-gray-700 text-sm leading-relaxed">{profile.bio}</p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Contact Info */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Informasi Kontak</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm text-gray-500 block mb-1">Email</label>
-                  <p className="text-gray-900">{profile.email}</p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500 block mb-1">Nomor Telepon</label>
-                  <p className="text-gray-900">{profile.no_telepon || 'Belum diisi'}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Freelancer Specific Info */}
-            {profile.role === 'freelancer' && profile.profil_freelancer && (
-              <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Informasi Profesional</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <label className="text-sm text-gray-500 block mb-1">Profesi</label>
-                    <p className="text-gray-900">{profile.profil_freelancer.judul_profesi || '-'}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-500 block mb-1">Rate</label>
-                    <p className="text-gray-900 font-semibold">{profile.profil_freelancer.rate || '-'}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-500 block mb-1">Lokasi</label>
-                    <p className="text-gray-900">{profile.profil_freelancer.kota || '-'}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-500 block mb-1">Total Pekerjaan</label>
-                    <p className="text-gray-900">{profile.profil_freelancer.total_pekerjaan || 0} project</p>
-                  </div>
-                </div>
-
-                {/* Skills */}
-                {profile.profil_freelancer.keahlian && profile.profil_freelancer.keahlian.length > 0 && (
-                  <div className="mt-4">
-                    <label className="text-sm text-gray-500 block mb-2">Keahlian</label>
-                    <div className="flex flex-wrap gap-2">
-                      {profile.profil_freelancer.keahlian.map((skill, idx) => (
-                        <span key={idx} className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm">
-                          {skill}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+      <div className="max-w-5xl mx-auto px-4 py-8">
+        {/* Profile Header Card */}
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-6">
+          {/* Cover Image */}
+          <div className="h-32 relative overflow-hidden">
+            {/* Background Layer */}
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-blue-300"></div>
+            
+            {/* Image Layer (if exists) */}
+            {profile.foto_latar && (
+              <img 
+                src={`${import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5000'}${profile.foto_latar}`} 
+                alt="Cover" 
+                className="absolute inset-0 w-full h-full object-cover"
+                onError={(e) => {
+                  console.log('Cover image failed to load:', e.target.src)
+                  e.target.style.display = 'none'
+                }}
+              />
             )}
+            
+            {/* Edit Button - Always on top */}
+            <button
+              onClick={() => navigate('/profile/edit')}
+              className="absolute top-4 right-4 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-md hover:bg-gray-50 transition-colors z-10"
+              title="Edit Profile"
+            >
+              <i className="fas fa-pen text-gray-600 text-sm"></i>
+            </button>
           </div>
 
-          {/* Right Column - Quick Actions & Stats */}
-          <div className="space-y-6">
-            {/* Quick Actions */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="font-semibold text-gray-900 mb-4">Aksi Cepat</h3>
-              <div className="space-y-3">
-                <button
-                  onClick={() => navigate(`/freelancer/${profile.id}`)}
-                  className="w-full p-3 border border-gray-200 rounded-lg hover:bg-gray-50 text-left flex items-center gap-3"
-                >
-                  <div className="w-10 h-10 rounded bg-blue-100 flex items-center justify-center">
-                    <i className="fas fa-eye text-blue-600"></i>
+          {/* Profile Info */}
+          <div className="px-8 pb-6">
+            <div className="flex items-start -mt-12 mb-4">
+              {/* Profile Picture */}
+              <div className="relative">
+                <div className="w-24 h-24 rounded-full bg-white border-4 border-white shadow-lg overflow-hidden relative">
+                  {/* Fallback Background */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-2xl font-bold">
+                    {fullName.charAt(0).toUpperCase()}
                   </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900 text-sm">Lihat Profile Publik</p>
-                    <p className="text-xs text-gray-500">Preview profile Anda</p>
-                  </div>
-                </button>
-
-                {profile.role === 'freelancer' && (
-                  <button
-                    onClick={() => navigate('/freelance/service')}
-                    className="w-full p-3 border border-gray-200 rounded-lg hover:bg-gray-50 text-left flex items-center gap-3"
-                  >
-                    <div className="w-10 h-10 rounded bg-green-100 flex items-center justify-center">
-                      <i className="fas fa-briefcase text-green-600"></i>
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-900 text-sm">Kelola Layanan</p>
-                      <p className="text-xs text-gray-500">Services yang Anda tawarkan</p>
-                    </div>
-                  </button>
-                )}
-
-                <button
-                  onClick={() => navigate('/orders')}
-                  className="w-full p-3 border border-gray-200 rounded-lg hover:bg-gray-50 text-left flex items-center gap-3"
-                >
-                  <div className="w-10 h-10 rounded bg-purple-100 flex items-center justify-center">
-                    <i className="fas fa-shopping-cart text-purple-600"></i>
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900 text-sm">Pesanan</p>
-                    <p className="text-xs text-gray-500">Riwayat pesanan Anda</p>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => setShowLogoutModal(true)}
-                  className="w-full p-3 border border-red-200 rounded-lg hover:bg-red-50 text-left flex items-center gap-3"
-                >
-                  <div className="w-10 h-10 rounded bg-red-100 flex items-center justify-center">
-                    <i className="fas fa-sign-out-alt text-red-600"></i>
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-red-600 text-sm">Logout</p>
-                    <p className="text-xs text-red-500">Keluar dari akun</p>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            {/* Stats Card */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="font-semibold text-gray-900 mb-4">Statistik Akun</h3>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center pb-3 border-b">
-                  <span className="text-sm text-gray-600">Status</span>
-                  <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">
-                    Aktif
-                  </span>
-                </div>
-                <div className="flex justify-between items-center pb-3 border-b">
-                  <span className="text-sm text-gray-600">Bergabung</span>
-                  <span className="text-sm font-medium text-gray-900">
-                    {profile.created_at ? new Date(profile.created_at).getFullYear() : '-'}
-                  </span>
-                </div>
-                {profile.role === 'freelancer' && profile.profil_freelancer && (
-                  <div className="flex justify-between items-center pb-3 border-b">
-                    <span className="text-sm text-gray-600">Total Project</span>
-                    <span className="text-sm font-bold text-blue-600">
-                      {profile.profil_freelancer.total_pekerjaan || 0}
-                    </span>
-                  </div>
-                )}
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Verifikasi</span>
-                  {profile.is_verified ? (
-                    <span className="text-sm text-green-600 font-medium">
-                      <i className="fas fa-check-circle mr-1"></i>
-                      Terverifikasi
-                    </span>
-                  ) : (
-                    <span className="text-sm text-gray-500">
-                      Belum
-                    </span>
+                  
+                  {/* Profile Image (if exists) */}
+                  {profile.avatar && (
+                    <img 
+                      src={`${import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5000'}${profile.avatar}`} 
+                      alt={fullName} 
+                      className="absolute inset-0 w-full h-full object-cover"
+                      onError={(e) => {
+                        console.log('Profile image failed to load:', e.target.src)
+                        e.target.style.display = 'none'
+                      }}
+                    />
                   )}
                 </div>
               </div>
+
+              {/* Name and Location */}
+              <div className="ml-6 mt-14">
+                <h1 className="text-2xl font-bold text-gray-900">{fullName}</h1>
+                <p className="text-gray-500 flex items-center mt-1">
+                  <i className="fas fa-map-marker-alt mr-2 text-sm"></i>
+                  {location}
+                </p>
+              </div>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-100">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-gray-900">{stats.totalPekerjaan}</p>
+                <p className="text-sm text-gray-500 mt-1">Total Pekerjaan</p>
+              </div>
+              <div className="text-center border-x border-gray-100">
+                <p className="text-2xl font-bold text-gray-900">{stats.reputasi}</p>
+                <p className="text-sm text-gray-500 mt-1">Reputasi</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-gray-900">{stats.proyekAktif}</p>
+                <p className="text-sm text-gray-500 mt-1">Proyek Aktif</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* About Section */}
+        <div className="bg-white rounded-2xl shadow-sm p-6 mb-6">
+          <h2 className="text-lg font-bold text-gray-900 mb-4">Tentang Kami</h2>
+          <p className="text-gray-700 leading-relaxed">
+            {profile.bio || 'Kami adalah penerbit buku anak yang berfokus pada pendidikan dan nilai-nilai moral. Saat ini kami sedang mencari ilustrator penulis lepas untuk membantu kami membuat buku bergambar yang menarik dan berkualitas tinggi.'}
+          </p>
+        </div>
+
+        {/* Project Details */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Budget Section */}
+          <div className="bg-white rounded-2xl shadow-sm p-6">
+            <h2 className="text-lg font-bold text-gray-900 mb-4">Anggaran Per Proyek</h2>
+            <p className="text-gray-700 font-semibold mb-3">
+              {profile.anggaran ? formatRupiah(profile.anggaran) : 'Belum diisi'}
+            </p>
+          </div>
+
+          {/* Project Type Section */}
+          <div className="bg-white rounded-2xl shadow-sm p-6">
+            <h2 className="text-lg font-bold text-gray-900 mb-4">Tipe Proyek</h2>
+            <div className="flex flex-wrap gap-2">
+              {profile.tipe_proyek ? (
+                profile.tipe_proyek.split(',').map((type, idx) => (
+                  <span key={idx} className="px-4 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium border border-blue-200">
+                    {type.trim()}
+                  </span>
+                ))
+              ) : (
+                <>
+                  <span className="px-4 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium border border-blue-200">
+                    Ilustrasi Buku Anak
+                  </span>
+                  <span className="px-4 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium border border-blue-200">
+                    Desain Grafis
+                  </span>
+                  <span className="px-4 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium border border-blue-200">
+                    Animasi
+                  </span>
+                </>
+              )}
             </div>
           </div>
         </div>
       </div>
 
       <Footer />
-      <ConfirmModal
-        open={showLogoutModal}
-        title="Konfirmasi Logout"
-        message="Anda akan keluar dari akun. Apakah Anda yakin ingin melanjutkan?"
-        onConfirm={performLogout}
-        onCancel={() => setShowLogoutModal(false)}
-        confirmText="Ya, keluar"
-        cancelText="Batal"
-      />
     </div>
   )
 }

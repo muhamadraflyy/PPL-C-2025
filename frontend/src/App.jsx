@@ -12,15 +12,17 @@ import EmailVerificationPage from "./pages/Public/EmailVerificationPage";
 import ServiceListPage from "./pages/Public/ServiceListPage";
 import SearchPage from "./pages/Public/SearchPage";
 import NotFoundPage from "./pages/Public/NotFoundPage";
-import FreelancerProfilePage from "./pages/Public/FreelancerProfilePage";
+import FreelancerPublicProfile from "./pages/Public/FreelancerPublicProfile";
 import FreelancerDetailPage from "./pages/Public/FreelancerDetailPage";
 import ServiceDetailPage from "./pages/jobs/ServiceDetailPage";
 
 // Client pages
 import DashboardPage from "./pages/Client/DashboardPage";
-import ProfilePage from "./pages/Client/ProfilePage";
-import ProfileEditPage from "./pages/Client/ProfileEditPage";
 import BookmarkPage from "./pages/Client/BookmarkPage";
+
+// Profile routers (auto-detect role)
+import ProfileRouter from "./components/Routers/ProfileRouter";
+import ProfileEditRouter from "./components/Routers/ProfileEditRouter";
 import FavoritePage from "./pages/Client/FavoritePage";
 import HiddenRecommendationsPage from "./pages/Client/HiddenRecommendationsPage";
 import RiwayatPesananPage from "./pages/Client/RiwayatPesananPage";
@@ -270,12 +272,12 @@ export default function App() {
         }
       />
 
-      {/* Profile */}
+      {/* Profile - Auto-detect role and show appropriate profile */}
       <Route
         path="/profile"
         element={
           <ProtectedRoute>
-            <ProfilePage />
+            <ProfileRouter />
           </ProtectedRoute>
         }
       />
@@ -283,14 +285,14 @@ export default function App() {
         path="/profile/edit"
         element={
           <ProtectedRoute>
-            <ProfileEditPage />
+            <ProfileEditRouter />
           </ProtectedRoute>
         }
       />
 
       {/* Freelancer public profile */}
       <Route path="/freelancer/:id/detail" element={<FreelancerDetailPage />} />
-      <Route path="/freelancer/:id" element={<FreelancerProfilePage />} />
+      <Route path="/freelancer/:id" element={<FreelancerPublicProfile />} />
 
       {/* Orders (client) */}
       <Route

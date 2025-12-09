@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const UserController = require('../controllers/UserController');
 const authMiddleware = require('../../../../shared/middleware/authMiddleware');
+const profileMediaUpload = require('../../infrastructure/upload/profileMediaUpload');
 
 const userController = new UserController();
 
@@ -184,15 +185,40 @@ router.get('/profile', authMiddleware, userController.getProfile);
  *   put:
  *     tags: [Users]
  *     summary: Update user profile
- *     description: Update authenticated user's profile information
+ *     description: Update authenticated user's profile information with optional photo uploads
  *     security:
  *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
- *             $ref: '#/components/schemas/UpdateProfileRequest'
+ *             type: object
+ *             properties:
+ *               nama_depan:
+ *                 type: string
+ *               nama_belakang:
+ *                 type: string
+ *               no_telepon:
+ *                 type: string
+ *               bio:
+ *                 type: string
+ *               kota:
+ *                 type: string
+ *               provinsi:
+ *                 type: string
+ *               anggaran:
+ *                 type: string
+ *               tipe_proyek:
+ *                 type: string
+ *               foto_profil:
+ *                 type: string
+ *                 format: binary
+ *                 description: Profile photo (max 5MB)
+ *               foto_latar:
+ *                 type: string
+ *                 format: binary
+ *                 description: Cover photo (max 5MB)
  *     responses:
  *       200:
  *         description: Profile updated successfully
@@ -216,7 +242,7 @@ router.get('/profile', authMiddleware, userController.getProfile);
  *       500:
  *         $ref: '#/components/responses/ServerError'
  */
-router.put('/profile', authMiddleware, userController.updateProfile);
+router.put('/profile', authMiddleware, profileMediaUpload, userController.updateProfile);
 
 /**
  * @swagger
@@ -718,7 +744,7 @@ router.post('/freelancer-profile', authMiddleware, userController.createFreelanc
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             properties:
@@ -741,33 +767,37 @@ router.post('/freelancer-profile', authMiddleware, userController.createFreelanc
  *               judul_profesi:
  *                 type: string
  *               keahlian:
- *                 type: array
- *                 items:
- *                   type: string
+ *                 type: string
+ *                 description: JSON array of skills
  *               bahasa:
- *                 type: array
- *                 items:
- *                   type: string
+ *                 type: string
+ *                 description: JSON array of languages
  *               edukasi:
- *                 type: array
- *                 items:
- *                   type: object
+ *                 type: string
+ *                 description: JSON array of education objects
  *               lisensi:
- *                 type: array
- *                 items:
- *                   type: object
+ *                 type: string
+ *                 description: JSON array of license objects
  *               judul_portfolio:
  *                 type: string
  *               deskripsi_portfolio:
  *                 type: string
  *               portfolio_url:
  *                 type: string
- *               file_portfolio:
- *                 type: array
- *               avatar:
+ *               foto_profil:
  *                 type: string
+ *                 format: binary
+ *                 description: Profile photo (max 5MB)
  *               foto_latar:
  *                 type: string
+ *                 format: binary
+ *                 description: Cover photo (max 5MB)
+ *               portfolio:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *                 description: Portfolio images (max 5MB each)
  *     responses:
  *       200:
  *         description: Freelancer profile updated successfully
@@ -780,7 +810,7 @@ router.post('/freelancer-profile', authMiddleware, userController.createFreelanc
  *       500:
  *         $ref: '#/components/responses/ServerError'
  */
-router.put('/freelancer-profile', authMiddleware, userController.updateFreelancerProfile);
+router.put('/freelancer-profile', authMiddleware, profileMediaUpload, userController.updateFreelancerProfile);
 
 
 /**

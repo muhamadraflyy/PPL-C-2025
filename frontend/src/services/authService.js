@@ -301,6 +301,12 @@ export const authService = {
         }
         writeStoredUser(userPayload);
         persistActiveRole("freelancer");
+        
+        // Update JWT token if backend returns a new one
+        // This is critical for role-based access control to work correctly
+        if (res.data.data.token) {
+          localStorage.setItem("token", res.data.data.token);
+        }
       }
       return res.data;
     } catch (error) {

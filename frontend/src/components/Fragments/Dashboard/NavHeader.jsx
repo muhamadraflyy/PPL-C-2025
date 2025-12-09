@@ -161,7 +161,23 @@ export default function NavHeader() {
     } catch (e) {
       console.error("Failed to read active role", e);
     }
-  }, []);
+
+    // Check for pending toast message after reload
+    const pendingMessage = sessionStorage.getItem('roleChangeMessage');
+    if (pendingMessage) {
+      try {
+        const { message, type } = JSON.parse(pendingMessage);
+        // Show toast after a short delay to ensure page is fully loaded
+        setTimeout(() => {
+          toast.show(message, type);
+        }, 500);
+        // Clear the message
+        sessionStorage.removeItem('roleChangeMessage');
+      } catch (e) {
+        console.error('Error showing pending toast:', e);
+      }
+    }
+  }, [toast]);
 
   // Cek apakah user memiliki profil freelancer
   useEffect(() => {
@@ -202,11 +218,16 @@ export default function NavHeader() {
 
         const updatedRole = result.data?.role || newRole;
         setUserRole(updatedRole);
-        toast.show(`Role berhasil diubah menjadi ${updatedRole === "client" ? "Klien" : "Freelancer"}`, "success");
+        
+        // Save toast message to sessionStorage to show after reload
+        sessionStorage.setItem('roleChangeMessage', JSON.stringify({
+          message: `Role berhasil diubah menjadi ${updatedRole === "client" ? "Klien" : "Freelancer"}`,
+          type: 'success'
+        }));
 
-        // Navigate without full page reload - custom event will trigger component updates
+        // Force full page reload to ensure all components refresh with new role
         const destination = ROLE_HOME[updatedRole] || "/";
-        navigate(destination, { replace: true });
+        window.location.href = destination;
       } else {
         toast.show(result.message || "Gagal mengubah role", "error");
       }

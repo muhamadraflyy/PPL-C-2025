@@ -73,6 +73,14 @@ class UpdateProfile {
       if (province) data.provinsi = province;
     }
 
+    // Handle kota and provinsi directly (if provided separately)
+    if (payload.kota !== undefined) {
+      data.kota = payload.kota || null;
+    }
+    if (payload.provinsi !== undefined) {
+      data.provinsi = payload.provinsi || null;
+    }
+
     // Copy other updatable fields directly if provided
     updatable.forEach((f) => {
       if (['nama_depan','nama_belakang','kota','provinsi'].includes(f)) return; // already handled
@@ -80,11 +88,14 @@ class UpdateProfile {
     });
 
     // Validate file types and sizes using shared utility
-    if (data.avatar) {
+    // Skip validation for local file paths (already validated by multer)
+    const isLocalPath = (path) => typeof path === 'string' && path.startsWith('/');
+    
+    if (data.avatar && !isLocalPath(data.avatar)) {
       validateFileType(data.avatar, 'Avatar');
       validateFileSize(data.avatar, 'Avatar');
     }
-    if (data.foto_latar) {
+    if (data.foto_latar && !isLocalPath(data.foto_latar)) {
       validateFileType(data.foto_latar, 'Background photo');
       validateFileSize(data.foto_latar, 'Background photo');
     }

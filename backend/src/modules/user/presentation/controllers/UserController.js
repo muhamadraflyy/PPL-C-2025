@@ -38,8 +38,8 @@ class UserController {
     this.sendOTPUseCase = new SendOTP({ userRepository });
     this.verifyEmailUseCase = new VerifyEmail({ userRepository });
     this.resendVerificationOTPUseCase = new ResendVerificationOTP({ userRepository });
-    this.changeUserRoleUseCase = new ChangeUserRole({ userRepository });
-    this.createFreelancerProfileUseCase = new CreateFreelancerProfile({ userRepository });
+    this.changeUserRoleUseCase = new ChangeUserRole({ userRepository, jwtService });
+    this.createFreelancerProfileUseCase = new CreateFreelancerProfile({ userRepository, jwtService });
     this.updateFreelancerProfileUseCase = new UpdateFreelancerProfile({ userRepository });
   }
 
@@ -187,7 +187,21 @@ class UserController {
         throw err;
       }
 
-  const result = await this.updateProfileUseCase.execute(userId, req.body);
+      // Merge body data dengan file uploads
+      const payload = { ...req.body };
+      
+      // Handle uploaded files
+      if (req.files) {
+        if (req.files.foto_profil && req.files.foto_profil[0]) {
+          // Simpan path relatif dari public folder
+          payload.avatar = `/profiles/${req.files.foto_profil[0].filename}`;
+        }
+        if (req.files.foto_latar && req.files.foto_latar[0]) {
+          payload.foto_latar = `/profiles/${req.files.foto_latar[0].filename}`;
+        }
+      }
+
+      const result = await this.updateProfileUseCase.execute(userId, payload);
       res.json({ success: true, data: result });
     } catch (err) {
       next(err);
@@ -417,6 +431,65 @@ class UserController {
       }
 
       const profileData = req.body || {};
+
+      // Handle uploaded files from multer
+      if (req.files) {
+        // Profile photo
+        if (req.files.foto_profil && req.files.foto_profil[0]) {
+          profileData.avatar = `/profiles/${req.files.foto_profil[0].filename}`;
+        }
+        
+        // Cover photo
+        if (req.files.foto_latar && req.files.foto_latar[0]) {
+          profileData.foto_latar = `/profiles/${req.files.foto_latar[0].filename}`;
+        }
+
+        // Portfolio images
+        if (req.files.portfolio && req.files.portfolio.length > 0) {
+          // Parse portfolio metadata if provided
+          let portfolioMetadata = [];
+          if (profileData.portfolio_metadata) {
+            try {
+              portfolioMetadata = JSON.parse(profileData.portfolio_metadata);
+            } catch (e) {
+              console.error('Error parsing portfolio_metadata:', e);
+            }
+          }
+
+          // Map files with metadata
+          const portfolioFiles = req.files.portfolio.map((file, index) => {
+            const metadata = portfolioMetadata[index] || {};
+            return {
+              url: `/portfolio/${file.filename}`,  // ✅ Portfolio ke folder portfolio
+              filename: file.filename,
+              originalName: file.originalname,
+              judul: metadata.judul || file.originalname,
+              deskripsi: metadata.deskripsi || ''
+            };
+          });
+          
+          // Get existing portfolio from database
+          let existingPortfolio = [];
+          try {
+            const currentProfile = await this.updateFreelancerProfileUseCase.userRepository.findFreelancerProfile(userId);
+            if (currentProfile && currentProfile.file_portfolio) {
+              // Parse if string, or use directly if already array
+              if (typeof currentProfile.file_portfolio === 'string') {
+                existingPortfolio = JSON.parse(currentProfile.file_portfolio);
+              } else if (Array.isArray(currentProfile.file_portfolio)) {
+                existingPortfolio = currentProfile.file_portfolio;
+              }
+            }
+          } catch (e) {
+            console.error('Error loading existing portfolio:', e);
+            existingPortfolio = [];
+          }
+          
+          // Merge with new files
+          profileData.file_portfolio = JSON.stringify([...existingPortfolio, ...portfolioFiles]);
+        }
+      }
+
       const result = await this.updateFreelancerProfileUseCase.execute(userId, profileData);
       res.json({ success: true, data: result });
     } catch (err) {
@@ -449,9 +522,12 @@ class UserController {
         nama_depan: user.nama_depan,
         nama_belakang: user.nama_belakang,
         no_telepon: user.no_telepon,
+        kota: user.kota,
+        provinsi: user.provinsi,
         role: user.role,
         bio: user.bio,
-        foto: user.avatar,
+        avatar: user.avatar,  // ✅ Konsisten dengan field lain
+        foto_latar: user.foto_latar,  // ✅ Tambahkan cover photo
         is_verified: user.is_verified,
         created_at: user.createdAt,
         profil_freelancer: profile
