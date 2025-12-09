@@ -7,8 +7,8 @@ import { adminService } from '../../services/adminService';
 import Button from '../../components/Elements/Buttons/Button';
 import Badge from '../../components/Elements/Common/Badge';
 import { Search, Filter, Download, ChevronDown, DollarSign, Shield } from 'lucide-react';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 // Status badge variants
 const getStatusBadge = (status) => {
@@ -304,7 +304,7 @@ export default function AdminTransactionsPage() {
       ]);
 
       // Add table
-      doc.autoTable({
+      autoTable(doc, {
         startY: startY,
         head: [['No', 'No. Order', 'Judul', 'Klien', 'Freelancer', 'Harga', 'Status']],
         body: tableData,

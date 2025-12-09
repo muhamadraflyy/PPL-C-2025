@@ -14,6 +14,7 @@ const PaymentModel = require('../../infrastructure/models/PaymentModel');
 const EscrowModel = require('../../infrastructure/models/EscrowModel');
 const WithdrawalModel = require('../../infrastructure/models/WithdrawalModel');
 const OrderModel = require('../../../order/infrastructure/models/OrderModel');
+const UserModel = require('../../../user/infrastructure/models/UserModel');
 const MockPaymentGatewayService = require('../../infrastructure/services/MockPaymentGatewayService');
 const InvoiceService = require('../../infrastructure/services/InvoiceService');
 const EmailService = require('../../infrastructure/services/EmailService');
@@ -761,6 +762,7 @@ class PaymentController {
     try {
       const { id } = req.params;
 
+      // Fetch payment data
       const payment = await PaymentModel.findByPk(id);
 
       if (!payment) {
@@ -775,8 +777,34 @@ class PaymentController {
       if (this.invoiceService.invoiceExists(payment.id, payment.nomor_invoice)) {
         invoicePath = this.invoiceService.getInvoicePath(payment.id, payment.nomor_invoice);
       } else {
-        // Generate new invoice
-        invoicePath = await this.invoiceService.generateInvoice(payment);
+        // Fetch order and user data separately
+        let orderData = {};
+        let userData = {};
+
+        if (payment.pesanan_id) {
+          const order = await OrderModel.findByPk(payment.pesanan_id);
+          if (order) {
+            orderData = {
+              judul: order.judul,
+              deskripsi: order.deskripsi
+            };
+
+            // Fetch client data
+            if (order.client_id) {
+              const client = await UserModel.findByPk(order.client_id);
+              if (client) {
+                userData = {
+                  nama: client.nama_depan + (client.nama_belakang ? ' ' + client.nama_belakang : ''),
+                  email: client.email,
+                  no_hp: client.no_telepon
+                };
+              }
+            }
+          }
+        }
+
+        // Generate new invoice with complete data
+        invoicePath = await this.invoiceService.generateInvoice(payment.toJSON(), orderData, userData);
       }
 
       // Send file
