@@ -1,9 +1,12 @@
-// frontend/src/components/organisms/SubCategoryTable.jsx
+// frontend/src/components/Fragments/Admin/SubCategoryTable.jsx
 
 import React from 'react';
-import Badge from '../../Elements/Common/Badge'; 
+import Badge from '../../Elements/Common/Badge';
 import { Search, Edit2, Trash2, Eye, ToggleLeft, ToggleRight } from 'lucide-react';
 
+/**
+ * Komponen Tabel untuk menampilkan daftar Sub Kategori (Dengan Horizontal Scroll).
+ */
 export function SubCategoryTable({ 
   subCategories, 
   onEdit, 
@@ -34,29 +37,32 @@ export function SubCategoryTable({
   }
 
   return (
-    <div className="w-full overflow-hidden"> 
-      <table className="w-full table-fixed divide-y divide-gray-200">
+    <div className="overflow-x-auto"> 
+      <table className="min-w-full table-auto divide-y divide-gray-200">
         <thead className="bg-gray-50 border-b border-[#D8E3F3]">
           <tr>
-            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[16%]">
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-10">
+              Icon
+            </th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">
               Nama Sub Kategori
             </th>
-            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[14%]">
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">
               Kategori 
             </th>
-            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[12%]">
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">
               Slug
             </th>
-            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[22%]">
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[250px]">
               Deskripsi
             </th>
-            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[8%]">
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">
               Status
             </th>
-            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[13%]">
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">
               Dibuat
             </th>
-            <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-[15%]">
+            <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-36">
               Aksi
             </th>
           </tr>
@@ -67,39 +73,44 @@ export function SubCategoryTable({
             
             return (
               <tr key={subCategory.id} className="hover:bg-gray-50 transition-colors">
-                <td className="px-3 py-3">
+                <td className="px-6 py-4">
+                  <div className="w-10 h-10 bg-gradient-to-br from-[#FFD700] to-[#FFA500] rounded-lg flex items-center justify-center text-white font-bold text-lg">
+                    {subCategory.nama?.charAt(0).toUpperCase()}
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm font-medium text-gray-900">
                     {subCategory.nama || 'N/A'}
                   </div>
                 </td>
-                <td className="px-3 py-3">
-                  <div className="text-sm font-medium text-gray-700">
-                    {subCategory.kategori?.nama || subCategory.kategoriInduk || '-'}
-                  </div>
+                <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-700">
+                        {subCategory.kategori?.nama || subCategory.kategoriInduk || '-'}
+                    </div>
                 </td>
-                <td className="px-3 py-3">
+                <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm text-gray-600">
                     {subCategory.slug || '-'}
                   </div>
                 </td>
-                <td className="px-3 py-3">
-                  <div className="text-sm text-gray-600">
+                <td className="px-6 py-4">
+                  <div className="text-sm text-gray-600 max-w-xs truncate">
                     {subCategory.deskripsi ? (
-                      subCategory.deskripsi.length > 70 
-                        ? subCategory.deskripsi.slice(0, 70) + '...' 
+                      subCategory.deskripsi.length > 50 
+                        ? subCategory.deskripsi.slice(0, 50) + '...' 
                         : subCategory.deskripsi
                     ) : '-'}
                   </div>
                 </td>
-                <td className="px-3 py-3">
+                <td className="px-6 py-4 whitespace-nowrap">
                   <Badge variant={isActive ? 'success' : 'error'}>
                     {isActive ? 'Aktif' : 'Nonaktif'}
                   </Badge>
                 </td>
-                <td className="px-3 py-3 text-sm text-gray-600">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                   {formatDate(subCategory.created_at)}
                 </td>
-                <td className="px-3 py-3 text-center">
+                <td className="px-6 py-4 whitespace-nowrap text-center">
                   <div className="flex items-center justify-center gap-2">
                     <button
                       onClick={() => onDetail(subCategory)}

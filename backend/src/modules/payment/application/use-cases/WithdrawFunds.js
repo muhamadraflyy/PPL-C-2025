@@ -22,7 +22,6 @@ class WithdrawFunds {
       freelancer_id,
       metode_pembayaran_id,
       metode_pencairan,
-      bank_name,
       nomor_rekening,
       nama_pemilik
     } = dto;
@@ -50,7 +49,6 @@ class WithdrawFunds {
       freelancer_id,
       metode_pembayaran_id,
       metode_pencairan,
-      bank_name,
       nomor_rekening,
       nama_pemilik
     });

@@ -5,7 +5,6 @@ import CategoryGrid from "../Fragments/Home/CategoryGrid";
 import FilterKategori from "../Fragments/Service/FilterKategori";
 import ServicesGrid from "../Fragments/Home/ServicesGrid";
 import RecommendationSection from "../Fragments/Home/RecommendationSection";
-import ServicePopular from "../Fragments/Service/ServicePopular";
 import Footer from "../Fragments/Common/Footer";
 
 export default function LandingPageTemplate({ onSearch, onCategoryClick, onServiceClick }) {
@@ -21,14 +20,13 @@ export default function LandingPageTemplate({ onSearch, onCategoryClick, onServi
       <Navbar />
       <HeroSection onSearch={onSearch} />
       <CategoryGrid onCategoryClick={onCategoryClick} />
-      {/* <FilterKategori onFilterChange={handleFilterChange} activeFilter={activeFilter} />
+      <FilterKategori onFilterChange={handleFilterChange} activeFilter={activeFilter} />
       <ServicesGrid
         onServiceClick={onServiceClick}
         onCategoryClick={onCategoryClick}
         activeFilter={activeFilter}
-      />*/}
-      <ServicePopular />
-      <RecommendationSection onServiceClick={onServiceClick} /> 
+      />
+      <RecommendationSection onServiceClick={onServiceClick} />
       <Footer />
     </div>
   );

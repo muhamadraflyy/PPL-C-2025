@@ -23,19 +23,18 @@ const formatDate = (dateStr) => {
   });
 };
 
-// Normalize backend status to UI status keys
-const normalizeStatus = (status) => {
-  if (status === "menunggu_pembayaran") return "pending";
-  if (status === "menunggu_review") return "in_review";
-  return status;
-};
-
 // Status configuration with badge variants
 const getStatusConfig = (status) => {
-  const normalized = normalizeStatus(status);
   const statusMap = {
+    menunggu_pembayaran: {
+      label: "Menunggu Pembayaran",
+      variant: "warning",
+      bgCard: "bg-yellow-50",
+      borderCard: "border-l-yellow-400",
+      textColor: "text-yellow-700",
+    },
     pending: {
-      label: "Pending / Menunggu Bayar",
+      label: "Pending",
       variant: "warning",
       bgCard: "bg-orange-50",
       borderCard: "border-l-orange-400",
@@ -77,8 +76,8 @@ const getStatusConfig = (status) => {
       textColor: "text-red-700",
     },
   };
-  return statusMap[normalized] || {
-    label: normalized || "Unknown",
+  return statusMap[status] || {
+    label: status || "Unknown",
     variant: "default",
     bgCard: "bg-gray-50",
     borderCard: "border-l-gray-400",
@@ -88,8 +87,8 @@ const getStatusConfig = (status) => {
 
 // Status message for each order
 const getStatusMessage = (status) => {
-  const normalized = normalizeStatus(status);
   const messages = {
+    menunggu_pembayaran: "Menunggu pembayaran dari klien",
     pending: "Dana ditahan hingga pekerjaan selesai",
     dibayar: "Dana ditahan hingga pekerjaan selesai",
     dikerjakan: "Dana ditahan hingga pekerjaan selesai",
@@ -97,7 +96,7 @@ const getStatusMessage = (status) => {
     selesai: "Dana berhasil masuk ke saldo",
     dibatalkan: "Pesanan dibatalkan",
   };
-  return messages[normalized] || "";
+  return messages[status] || "";
 };
 
 // Default tab filters
@@ -115,7 +114,6 @@ const defaultTabFilters = [
 function TransactionItem({ order, onClick }) {
   const statusConfig = getStatusConfig(order.status);
   const statusMessage = getStatusMessage(order.status);
-  const normalizedStatus = normalizeStatus(order.status);
 
   return (
     <div
@@ -135,7 +133,7 @@ function TransactionItem({ order, onClick }) {
           </p>
           {statusMessage && (
             <p className={`text-sm mt-1 ${statusConfig.textColor}`}>
-              {normalizedStatus === "selesai" ? "✓" : normalizedStatus === "dibatalkan" ? "✗" : "○"} {statusMessage}
+              {order.status === "selesai" ? "✓" : order.status === "dibatalkan" ? "✗" : "○"} {statusMessage}
             </p>
           )}
         </div>
@@ -167,7 +165,7 @@ export default function TransactionList({
   // Filtered orders based on active tab
   const filteredOrders = useMemo(() => {
     if (activeFilter === "all") return orders;
-    return orders.filter((order) => normalizeStatus(order.status) === activeFilter);
+    return orders.filter((order) => order.status === activeFilter);
   }, [orders, activeFilter]);
 
   const handleOrderClick = (order) => {

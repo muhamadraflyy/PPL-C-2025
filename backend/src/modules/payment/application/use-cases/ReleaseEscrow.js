@@ -17,9 +17,9 @@ class ReleaseEscrow {
    * @returns {Promise<Object>} Release result
    */
   async execute(dto) {
-    const { escrow_id, user_id, reason, user_role } = dto;
+    const { escrow_id, user_id, reason } = dto;
 
-    console.log(`[ESCROW RELEASE] Releasing escrow ${escrow_id} by user ${user_id} (role: ${user_role})`);
+    console.log(`[ESCROW RELEASE] Releasing escrow ${escrow_id} by user ${user_id}`);
 
     // 1. Validate escrow exists
     const escrow = await EscrowModel.findByPk(escrow_id);
@@ -33,41 +33,10 @@ class ReleaseEscrow {
       throw new Error(`Cannot release escrow with status: ${escrow.status}`);
     }
 
-    // 3. AUTHORIZATION VALIDATION - Verify user has permission to release
-    // Fetch the order to get client_id and freelancer_id
-    const [orderData] = await EscrowModel.sequelize.query(
-      'SELECT client_id, freelancer_id FROM pesanan WHERE id = ? LIMIT 1',
-      {
-        replacements: [escrow.pesanan_id],
-        type: EscrowModel.sequelize.QueryTypes.SELECT
-      }
-    );
+    // Note: User authorization validation will be added when auth middleware is implemented
+    // Expected: Only the client who made the payment can release escrow
 
-    if (!orderData) {
-      throw new Error('Order not found for this escrow');
-    }
-
-    const { client_id, freelancer_id } = orderData;
-
-    // Role-based authorization checks
-    if (user_role === 'freelancer') {
-      // BLOCK: Freelancers cannot release escrow (conflict of interest)
-      throw new Error('Freelancers are not authorized to release escrow. Only clients or admins can release funds.');
-    } else if (user_role === 'client') {
-      // ALLOW: Only if the client owns the order
-      if (client_id !== user_id) {
-        throw new Error('You are not authorized to release this escrow. Only the order owner can release funds.');
-      }
-      console.log(`[ESCROW RELEASE] Client ${user_id} releasing their own escrow (authorized)`);
-    } else if (user_role === 'admin') {
-      // ALLOW: Admins can force release any escrow
-      console.log(`[ESCROW RELEASE] Admin ${user_id} force releasing escrow (authorized)`);
-    } else {
-      // DENY: Unknown or missing role
-      throw new Error('Unauthorized: Invalid user role for escrow release');
-    }
-
-    // 4. Release escrow
+    // 3. Release escrow
     const releasedEscrow = await this.escrowService.releaseEscrow(escrow_id, user_id);
 
     console.log(`[ESCROW RELEASE] Successfully released escrow ${escrow_id}`);

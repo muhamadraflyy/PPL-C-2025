@@ -21,7 +21,7 @@ class CreateOrder {
   }
 
   async execute(userId, orderData) {
-    // orderData: { layanan_id, paket_id (optional), catatan_client, lampiran_client }
+    // orderData: { layanan_id, paket_id (optional), catatan_client }
 
     // Validasi service exist
     const service = await this.serviceRepository.findById(orderData.layanan_id);
@@ -82,10 +82,6 @@ class CreateOrder {
       judul: service.judul,
       deskripsi: service.deskripsi,
       catatan_client: orderData.catatan_client || null,
-      // Simpan lampiran client (array URL/file path) ke kolom JSON jika ada
-      lampiran_client: Array.isArray(orderData.lampiran_client) && orderData.lampiran_client.length
-        ? orderData.lampiran_client
-        : null,
       harga: harga,
       biaya_platform: biayaPlatform,
       total_bayar: totalBayar,
@@ -93,18 +89,6 @@ class CreateOrder {
       tenggat_waktu: tenggat,
       status: 'menunggu_pembayaran'
     });
-
-    // Catat riwayat status awal
-    if (order && order.id) {
-      await this.orderRepository.addStatusHistory({
-        pesanan_id: order.id,
-        from_status: null,
-        to_status: 'menunggu_pembayaran',
-        changed_by_user_id: userId,
-        changed_by_role: 'client',
-        reason: 'Order dibuat oleh client',
-      });
-    }
 
     return order;
   }
