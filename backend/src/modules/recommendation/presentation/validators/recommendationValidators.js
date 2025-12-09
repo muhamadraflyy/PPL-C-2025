@@ -189,6 +189,43 @@ const getInteractionHistoryValidation = [
     handleValidationErrors
 ];
 
+/**
+ * Validation rules for Hide Service endpoint
+ */
+const hideServiceValidation = [
+    param('serviceId')
+        .notEmpty()
+        .withMessage('Service ID is required')
+        .isUUID()
+        .withMessage('Service ID must be a valid UUID'),
+    handleValidationErrors
+];
+
+/**
+ * Validation rules for Unhide Service endpoint
+ */
+const unhideServiceValidation = [
+    param('serviceId')
+        .notEmpty()
+        .withMessage('Service ID is required')
+        .isUUID()
+        .withMessage('Service ID must be a valid UUID'),
+    handleValidationErrors
+];
+
+/**
+ * Validation rules for Get Hidden Services endpoint
+ */
+const getHiddenServicesValidation = [
+    query('userId')
+        .optional()
+        .notEmpty()
+        .withMessage('User ID cannot be empty if provided')
+        .isString()
+        .withMessage('User ID must be a string'),
+    handleValidationErrors
+];
+
 module.exports = {
     getRecommendationsValidation,
     getSimilarServicesValidation,
@@ -196,5 +233,8 @@ module.exports = {
     trackInteractionValidation,
     addFavoriteValidation,
     removeFavoriteValidation,
-    getInteractionHistoryValidation
+    getInteractionHistoryValidation,
+    hideServiceValidation,
+    unhideServiceValidation,
+    getHiddenServicesValidation
 };
