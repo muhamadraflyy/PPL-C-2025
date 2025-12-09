@@ -1,15 +1,17 @@
 /**
  * Clean Uploads Script
  * Menghapus semua file upload (profiles, layanan, portfolio) saat migrate:fresh
+ * 
+ * CATATAN: Script ini dinonaktifkan untuk menjaga data portfolio dan profiles
  */
 
 const fs = require('fs');
 const path = require('path');
 
-// Daftar folder yang akan dibersihkan
+// Daftar folder yang akan dibersihkan (DINONAKTIFKAN)
 const foldersToClean = [
-  path.join(__dirname, '../public/profiles'),   // Avatar & cover photo
-  path.join(__dirname, '../public/portfolio')   // Portfolio freelancer
+  // path.join(__dirname, '../public/profiles'),   // Avatar & cover photo - DINONAKTIFKAN
+  // path.join(__dirname, '../public/portfolio')   // Portfolio freelancer - DINONAKTIFKAN
 ];
 
 /**
@@ -58,11 +60,15 @@ function cleanFolder(folderPath) {
 function main() {
   console.log('\n🧹 Membersihkan folder uploads...\n');
   
-  foldersToClean.forEach(folder => {
-    cleanFolder(folder);
-  });
+  if (foldersToClean.length === 0) {
+    console.log('⚠️  Pembersihan folder dinonaktifkan - data portfolio dan profiles akan dipertahankan');
+  } else {
+    foldersToClean.forEach(folder => {
+      cleanFolder(folder);
+    });
+  }
   
-  console.log('\n✨ Selesai membersihkan uploads!\n');
+  console.log('\n✨ Selesai!\n');
 }
 
 // Run script
