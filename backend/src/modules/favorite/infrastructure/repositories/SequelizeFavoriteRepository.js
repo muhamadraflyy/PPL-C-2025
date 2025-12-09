@@ -17,7 +17,7 @@ class SequelizeFavoriteRepository {
 
       // Use raw query to join with layanan and kategori
       const whereType = type ? `AND f.type = '${type}'` : '';
-      const [favorites] = await sequelize.query(`
+      const favorites = await sequelize.query(`
         SELECT
           f.id,
           f.user_id,

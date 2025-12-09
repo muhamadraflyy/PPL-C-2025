@@ -27,7 +27,7 @@ class BookmarkController {
    */
   getBookmarks = async (req, res, next) => {
     try {
-      const userId = req.user && req.user.userId;
+      const userId = req.user && (req.user.userId || req.user.id);
       if (!userId) {
         const err = new Error('Unauthorized');
         err.statusCode = 401;
@@ -41,7 +41,10 @@ class BookmarkController {
         throw err;
       }
 
-      const result = await this.getBookmarksUseCase.execute(userId);
+      // Pass 'bookmark' type to only get bookmarks, not favorites
+      const result = await this.getBookmarksUseCase.execute(userId, 'bookmark');
+
+      console.log('[BookmarkController] GetFavorites result:', JSON.stringify(result, null, 2));
 
       if (!result.success) {
         const err = new Error(result.message);
@@ -50,7 +53,16 @@ class BookmarkController {
       }
 
       // Ubah key untuk konsistensi penamaan (optional)
-      const data = Array.isArray(result.data?.favorites) ? result.data.favorites : [];
+      // Handle both result.data.favorites and result.data as array
+      let data = [];
+      if (result.data) {
+        if (Array.isArray(result.data.favorites)) {
+          data = result.data.favorites;
+        } else if (Array.isArray(result.data)) {
+          data = result.data;
+        }
+      }
+
       res.json({
         success: true,
         message: 'Bookmarks retrieved successfully',
@@ -73,7 +85,7 @@ class BookmarkController {
       console.log('[BOOKMARK] User:', req.user);
       console.log('[BOOKMARK] Body:', req.body);
 
-      const userId = req.user && req.user.userId;
+      const userId = req.user && (req.user.userId || req.user.id);
       if (!userId) {
         const err = new Error('Unauthorized');
         err.statusCode = 401;
@@ -122,7 +134,7 @@ class BookmarkController {
    */
   removeBookmark = async (req, res, next) => {
     try {
-      const userId = req.user && req.user.userId;
+      const userId = req.user && (req.user.userId || req.user.id);
       if (!userId) {
         const err = new Error('Unauthorized');
         err.statusCode = 401;
@@ -165,7 +177,7 @@ class BookmarkController {
    */
   checkBookmark = async (req, res, next) => {
     try {
-      const userId = req.user && req.user.userId;
+      const userId = req.user && (req.user.userId || req.user.id);
       if (!userId) {
         const err = new Error('Unauthorized');
         err.statusCode = 401;

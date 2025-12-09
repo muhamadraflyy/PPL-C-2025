@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import ServicePopularCarousel from "./ServicePopularCarousel";
 import { serviceService } from "../../../services/Service/serviceService";
+import { favoriteService } from "../../../services/favoriteService";
+import { bookmarkService } from "../../../services/bookmarkService";
+import { authService } from "../../../services/authService";
 
 export default function ServicePopular() {
   const navigate = useNavigate();
@@ -45,14 +48,55 @@ export default function ServicePopular() {
     }
   };
 
-  const handleFavorite = (service) => {
-    // TODO: Implementasi favorite
-    console.log("Favorite:", service);
+  const handleFavorite = async (service) => {
+    const user = authService.getCurrentUser();
+    if (!user || user.role !== 'client') {
+      console.log('[ServicePopular] User not client, skipping favorite');
+      return;
+    }
+
+    try {
+      // Check current status
+      const statusRes = await favoriteService.isFavorite(service.id);
+      const isFavorite = statusRes?.data?.isFavorite || false;
+
+      // Toggle
+      const res = await favoriteService.toggleFavorite(service.id, !isFavorite);
+      if (res?.success) {
+        console.log('[ServicePopular] Favorite toggled:', !isFavorite);
+      }
+    } catch (error) {
+      console.error('[ServicePopular] Error toggling favorite:', error);
+    }
   };
 
-  const handleBookmark = (service) => {
-    // TODO: Implementasi bookmark
-    console.log("Bookmark:", service);
+  const handleBookmark = async (service) => {
+    const user = authService.getCurrentUser();
+    if (!user || user.role !== 'client') {
+      console.log('[ServicePopular] User not client, skipping bookmark');
+      return;
+    }
+
+    try {
+      // Check current status
+      const statusRes = await bookmarkService.isBookmarked(service.id);
+      const isBookmarked = statusRes?.data?.isBookmarked || false;
+
+      // Toggle
+      if (isBookmarked) {
+        const res = await bookmarkService.removeBookmark(service.id);
+        if (res?.success) {
+          console.log('[ServicePopular] Bookmark removed');
+        }
+      } else {
+        const res = await bookmarkService.addBookmark(service.id);
+        if (res?.success) {
+          console.log('[ServicePopular] Bookmark added');
+        }
+      }
+    } catch (error) {
+      console.error('[ServicePopular] Error toggling bookmark:', error);
+    }
   };
 
   const handleCategoryChange = (index) => {

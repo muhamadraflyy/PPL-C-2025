@@ -36,7 +36,8 @@ class FavoriteController {
         throw err;
       }
 
-      const result = await this.getFavoritesUseCase.execute(userId);
+      // Pass 'favorite' type to only get favorites, not bookmarks
+      const result = await this.getFavoritesUseCase.execute(userId, 'favorite');
 
       if (!result.success) {
         const err = new Error(result.message);
