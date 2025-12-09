@@ -126,7 +126,7 @@ export default function OrdersIncomingPage() {
 
   const handleTarikSaldo = () => {
     // Navigate to withdrawal page
-    window.location.href = '/freelancer/withdrawal/create';
+    window.location.href = '/withdrawal/create';
   };
 
   return (
