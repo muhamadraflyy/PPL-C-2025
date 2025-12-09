@@ -13,6 +13,7 @@ const RetryPayment = require('../../application/use-cases/RetryPayment');
 const PaymentModel = require('../../infrastructure/models/PaymentModel');
 const EscrowModel = require('../../infrastructure/models/EscrowModel');
 const WithdrawalModel = require('../../infrastructure/models/WithdrawalModel');
+const OrderModel = require('../../../order/infrastructure/models/OrderModel');
 const MockPaymentGatewayService = require('../../infrastructure/services/MockPaymentGatewayService');
 const InvoiceService = require('../../infrastructure/services/InvoiceService');
 const EmailService = require('../../infrastructure/services/EmailService');
@@ -547,6 +548,11 @@ class PaymentController {
     try {
       const {
         escrow_id,
+        jumlah,
+        bank_name,
+        bank_account_number,
+        bank_account_name,
+        catatan,
         metode_pembayaran_id,
         metode_pencairan,
         nomor_rekening,
@@ -554,13 +560,56 @@ class PaymentController {
       } = req.body;
       const freelancer_id = req.user?.id || req.body.freelancer_id;
 
+      // If escrow_id not provided, find an available escrow for the freelancer
+      let selectedEscrowId = escrow_id;
+
+      if (!selectedEscrowId) {
+        // Setup associations if not already defined
+        if (!EscrowModel.associations.pembayaran) {
+          EscrowModel.belongsTo(PaymentModel, { foreignKey: 'pembayaran_id', as: 'pembayaran' });
+        }
+        if (!PaymentModel.associations.pesanan) {
+          PaymentModel.belongsTo(OrderModel, { foreignKey: 'pesanan_id', as: 'pesanan' });
+        }
+
+        // Find available escrow with released status
+        const availableEscrow = await EscrowModel.findOne({
+          where: {
+            status: 'released'
+          },
+          include: [{
+            model: PaymentModel,
+            as: 'pembayaran',
+            required: true,
+            include: [{
+              model: OrderModel,
+              as: 'pesanan',
+              required: true,
+              where: {
+                freelancer_id: freelancer_id
+              }
+            }]
+          }],
+          order: [['created_at', 'ASC']] // FIFO - first released, first withdrawn
+        });
+
+        if (!availableEscrow) {
+          return res.status(400).json({
+            success: false,
+            message: 'Tidak ada saldo yang tersedia untuk ditarik'
+          });
+        }
+
+        selectedEscrowId = availableEscrow.id;
+      }
+
       const result = await this.withdrawFundsUseCase.execute({
-        escrow_id,
+        escrow_id: selectedEscrowId,
         freelancer_id,
-        metode_pembayaran_id,
-        metode_pencairan,
-        nomor_rekening,
-        nama_pemilik
+        metode_pembayaran_id: metode_pembayaran_id || null,
+        metode_pencairan: metode_pencairan || 'transfer_bank', // Must be 'transfer_bank' or 'e_wallet'
+        nomor_rekening: nomor_rekening || bank_account_number,
+        nama_pemilik: nama_pemilik || bank_account_name
       });
 
       res.status(201).json({
