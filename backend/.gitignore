@@ -52,3 +52,8 @@ uploads/
 generated/
 public/uploads/
 .claude
+# Generated files
+invoices/
+public/layanan/
+public/order-attachments/
+src/modules/exports/reports/*.pdf

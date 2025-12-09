@@ -18,7 +18,8 @@ class WithdrawalService {
     metode_pencairan,
     bank_name,
     nomor_rekening,
-    nama_pemilik
+    nama_pemilik,
+    requested_amount // NEW: Support partial withdrawal
   }) {
     // Get escrow to check if it's released
     const escrow = await EscrowModel.findByPk(escrow_id);
@@ -31,11 +32,26 @@ class WithdrawalService {
       throw new Error(`Cannot withdraw from escrow with status: ${escrow.status}`);
     }
 
-    // Calculate amounts
+    // Calculate amounts - use requested amount if provided, otherwise use full escrow amount
+    const withdrawalAmount = requested_amount
+      ? parseFloat(requested_amount)
+      : parseFloat(escrow.jumlah_ditahan);
+
+    // Validate requested amount doesn't exceed escrow
+    if (withdrawalAmount > parseFloat(escrow.jumlah_ditahan)) {
+      throw new Error(`Withdrawal amount (${withdrawalAmount}) exceeds escrow balance (${escrow.jumlah_ditahan})`);
+    }
+
     const amounts = Withdrawal.calculateNetAmount(
-      parseFloat(escrow.jumlah_ditahan),
+      withdrawalAmount,
       0.05 // 5% platform fee
     );
+
+    console.log(`[WITHDRAWAL SERVICE] Creating withdrawal from escrow ${escrow_id}`);
+    console.log(`[WITHDRAWAL SERVICE] Escrow amount: Rp ${escrow.jumlah_ditahan}`);
+    console.log(`[WITHDRAWAL SERVICE] Withdrawal amount: Rp ${withdrawalAmount}`);
+    console.log(`[WITHDRAWAL SERVICE] Fee: Rp ${amounts.biaya_platform}`);
+    console.log(`[WITHDRAWAL SERVICE] Net: Rp ${amounts.jumlah_bersih}`);
 
     // Create withdrawal entity
     const withdrawal = new Withdrawal({

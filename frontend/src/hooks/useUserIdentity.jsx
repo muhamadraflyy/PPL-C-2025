@@ -28,7 +28,7 @@ export function useUserIdentity() {
               // Construct avatar URL from server
               let avatarUrl = null;
               if (profile.avatar) {
-                const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5000';
+                const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/api$/, '') || 'http://localhost:5000';
                 avatarUrl = `${baseUrl}${profile.avatar}`;
               }
               

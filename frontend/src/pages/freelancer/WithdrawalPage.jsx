@@ -141,7 +141,8 @@ export default function WithdrawalPage() {
       'pending': { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Menunggu' },
       'processing': { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Diproses' },
       'completed': { bg: 'bg-green-100', text: 'text-green-800', label: 'Selesai' },
-      'rejected': { bg: 'bg-red-100', text: 'text-red-800', label: 'Ditolak' }
+      'rejected': { bg: 'bg-red-100', text: 'text-red-800', label: 'Ditolak' },
+      'failed': { bg: 'bg-red-100', text: 'text-red-800', label: 'Ditolak' }
     }
     const config = statusConfig[status] || statusConfig['pending']
     return (
@@ -197,14 +198,14 @@ export default function WithdrawalPage() {
 
         {/* Success Alert */}
         {success && (
-          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <div className="flex gap-3">
-              <svg className="w-5 h-5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              <svg className="w-5 h-5 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <div className="text-sm">
-                <p className="text-green-900 font-medium">Permintaan Berhasil!</p>
-                <p className="text-green-700">Penarikan Anda sedang diproses. Dana akan masuk ke rekening dalam 1-3 hari kerja.</p>
+                <p className="text-blue-900 font-medium">✅ Permintaan Penarikan Berhasil Diajukan!</p>
+                <p className="text-blue-700">Permintaan Anda sedang menunggu persetujuan admin. Admin akan memproses dan mengirimkan bukti transfer dalam 1-3 hari kerja. Anda akan menerima notifikasi setelah dana ditransfer.</p>
               </div>
             </div>
           </div>
@@ -363,10 +364,11 @@ export default function WithdrawalPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <div className="text-sm">
-                    <p className="text-blue-900 font-medium mb-1">Informasi Penarikan</p>
+                    <p className="text-blue-900 font-medium mb-1">ℹ️ Informasi Penarikan</p>
                     <ul className="text-blue-700 space-y-1 list-disc list-inside">
                       <li>Minimum penarikan: Rp 50.000</li>
-                      <li>Dana akan diproses dalam 1-3 hari kerja</li>
+                      <li><strong>Penarikan akan diproses oleh admin</strong> dalam 1-3 hari kerja</li>
+                      <li>Admin akan mengirimkan bukti transfer setelah dana ditransfer</li>
                       <li>Tidak ada biaya administrasi untuk penarikan</li>
                       <li>Pastikan data rekening sudah benar sebelum submit</li>
                     </ul>

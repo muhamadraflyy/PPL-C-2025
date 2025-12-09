@@ -107,14 +107,14 @@ export default function FreelancerProfileEditPage() {
         })
         
         setPreviewImages({
-          fotoProfil: profile.avatar ? `${import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5000'}${profile.avatar}` : null,
-          fotoLatar: profile.foto_latar ? `${import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5000'}${profile.foto_latar}` : null
+          fotoProfil: profile.avatar ? `${import.meta.env.VITE_API_BASE_URL?.replace(/\/api$/, '') || 'http://localhost:5000'}${profile.avatar}` : null,
+          fotoLatar: profile.foto_latar ? `${import.meta.env.VITE_API_BASE_URL?.replace(/\/api$/, '') || 'http://localhost:5000'}${profile.foto_latar}` : null
         })
 
         // Load existing portfolio items
         if (freelancerProfile.file_portfolio && Array.isArray(freelancerProfile.file_portfolio) && freelancerProfile.file_portfolio.length > 0) {
-          const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5000'
-          
+          const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/api$/, '') || 'http://localhost:5000'
+
           // Convert existing portfolio to portfolio items format
           const existingItems = freelancerProfile.file_portfolio.map((item, idx) => {
             const imageUrl = item.url || item
@@ -254,39 +254,69 @@ export default function FreelancerProfileEditPage() {
   }
 
   const handlePortfolioChange = (e) => {
+    console.log('📸 [handlePortfolioChange] File input changed')
     const files = Array.from(e.target.files)
-    if (files.length === 0) return
+    console.log('📁 Files selected:', files.length)
+
+    if (files.length === 0) {
+      console.log('⚠️ No files selected')
+      return
+    }
 
     try {
       setError('')
-      
+
       // Validate files
       for (const file of files) {
+        console.log(`🔍 Checking file: ${file.name}, size: ${file.size}, type: ${file.type}`)
+
         if (file.size > 5 * 1024 * 1024) {
-          setError('Ukuran file maksimal 5MB per file')
+          const errorMsg = 'Ukuran file maksimal 5MB per file'
+          setError(errorMsg)
+          toast.show(errorMsg, 'error')
+          console.error('❌ File too large:', file.name)
           return
         }
-        
+
         const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
         if (!allowedTypes.includes(file.type)) {
-          setError('Format file tidak didukung. Gunakan: JPG, PNG, GIF, atau WebP')
+          const errorMsg = 'Format file tidak didukung. Gunakan: JPG, PNG, GIF, atau WebP'
+          setError(errorMsg)
+          toast.show(errorMsg, 'error')
+          console.error('❌ Invalid file type:', file.type)
           return
         }
       }
 
+      console.log('✅ All files validated')
+
       // Add to temp portfolio files (untuk modal)
-      setTempPortfolioFiles(prev => [...prev, ...files])
+      setTempPortfolioFiles(prev => {
+        const updated = [...prev, ...files]
+        console.log('📦 Updated tempPortfolioFiles:', updated.length)
+        return updated
+      })
 
       // Create previews
-      files.forEach(file => {
+      files.forEach((file, idx) => {
+        console.log(`📷 Creating preview for file ${idx + 1}:`, file.name)
         const reader = new FileReader()
         reader.onloadend = () => {
+          console.log(`✅ Preview created for:`, file.name)
           setTempPortfolioPreviews(prev => [...prev, reader.result])
+        }
+        reader.onerror = () => {
+          console.error('❌ Failed to read file:', file.name)
         }
         reader.readAsDataURL(file)
       })
+
+      toast.show(`${files.length} gambar berhasil ditambahkan`, 'success')
     } catch (err) {
-      setError('Terjadi kesalahan saat memproses gambar portfolio')
+      console.error('❌ Error in handlePortfolioChange:', err)
+      const errorMsg = 'Terjadi kesalahan saat memproses gambar portfolio'
+      setError(errorMsg)
+      toast.show(errorMsg, 'error')
     }
   }
 
@@ -310,13 +340,23 @@ export default function FreelancerProfileEditPage() {
   }
 
   const savePortfolioItem = () => {
+    console.log('🔍 [savePortfolioItem] Called')
+    console.log('📝 Judul:', portfolioData.judul)
+    console.log('📁 Files:', tempPortfolioFiles.length)
+
     if (!portfolioData.judul.trim()) {
-      setError('Judul portfolio harus diisi')
+      const errorMsg = 'Judul portfolio harus diisi'
+      setError(errorMsg)
+      toast.show(errorMsg, 'error')
+      console.error('❌ Validation failed: Judul kosong')
       return
     }
 
     if (tempPortfolioFiles.length === 0) {
-      setError('Minimal upload 1 gambar portfolio')
+      const errorMsg = 'Minimal upload 1 gambar portfolio'
+      setError(errorMsg)
+      toast.show(errorMsg, 'error')
+      console.error('❌ Validation failed: Tidak ada file')
       return
     }
 
@@ -329,9 +369,11 @@ export default function FreelancerProfileEditPage() {
       previews: tempPortfolioPreviews
     }
 
+    console.log('✅ Portfolio item created:', newItem)
     setPortfolioItems(prev => [...prev, newItem])
     closePortfolioModal()
     setSuccess('Portfolio berhasil ditambahkan!')
+    toast.show('Portfolio berhasil ditambahkan!', 'success')
     setTimeout(() => setSuccess(''), 3000)
   }
 
@@ -364,7 +406,7 @@ export default function FreelancerProfileEditPage() {
           
           // Remove the item (find by matching preview URL)
           const updatedPortfolio = currentPortfolio.filter(item => {
-            const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5000'
+            const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/api$/, '') || 'http://localhost:5000'
             const imageUrl = item.url || item
             const fullUrl = imageUrl.startsWith('http') ? imageUrl : `${baseUrl}${imageUrl}`
             return !itemToRemove.previews.includes(fullUrl)
@@ -982,14 +1024,15 @@ export default function FreelancerProfileEditPage() {
               {/* Judul Portofolio */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Judul Portofolio
+                  Judul Portofolio <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={portfolioData.judul}
                   onChange={(e) => setPortfolioData(prev => ({ ...prev, judul: e.target.value }))}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Judul"
+                  placeholder="Contoh: Website E-commerce Modern"
+                  required
                 />
               </div>
 
@@ -1010,11 +1053,14 @@ export default function FreelancerProfileEditPage() {
               {/* Upload Portofolio */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Portofolio
+                  Gambar Portofolio <span className="text-red-500">*</span>
                 </label>
-                <div 
-                  onClick={() => portfolioInputRef.current?.click()}
-                  className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center cursor-pointer hover:border-blue-500 transition-colors bg-gray-50"
+                <div
+                  onClick={() => {
+                    console.log('🖱️ Upload area clicked')
+                    portfolioInputRef.current?.click()
+                  }}
+                  className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors bg-gray-50"
                 >
                   <div className="flex flex-col items-center gap-4">
                     <div className="flex gap-6 text-gray-400">
@@ -1024,7 +1070,7 @@ export default function FreelancerProfileEditPage() {
                       <i className="fas fa-link text-4xl"></i>
                       <i className="fas fa-file text-4xl"></i>
                     </div>
-                    <p className="text-gray-600 font-medium">Tambahkan Konten</p>
+                    <p className="text-gray-600 font-medium">Klik untuk upload gambar</p>
                     <p className="text-xs text-gray-500">JPG, PNG, GIF, atau WebP (Max 5MB per file)</p>
                   </div>
                 </div>

@@ -361,6 +361,60 @@ export const paymentService = {
         message: error.response?.data?.message || 'Failed to get balance'
       }
     }
+  },
+
+  // ==========================================
+  // ADMIN WITHDRAWAL MANAGEMENT
+  // ==========================================
+
+  /**
+   * Get all withdrawals (Admin)
+   * @param {Object} params - { status, limit, offset }
+   */
+  async adminGetWithdrawals(params = {}) {
+    try {
+      const response = await api.get('/payments/admin/withdrawals', { params })
+      return response.data
+    } catch (error) {
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Failed to get withdrawals'
+      }
+    }
+  },
+
+  /**
+   * Approve withdrawal (Admin)
+   * @param {string} withdrawalId - Withdrawal ID
+   * @param {Object} data - { bukti_transfer, catatan }
+   */
+  async adminApproveWithdrawal(withdrawalId, data) {
+    try {
+      const response = await api.post(`/payments/admin/withdrawals/${withdrawalId}/approve`, data)
+      return response.data
+    } catch (error) {
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Failed to approve withdrawal'
+      }
+    }
+  },
+
+  /**
+   * Reject withdrawal (Admin)
+   * @param {string} withdrawalId - Withdrawal ID
+   * @param {Object} data - { reason }
+   */
+  async adminRejectWithdrawal(withdrawalId, data) {
+    try {
+      const response = await api.post(`/payments/admin/withdrawals/${withdrawalId}/reject`, data)
+      return response.data
+    } catch (error) {
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Failed to reject withdrawal'
+      }
+    }
   }
 }
 

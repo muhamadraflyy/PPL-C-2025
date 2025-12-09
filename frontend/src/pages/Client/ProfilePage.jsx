@@ -186,8 +186,8 @@ export default function ProfilePage() {
             
             {/* Image Layer (if exists) */}
             {profile.foto_latar && (
-              <img 
-                src={`${import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5000'}${profile.foto_latar}`} 
+              <img
+                src={`${import.meta.env.VITE_API_BASE_URL?.replace(/\/api$/, '') || 'http://localhost:5000'}${profile.foto_latar}`}
                 alt="Cover" 
                 className="absolute inset-0 w-full h-full object-cover"
                 onError={(e) => {
@@ -220,8 +220,8 @@ export default function ProfilePage() {
                   
                   {/* Profile Image (if exists) */}
                   {profile.avatar && (
-                    <img 
-                      src={`${import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5000'}${profile.avatar}`} 
+                    <img
+                      src={`${import.meta.env.VITE_API_BASE_URL?.replace(/\/api$/, '') || 'http://localhost:5000'}${profile.avatar}`}
                       alt={fullName} 
                       className="absolute inset-0 w-full h-full object-cover"
                       onError={(e) => {

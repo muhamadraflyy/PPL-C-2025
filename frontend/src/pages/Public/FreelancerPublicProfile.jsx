@@ -160,8 +160,8 @@ export default function FreelancerPublicProfile() {
           <div className="h-40 relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-blue-300"></div>
             {fotoLatar && (
-              <img 
-                src={`${import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5000'}${fotoLatar}?t=${Date.now()}`} 
+              <img
+                src={`${import.meta.env.VITE_API_BASE_URL?.replace(/\/api$/, '') || 'http://localhost:5000'}${fotoLatar}?t=${Date.now()}`}
                 alt="Cover" 
                 className="absolute inset-0 w-full h-full object-cover"
                 onError={(e) => {
@@ -181,8 +181,8 @@ export default function FreelancerPublicProfile() {
                     {fullName.charAt(0).toUpperCase()}
                   </div>
                   {avatar && (
-                    <img 
-                      src={`${import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5000'}${avatar}?t=${Date.now()}`} 
+                    <img
+                      src={`${import.meta.env.VITE_API_BASE_URL?.replace(/\/api$/, '') || 'http://localhost:5000'}${avatar}?t=${Date.now()}`}
                       alt={fullName} 
                       className="absolute inset-0 w-full h-full object-cover"
                       onError={(e) => {
@@ -353,7 +353,7 @@ export default function FreelancerPublicProfile() {
               {freelancerProfile.file_portfolio && Array.isArray(freelancerProfile.file_portfolio) && freelancerProfile.file_portfolio.length > 0 ? (
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   {freelancerProfile.file_portfolio.map((item, idx) => {
-                    const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5000'
+                    const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/api$/, '') || 'http://localhost:5000'
                     const imageUrl = item.url || item
                     const fullUrl = imageUrl.startsWith('http') ? imageUrl : `${baseUrl}${imageUrl}`
                     
@@ -455,7 +455,7 @@ export default function FreelancerPublicProfile() {
                 onClick={() => {
                   const prevIndex = selectedPortfolio.index - 1
                   if (prevIndex >= 0) {
-                    const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5000'
+                    const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/api$/, '') || 'http://localhost:5000'
                     const prevItem = freelancerProfile.file_portfolio[prevIndex]
                     const imageUrl = prevItem.url || prevItem
                     const fullUrl = imageUrl.startsWith('http') ? imageUrl : `${baseUrl}${imageUrl}`
@@ -477,7 +477,7 @@ export default function FreelancerPublicProfile() {
                 onClick={() => {
                   const nextIndex = selectedPortfolio.index + 1
                   if (nextIndex < freelancerProfile.file_portfolio.length) {
-                    const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5000'
+                    const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/api$/, '') || 'http://localhost:5000'
                     const nextItem = freelancerProfile.file_portfolio[nextIndex]
                     const imageUrl = nextItem.url || nextItem
                     const fullUrl = imageUrl.startsWith('http') ? imageUrl : `${baseUrl}${imageUrl}`

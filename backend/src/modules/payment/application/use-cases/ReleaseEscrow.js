@@ -17,16 +17,45 @@ class ReleaseEscrow {
    * @returns {Promise<Object>} Release result
    */
   async execute(dto) {
-    const { escrow_id, user_id, reason, user_role } = dto;
+    const { escrow_id, payment_id, user_id, reason, user_role } = dto;
 
-    console.log(`[ESCROW RELEASE] Releasing escrow ${escrow_id} by user ${user_id} (role: ${user_role})`);
+    console.log(`[ESCROW RELEASE] Releasing escrow (escrow_id: ${escrow_id}, payment_id: ${payment_id}) by user ${user_id} (role: ${user_role})`);
 
-    // 1. Validate escrow exists
-    const escrow = await EscrowModel.findByPk(escrow_id);
+    // 1. Validate escrow exists - support both escrow_id and payment_id
+    let escrow;
+
+    if (escrow_id) {
+      // First, try to find by escrow_id
+      escrow = await EscrowModel.findByPk(escrow_id);
+
+      // If not found, the escrow_id might actually be a payment_id (frontend bug)
+      if (!escrow) {
+        console.log(`[ESCROW RELEASE] Escrow not found by escrow_id, trying as payment_id...`);
+        escrow = await EscrowModel.findOne({
+          where: { pembayaran_id: escrow_id }
+        });
+        if (escrow) {
+          console.log(`[ESCROW RELEASE] Found escrow by treating escrow_id as payment_id: ${escrow.id}`);
+        }
+      }
+    }
+
+    // If still not found and payment_id is provided
+    if (!escrow && payment_id) {
+      console.log(`[ESCROW RELEASE] Trying with payment_id: ${payment_id}`);
+      escrow = await EscrowModel.findOne({
+        where: { pembayaran_id: payment_id }
+      });
+      if (escrow) {
+        console.log(`[ESCROW RELEASE] Found escrow by payment_id: ${escrow.id}`);
+      }
+    }
 
     if (!escrow) {
       throw new Error('Escrow not found');
     }
+
+    console.log(`[ESCROW RELEASE] Using escrow: ${escrow.id}, status: ${escrow.status}`);
 
     // 2. Validate escrow is in held status
     if (escrow.status !== 'held') {
@@ -67,10 +96,10 @@ class ReleaseEscrow {
       throw new Error('Unauthorized: Invalid user role for escrow release');
     }
 
-    // 4. Release escrow
-    const releasedEscrow = await this.escrowService.releaseEscrow(escrow_id, user_id);
+    // 4. Release escrow - use the actual escrow.id
+    const releasedEscrow = await this.escrowService.releaseEscrow(escrow.id, user_id);
 
-    console.log(`[ESCROW RELEASE] Successfully released escrow ${escrow_id}`);
+    console.log(`[ESCROW RELEASE] Successfully released escrow ${escrow.id}`);
     console.log(`[ESCROW RELEASE] Net amount to freelancer: Rp ${parseFloat(releasedEscrow.jumlah_ditahan) - parseFloat(releasedEscrow.biaya_platform)}`);
 
     // Integration points for other modules:

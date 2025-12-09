@@ -10,6 +10,9 @@ const WithdrawFunds = require('../../application/use-cases/WithdrawFunds');
 const RequestRefund = require('../../application/use-cases/RequestRefund');
 const ProcessRefund = require('../../application/use-cases/ProcessRefund');
 const RetryPayment = require('../../application/use-cases/RetryPayment');
+const GetPendingWithdrawals = require('../../application/use-cases/GetPendingWithdrawals');
+const AdminApproveWithdrawal = require('../../application/use-cases/AdminApproveWithdrawal');
+const AdminRejectWithdrawal = require('../../application/use-cases/AdminRejectWithdrawal');
 const PaymentModel = require('../../infrastructure/models/PaymentModel');
 const EscrowModel = require('../../infrastructure/models/EscrowModel');
 const WithdrawalModel = require('../../infrastructure/models/WithdrawalModel');
@@ -29,6 +32,9 @@ class PaymentController {
     this.requestRefundUseCase = new RequestRefund();
     this.processRefundUseCase = new ProcessRefund();
     this.retryPaymentUseCase = new RetryPayment();
+    this.getPendingWithdrawalsUseCase = new GetPendingWithdrawals();
+    this.adminApproveWithdrawalUseCase = new AdminApproveWithdrawal();
+    this.adminRejectWithdrawalUseCase = new AdminRejectWithdrawal();
     this.mockGateway = new MockPaymentGatewayService();
     this.invoiceService = new InvoiceService();
     this.emailService = new EmailService();
@@ -396,7 +402,7 @@ class PaymentController {
    */
   async releaseEscrow(req, res) {
     try {
-      const { escrow_id, reason } = req.body;
+      const { escrow_id, payment_id, reason } = req.body;
       const user_id = req.user?.userId || req.user?.id || req.body.user_id;
       const user_role = req.user?.role;
 
@@ -415,8 +421,17 @@ class PaymentController {
         });
       }
 
+      // Validate that at least one of escrow_id or payment_id is provided
+      if (!escrow_id && !payment_id) {
+        return res.status(400).json({
+          success: false,
+          message: 'Either escrow_id or payment_id is required'
+        });
+      }
+
       const result = await this.releaseEscrowUseCase.execute({
         escrow_id,
+        payment_id,
         user_id,
         user_role,
         reason
@@ -561,63 +576,133 @@ class PaymentController {
       } = req.body;
       const freelancer_id = req.user?.id || req.body.freelancer_id;
 
-      // If escrow_id not provided, find an available escrow for the freelancer
-      let selectedEscrowId = escrow_id;
+      // NEW: Flexible withdrawal based on requested amount
+      const requestedAmount = parseFloat(jumlah);
 
-      if (!selectedEscrowId) {
-        // Setup associations if not already defined
-        if (!EscrowModel.associations.pembayaran) {
-          EscrowModel.belongsTo(PaymentModel, { foreignKey: 'pembayaran_id', as: 'pembayaran' });
-        }
-        if (!PaymentModel.associations.pesanan) {
-          PaymentModel.belongsTo(OrderModel, { foreignKey: 'pesanan_id', as: 'pesanan' });
-        }
-
-        // Find available escrow with released status
-        const availableEscrow = await EscrowModel.findOne({
-          where: {
-            status: 'released'
-          },
-          include: [{
-            model: PaymentModel,
-            as: 'pembayaran',
-            required: true,
-            include: [{
-              model: OrderModel,
-              as: 'pesanan',
-              required: true,
-              where: {
-                freelancer_id: freelancer_id
-              }
-            }]
-          }],
-          order: [['created_at', 'ASC']] // FIFO - first released, first withdrawn
+      if (!requestedAmount || requestedAmount <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Jumlah penarikan harus lebih dari 0'
         });
-
-        if (!availableEscrow) {
-          return res.status(400).json({
-            success: false,
-            message: 'Tidak ada saldo yang tersedia untuk ditarik'
-          });
-        }
-
-        selectedEscrowId = availableEscrow.id;
       }
 
-      const result = await this.withdrawFundsUseCase.execute({
-        escrow_id: selectedEscrowId,
-        freelancer_id,
-        metode_pembayaran_id: metode_pembayaran_id || null,
-        metode_pencairan: metode_pencairan || 'transfer_bank', // Must be 'transfer_bank' or 'e_wallet'
-        bank_name: bank_name,
-        nomor_rekening: nomor_rekening || bank_account_number,
-        nama_pemilik: nama_pemilik || bank_account_name
+      if (requestedAmount < 50000) {
+        return res.status(400).json({
+          success: false,
+          message: 'Minimum penarikan adalah Rp 50,000'
+        });
+      }
+
+      // Setup associations if not already defined
+      if (!EscrowModel.associations.pembayaran) {
+        EscrowModel.belongsTo(PaymentModel, { foreignKey: 'pembayaran_id', as: 'pembayaran' });
+      }
+      if (!PaymentModel.associations.pesanan) {
+        PaymentModel.belongsTo(OrderModel, { foreignKey: 'pesanan_id', as: 'pesanan' });
+      }
+
+      // Find all available escrows for the freelancer (FIFO)
+      const availableEscrows = await EscrowModel.findAll({
+        where: {
+          status: 'released'
+        },
+        include: [{
+          model: PaymentModel,
+          as: 'pembayaran',
+          required: true,
+          include: [{
+            model: OrderModel,
+            as: 'pesanan',
+            required: true,
+            where: {
+              freelancer_id: freelancer_id
+            }
+          }]
+        }],
+        order: [['dirilis_pada', 'ASC']] // FIFO - first released, first withdrawn
       });
+
+      if (availableEscrows.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Tidak ada saldo yang tersedia untuk ditarik'
+        });
+      }
+
+      // Calculate total available balance
+      const totalAvailable = availableEscrows.reduce((sum, escrow) => {
+        return sum + parseFloat(escrow.jumlah_ditahan);
+      }, 0);
+
+      console.log(`[WITHDRAWAL] Freelancer ${freelancer_id} - Available balance: Rp ${totalAvailable}`);
+      console.log(`[WITHDRAWAL] Requested amount: Rp ${requestedAmount}`);
+
+      if (requestedAmount > totalAvailable) {
+        return res.status(400).json({
+          success: false,
+          message: `Jumlah melebihi saldo tersedia. Saldo Anda: Rp ${totalAvailable.toLocaleString('id-ID')}`
+        });
+      }
+
+      // Select escrows to cover the requested amount (FIFO)
+      let remainingAmount = requestedAmount;
+      const selectedEscrows = [];
+
+      for (const escrow of availableEscrows) {
+        if (remainingAmount <= 0) break;
+
+        const escrowAmount = parseFloat(escrow.jumlah_ditahan);
+        const amountToTake = Math.min(escrowAmount, remainingAmount);
+
+        selectedEscrows.push({
+          escrow_id: escrow.id,
+          escrow_amount: escrowAmount,
+          withdrawal_amount: amountToTake
+        });
+
+        remainingAmount -= amountToTake;
+      }
+
+      console.log(`[WITHDRAWAL] Selected ${selectedEscrows.length} escrow(s) to cover withdrawal`);
+
+      // Create withdrawal records (1 per escrow)
+      const createdWithdrawals = [];
+
+      for (const selected of selectedEscrows) {
+        const result = await this.withdrawFundsUseCase.execute({
+          escrow_id: selected.escrow_id,
+          freelancer_id,
+          metode_pembayaran_id: metode_pembayaran_id || null,
+          metode_pencairan: metode_pencairan || 'transfer_bank',
+          bank_name: bank_name,
+          nomor_rekening: nomor_rekening || bank_account_number,
+          nama_pemilik: nama_pemilik || bank_account_name,
+          requested_amount: selected.withdrawal_amount, // Pass the partial amount
+          is_partial: selected.withdrawal_amount < selected.escrow_amount
+        });
+
+        createdWithdrawals.push(result);
+      }
+
+      // Calculate totals
+      const totalGross = createdWithdrawals.reduce((sum, w) => sum + w.jumlah, 0);
+      const totalFee = createdWithdrawals.reduce((sum, w) => sum + w.biaya_platform, 0);
+      const totalNet = createdWithdrawals.reduce((sum, w) => sum + w.jumlah_bersih, 0);
 
       res.status(201).json({
         success: true,
-        message: 'Withdrawal request created successfully',
-        data: result
+        message: selectedEscrows.length > 1
+          ? `Withdrawal request created (${selectedEscrows.length} transaksi)`
+          : 'Withdrawal request created successfully',
+        data: {
+          withdrawal_count: createdWithdrawals.length,
+          total_gross: totalGross,
+          total_fee: totalFee,
+          total_net: totalNet,
+          withdrawals: createdWithdrawals,
+          status: 'pending',
+          message: 'Permintaan penarikan sedang menunggu persetujuan admin'
+        }
       });
     } catch (error) {
       console.error('[PAYMENT CONTROLLER] Create withdrawal error:', error);
@@ -1249,14 +1334,31 @@ class PaymentController {
         order: [['created_at', 'DESC']]
       });
 
+      // Transform breakdown_by_status array into individual status objects
+      const statusData = {
+        pending: { count: 0, total_amount: 0 },
+        processing: { count: 0, total_amount: 0 },
+        completed: { count: 0, total_amount: 0 },
+        failed: { count: 0, total_amount: 0 }
+      };
+
+      withdrawalByStatus.forEach(item => {
+        if (statusData[item.status]) {
+          statusData[item.status] = {
+            count: parseInt(item.count) || 0,
+            total_amount: parseFloat(item.total_amount) || 0
+          };
+        }
+      });
+
       res.status(200).json({
         success: true,
         data: {
-          summary: {
-            total_count: parseInt(withdrawalStats[0]?.total_count || 0),
+          ...statusData,  // Spread pending, processing, completed, failed
+          total: {
+            count: parseInt(withdrawalStats[0]?.total_count || 0),
             total_amount: parseFloat(withdrawalStats[0]?.total_amount || 0)
           },
-          breakdown_by_status: withdrawalByStatus,
           pending_withdrawals: userRole === 'admin' ? pendingWithdrawals : [],
           role: userRole
         }
@@ -1589,83 +1691,6 @@ class PaymentController {
 
     } catch (error) {
       console.error('[PAYMENT CONTROLLER] Get balance error:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message
-      });
-    }
-  }
-  /** GET /api/payments/analytics/withdrawals
-   * Get withdrawal analytics (ROLE-BASED)
-   */
-  async getWithdrawalAnalytics(req, res) {
-    try {
-      const userId = req.user?.userId || req.user?.id;
-      const userRole = req.user?.role;
-
-      if (!userId || !userRole) {
-        return res.status(401).json({
-          success: false,
-          message: 'Unauthorized'
-        });
-      }
-
-      let whereClause = {};
-
-      // Only freelancers and admins can see withdrawals
-      if (userRole === 'freelancer') {
-        whereClause.freelancer_id = userId;
-      } else if (userRole === 'client') {
-        return res.status(403).json({
-          success: false,
-          message: 'Clients cannot access withdrawal analytics'
-        });
-      }
-
-      const withdrawalStats = await WithdrawalModel.findAll({
-        attributes: [
-          [Sequelize.fn('COUNT', Sequelize.col('id')), 'total_count'],
-          [Sequelize.fn('SUM', Sequelize.col('jumlah')), 'total_amount']
-        ],
-        where: whereClause,
-        raw: true
-      });
-
-      const withdrawalByStatus = await WithdrawalModel.findAll({
-        attributes: [
-          'status',
-          [Sequelize.fn('COUNT', Sequelize.col('id')), 'count'],
-          [Sequelize.fn('SUM', Sequelize.col('jumlah')), 'total_amount']
-        ],
-        where: whereClause,
-        group: ['status'],
-        raw: true
-      });
-
-      const pendingWithdrawals = await WithdrawalModel.findAll({
-        where: {
-          ...whereClause,
-          status: 'pending'
-        },
-        limit: 10,
-        order: [['created_at', 'DESC']]
-      });
-
-      res.status(200).json({
-        success: true,
-        data: {
-          summary: {
-            total_count: parseInt(withdrawalStats[0]?.total_count || 0),
-            total_amount: parseFloat(withdrawalStats[0]?.total_amount || 0)
-          },
-          breakdown_by_status: withdrawalByStatus,
-          pending_withdrawals: userRole === 'admin' ? pendingWithdrawals : [],
-          role: userRole
-        }
-      });
-
-    } catch (error) {
-      console.error('[PAYMENT CONTROLLER] Get withdrawal analytics error:', error);
       res.status(500).json({
         success: false,
         message: error.message
@@ -2269,6 +2294,111 @@ class PaymentController {
     } catch (error) {
       console.error('[PAYMENT CONTROLLER] Get withdrawal history error:', error);
       res.status(500).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
+  /**
+   * GET /api/admin/payments/withdrawals
+   * Get all withdrawals for admin (with filters)
+   */
+  async adminGetWithdrawals(req, res) {
+    try {
+      const { status, limit, offset } = req.query;
+
+      const result = await this.getPendingWithdrawalsUseCase.execute({
+        status,
+        limit: limit ? parseInt(limit) : 50,
+        offset: offset ? parseInt(offset) : 0
+      });
+
+      res.status(200).json(result);
+    } catch (error) {
+      console.error('[ADMIN] Get withdrawals error:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
+  /**
+   * POST /api/admin/payments/withdrawals/:id/approve
+   * Admin approves withdrawal and transfers funds
+   */
+  async adminApproveWithdrawal(req, res) {
+    try {
+      const { id } = req.params;
+      const { bukti_transfer, catatan } = req.body;
+      const admin_id = req.user?.userId || req.user?.id;
+
+      if (!admin_id) {
+        return res.status(401).json({
+          success: false,
+          message: 'Admin authentication required'
+        });
+      }
+
+      if (!bukti_transfer) {
+        return res.status(400).json({
+          success: false,
+          message: 'Bukti transfer wajib diupload'
+        });
+      }
+
+      const result = await this.adminApproveWithdrawalUseCase.execute({
+        withdrawal_id: id,
+        admin_id,
+        bukti_transfer,
+        catatan
+      });
+
+      res.status(200).json(result);
+    } catch (error) {
+      console.error('[ADMIN] Approve withdrawal error:', error);
+      res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
+  /**
+   * POST /api/admin/payments/withdrawals/:id/reject
+   * Admin rejects withdrawal
+   */
+  async adminRejectWithdrawal(req, res) {
+    try {
+      const { id } = req.params;
+      const { reason } = req.body;
+      const admin_id = req.user?.userId || req.user?.id;
+
+      if (!admin_id) {
+        return res.status(401).json({
+          success: false,
+          message: 'Admin authentication required'
+        });
+      }
+
+      if (!reason || reason.trim() === '') {
+        return res.status(400).json({
+          success: false,
+          message: 'Alasan penolakan harus diisi'
+        });
+      }
+
+      const result = await this.adminRejectWithdrawalUseCase.execute({
+        withdrawal_id: id,
+        admin_id,
+        reason
+      });
+
+      res.status(200).json(result);
+    } catch (error) {
+      console.error('[ADMIN] Reject withdrawal error:', error);
+      res.status(400).json({
         success: false,
         message: error.message
       });

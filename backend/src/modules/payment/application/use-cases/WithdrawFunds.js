@@ -24,11 +24,16 @@ class WithdrawFunds {
       metode_pencairan,
       bank_name,
       nomor_rekening,
-      nama_pemilik
+      nama_pemilik,
+      requested_amount, // NEW: Support partial withdrawal
+      is_partial
     } = dto;
 
     console.log(`[WITHDRAWAL] Creating withdrawal for freelancer ${freelancer_id}`);
     console.log(`[WITHDRAWAL] Escrow: ${escrow_id}`);
+    if (requested_amount) {
+      console.log(`[WITHDRAWAL] Requested amount: Rp ${requested_amount} ${is_partial ? '(partial)' : '(full)'}`);
+    }
 
     // 1. Validate escrow exists and is released
     const escrow = await EscrowModel.findByPk(escrow_id);
@@ -52,7 +57,8 @@ class WithdrawFunds {
       metode_pencairan,
       bank_name,
       nomor_rekening,
-      nama_pemilik
+      nama_pemilik,
+      requested_amount // Pass through to service
     });
 
     console.log(`[WITHDRAWAL] Withdrawal request created: ${withdrawal.id}`);

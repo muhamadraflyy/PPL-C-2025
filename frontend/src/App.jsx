@@ -49,6 +49,7 @@ import AdminSubCategoryManagementPage from "./pages/Admin/SubCategoryManagementP
 import TransactionTrendsPage from "./pages/Admin/TransactionTrendsPage";
 import AdminTransactionsPage from "./pages/Admin/TransactionsPage";
 import EscrowManagementPage from "./pages/Admin/EscrowManagementPage";
+import WithdrawalManagementPage from "./pages/Admin/WithdrawalManagementPage";
 import AllNotificationsPage from "./pages/Admin/AllNotificationsPage";
 import FraudReportDetailPage from "./pages/Admin/FraudReportDetailPage";
 import RecommendationMonitoringPage from "./pages/Admin/RecommendationMonitoringPage";
@@ -176,6 +177,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <EscrowManagementPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/withdrawals"
+        element={
+          <ProtectedRoute>
+            <WithdrawalManagementPage />
           </ProtectedRoute>
         }
       />

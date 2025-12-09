@@ -203,6 +203,7 @@ const OrderDetailPage = () => {
           statusHistory: normalizedHistory,
           payment_id: o.payment_id ?? o.paymentId ?? o.pembayaran_id ?? null,
           escrow_id: o.escrow_id ?? o.escrowId ?? null,
+          escrow_status: o.escrow_status ?? o.escrowStatus ?? null,
           refund_status: o.refund_status ?? o.refundStatus ?? null,
           refund_reason: o.refund_reason ?? o.refundReason ?? null
         }
@@ -760,16 +761,36 @@ const OrderDetailPage = () => {
             {isClient && (order.status === 'selesai' || order.status === 'menunggu_review') && (
               <div className="bg-white rounded-lg border border-gray-200 shadow p-6">
                 <h3 className="font-semibold text-lg mb-2">Release Payment</h3>
-                <p className="text-sm text-gray-600 mb-4">
-                  Pekerjaan telah selesai. Lepas dana escrow ke freelancer?
-                </p>
-                <button
-                  onClick={handleReleaseEscrow}
-                  disabled={processingPayment}
-                  className="w-full px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {processingPayment ? 'Memproses...' : 'Release Payment'}
-                </button>
+                {order.escrow_status === 'released' ? (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-start">
+                      <svg className="w-5 h-5 text-green-600 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <div>
+                        <p className="text-sm font-medium text-green-800 mb-1">
+                          ✅ Payment Telah Dirilis
+                        </p>
+                        <p className="text-xs text-green-700">
+                          Dana escrow telah berhasil dirilis ke freelancer. Terima kasih atas kepercayaan Anda!
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Pekerjaan telah selesai. Lepas dana escrow ke freelancer?
+                    </p>
+                    <button
+                      onClick={handleReleaseEscrow}
+                      disabled={processingPayment}
+                      className="w-full px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {processingPayment ? 'Memproses...' : 'Release Payment'}
+                    </button>
+                  </>
+                )}
               </div>
             )}
 

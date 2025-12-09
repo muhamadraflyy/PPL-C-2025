@@ -6,7 +6,7 @@ import { Header } from '../../components/Fragments/Admin/Header';
 import { adminService } from '../../services/adminService';
 import Button from '../../components/Elements/Buttons/Button';
 import Badge from '../../components/Elements/Common/Badge';
-import { Search, Filter, Download, ChevronDown, DollarSign, Shield } from 'lucide-react';
+import { Search, Filter, Download, ChevronDown, DollarSign, Shield, Wallet } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -424,6 +424,17 @@ export default function AdminTransactionsPage() {
             >
               <Shield size={18} />
               Escrow
+            </button>
+            <button
+              onClick={() => navigate('/admin/withdrawals')}
+              className={`flex items-center gap-2 px-6 py-3 font-medium text-sm border-b-2 transition-colors ${
+                location.pathname === '/admin/withdrawals'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+              }`}
+            >
+              <Wallet size={18} />
+              Penarikan
             </button>
           </div>
         </div>

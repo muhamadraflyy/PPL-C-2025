@@ -53,12 +53,16 @@ class SequelizeOrderRepository {
     // Lazy-require Payment model and set association once
     const PaymentModel = this.sequelize.models.pembayaran || require('../../../payment/infrastructure/models/PaymentModel');
     const RefundModel = this.sequelize.models.refund || require('../../../payment/infrastructure/models/RefundModel');
+    const EscrowModel = this.sequelize.models.escrow || require('../../../payment/infrastructure/models/EscrowModel');
 
     if (!this.OrderModel.associations.pembayaran) {
       this.OrderModel.hasMany(PaymentModel, { foreignKey: 'pesanan_id', as: 'pembayaran' });
     }
     if (!PaymentModel.associations.refund) {
       PaymentModel.hasMany(RefundModel, { foreignKey: 'pembayaran_id', as: 'refund' });
+    }
+    if (!this.OrderModel.associations.escrow) {
+      this.OrderModel.hasMany(EscrowModel, { foreignKey: 'pesanan_id', as: 'escrow' });
     }
 
     const result = await this.OrderModel.findByPk(id, {
@@ -97,6 +101,12 @@ class SequelizeOrderRepository {
               required: false
             }
           ]
+        },
+        {
+          model: EscrowModel,
+          as: 'escrow',
+          attributes: ['id', 'pembayaran_id', 'status', 'jumlah_ditahan', 'biaya_platform', 'dirilis_pada', 'created_at'],
+          required: false
         }
       ]
     });
@@ -156,6 +166,18 @@ class SequelizeOrderRepository {
             plainResult.refund_id = activeRefund.id;
           }
         }
+      }
+    }
+
+    // Add flat escrow_id and escrow_status from the escrow
+    if (plainResult.escrow && plainResult.escrow.length > 0) {
+      // Get the most recent escrow (could be held or released)
+      const activeEscrow = plainResult.escrow[plainResult.escrow.length - 1];
+      if (activeEscrow) {
+        plainResult.escrow_id = activeEscrow.id;
+        plainResult.escrow_status = activeEscrow.status;
+        plainResult.escrow_amount = activeEscrow.jumlah_ditahan;
+        plainResult.escrow_released_at = activeEscrow.dirilis_pada;
       }
     }
 
