@@ -115,7 +115,7 @@ export default function WithdrawalPage() {
 
         // Show success message then redirect after 2 seconds
         setTimeout(() => {
-          navigate('/freelancer/withdrawals')
+          navigate('/withdrawal/history')
         }, 2000)
       } else {
         setError(result.message || 'Gagal membuat permintaan penarikan')
@@ -401,7 +401,7 @@ export default function WithdrawalPage() {
 
               {/* View History Button */}
               <button
-                onClick={() => navigate('/freelancer/withdrawals')}
+                onClick={() => navigate('/withdrawal/history')}
                 className="w-full mt-4 px-4 py-2 text-sm text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
               >
                 Lihat Riwayat Lengkap
