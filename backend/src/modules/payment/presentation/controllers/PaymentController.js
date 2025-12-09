@@ -648,7 +648,11 @@ class PaymentController {
       const mappedWithdrawal = {
         ...withdrawal,
         bank_account_number: withdrawal.nomor_rekening,
-        bank_account_name: withdrawal.nama_pemilik
+        bank_account_name: withdrawal.nama_pemilik,
+        // Ensure dates are ISO strings for frontend
+        created_at: withdrawal.created_at ? new Date(withdrawal.created_at).toISOString() : null,
+        updated_at: withdrawal.updated_at ? new Date(withdrawal.updated_at).toISOString() : null,
+        dicairkan_pada: withdrawal.dicairkan_pada ? new Date(withdrawal.dicairkan_pada).toISOString() : null
       };
 
       res.status(200).json({
@@ -2209,7 +2213,11 @@ class PaymentController {
         return {
           ...w,
           bank_account_number: w.nomor_rekening,
-          bank_account_name: w.nama_pemilik
+          bank_account_name: w.nama_pemilik,
+          // Ensure dates are ISO strings for frontend
+          created_at: w.created_at ? new Date(w.created_at).toISOString() : null,
+          updated_at: w.updated_at ? new Date(w.updated_at).toISOString() : null,
+          dicairkan_pada: w.dicairkan_pada ? new Date(w.dicairkan_pada).toISOString() : null
         };
       });
 
