@@ -96,6 +96,12 @@ const mapServiceToFrontend = (backendService) => {
     backendService.image ||
     backendService.thumbnail_url;
 
+  const favoriteCount =
+    backendService.jumlah_favorit ??
+    backendService.favorite_count ??
+    backendService.favoriteCount ??
+    0;
+
   return {
     id: backendService.id,
     slug: backendService.slug,
@@ -107,6 +113,7 @@ const mapServiceToFrontend = (backendService) => {
     reviews,
     price,
     thumbnail: buildMediaUrl(thumbnailRaw),
+    favoriteCount,
   };
 };
 

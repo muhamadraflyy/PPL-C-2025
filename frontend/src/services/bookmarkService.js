@@ -30,16 +30,42 @@ export const bookmarkService = {
    */
   async addBookmark(serviceId) {
     try {
-      const res = await api.post('/bookmarks', { layanan_id: serviceId });
-      // Normalize response to always include success flag
-      if (typeof res.data?.success !== 'undefined') {
-        return res.data;
+      // Treat 400 as valid response to prevent console errors
+      const res = await api.post('/bookmarks',
+        { layanan_id: serviceId },
+        { validateStatus: (status) => status < 500 } // Accept all 2xx, 3xx, 4xx as valid
+      );
+
+      // Check if it's actually successful (2xx)
+      if (res.status >= 200 && res.status < 300) {
+        if (typeof res.data?.success !== 'undefined') {
+          return res.data;
+        }
+        return {
+          success: true,
+          data: res.data?.data ?? res.data,
+        };
       }
+
+      // Handle 400 errors (validation errors)
+      if (res.status === 400) {
+        const message = res.data?.message || 'Failed to add bookmark';
+        return {
+          success: false,
+          message,
+          errors: res.data?.errors || []
+        };
+      }
+
+      // Other 4xx errors
       return {
-        success: res.status >= 200 && res.status < 300,
-        data: res.data?.data ?? res.data,
+        success: false,
+        message: res.data?.message || 'Failed to add bookmark',
+        errors: res.data?.errors || []
       };
     } catch (error) {
+      // Only network errors reach here (5xx, timeout, etc)
+      console.error('[bookmarkService] addBookmark network error:', error.message);
       return {
         success: false,
         message: error.response?.data?.message || 'Failed to add bookmark',

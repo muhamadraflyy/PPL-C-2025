@@ -26,6 +26,7 @@ class SequelizeServiceRepository {
       "jumlah_rating",
       "total_pesanan",
       "jumlah_dilihat",
+      "jumlah_favorit",
       "status",
       "created_at",
       "updated_at",
@@ -561,6 +562,62 @@ class SequelizeServiceRepository {
   async findByUserId(userId, filters = {}, options = {}) {
     const merged = { ...filters, freelancer_id: userId };
     return this.findAll(merged, options);
+  }
+
+  // =========================================================
+  // Favorite Count Management
+  // =========================================================
+
+  async incrementFavoriteCount(layananId) {
+    console.log(`[SequelizeServiceRepository] Incrementing favorite count for layanan: ${layananId}`);
+
+    // Get current count
+    const [before] = await this.sequelize.query(
+      `SELECT jumlah_favorit FROM layanan WHERE id = ?`,
+      { replacements: [layananId] }
+    );
+    const beforeCount = before && before[0] ? before[0].jumlah_favorit : 0;
+    console.log(`[SequelizeServiceRepository] Current count: ${beforeCount}`);
+
+    // Increment
+    await this.sequelize.query(
+      `UPDATE layanan SET jumlah_favorit = COALESCE(jumlah_favorit, 0) + 1, updated_at = NOW() WHERE id = ?`,
+      { replacements: [layananId] }
+    );
+
+    // Get new count
+    const [after] = await this.sequelize.query(
+      `SELECT jumlah_favorit FROM layanan WHERE id = ?`,
+      { replacements: [layananId] }
+    );
+    const afterCount = after && after[0] ? after[0].jumlah_favorit : 0;
+    console.log(`[SequelizeServiceRepository] ✅ New count: ${afterCount} (was ${beforeCount})`);
+  }
+
+  async decrementFavoriteCount(layananId) {
+    console.log(`[SequelizeServiceRepository] Decrementing favorite count for layanan: ${layananId}`);
+
+    // Get current count
+    const [before] = await this.sequelize.query(
+      `SELECT jumlah_favorit FROM layanan WHERE id = ?`,
+      { replacements: [layananId] }
+    );
+    const beforeCount = before && before[0] ? before[0].jumlah_favorit : 0;
+    console.log(`[SequelizeServiceRepository] Current count: ${beforeCount}`);
+
+    // Decrement
+    await this.sequelize.query(
+      `UPDATE layanan SET jumlah_favorit = GREATEST(COALESCE(jumlah_favorit, 0) - 1, 0), updated_at = NOW() WHERE id = ?`,
+      { replacements: [layananId] }
+    );
+
+    // Get new count
+    const [after] = await this.sequelize.query(
+      `SELECT jumlah_favorit FROM layanan WHERE id = ?`,
+      { replacements: [layananId] }
+    );
+    const afterCount = after && after[0] ? after[0].jumlah_favorit : 0;
+    console.log(`[SequelizeServiceRepository] ✅ New count: ${afterCount} (was ${beforeCount})`);
   }
 }
 

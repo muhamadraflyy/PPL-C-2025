@@ -431,5 +431,21 @@ export const adminService = {
         status
       }
     }
+  },
+
+  // Get recommendation monitoring data
+  async getRecommendationMonitoring(filters = {}) {
+    try {
+      const response = await api.get('/admin/analytics/recommendations', { params: filters })
+      return response.data
+    } catch (error) {
+      const status = error.response?.status;
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Failed to fetch recommendation monitoring data',
+        errors: error.response?.data?.errors || [],
+        status
+      }
+    }
   }
 }

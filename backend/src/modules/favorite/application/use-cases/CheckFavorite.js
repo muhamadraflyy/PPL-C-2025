@@ -3,13 +3,13 @@ class CheckFavorite {
     this.favoriteRepository = favoriteRepository;
   }
 
-  async execute(userId, layananId) {
+  async execute(userId, layananId, type = 'favorite') {
     try {
-      const isFavorite = await this.favoriteRepository.exists(userId, layananId);
+      const isFavorite = await this.favoriteRepository.exists(userId, layananId, type);
 
       return {
         success: true,
-        message: 'Favorite status checked successfully',
+        message: `${type === 'bookmark' ? 'Bookmark' : 'Favorite'} status checked successfully`,
         data: { isFavorite }
       };
     } catch (error) {

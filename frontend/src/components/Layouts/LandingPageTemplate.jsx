@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Navbar from "../Fragments/Common/Navbar";
 import HeroSection from "../Fragments/Home/HeroSection";
 import CategoryGrid from "../Fragments/Home/CategoryGrid";
@@ -10,10 +11,19 @@ import Footer from "../Fragments/Common/Footer";
 
 export default function LandingPageTemplate({ onSearch, onCategoryClick, onServiceClick }) {
   const [activeFilter, setActiveFilter] = useState(null); // null = show all
+  const navigate = useNavigate();
 
   const handleFilterChange = (categorySlug) => {
     setActiveFilter(categorySlug);
     console.log("Filter changed to:", categorySlug);
+  };
+
+  const handleViewAllRecommendations = () => {
+    navigate("/layanan");
+  };
+
+  const handleViewHiddenRecommendations = () => {
+    navigate("/layanan-disembunyikan");
   };
 
   return (
@@ -28,7 +38,11 @@ export default function LandingPageTemplate({ onSearch, onCategoryClick, onServi
         activeFilter={activeFilter}
       />*/}
       <ServicePopular />
-      <RecommendationSection onServiceClick={onServiceClick} /> 
+      <RecommendationSection
+        onServiceClick={onServiceClick}
+        onViewAllClick={handleViewAllRecommendations}
+        onViewHiddenClick={handleViewHiddenRecommendations}
+      />
       <Footer />
     </div>
   );

@@ -3,9 +3,9 @@ class GetFavorites {
     this.favoriteRepository = favoriteRepository;
   }
 
-  async execute(userId) {
+  async execute(userId, type = null) {
     try {
-      const favorites = await this.favoriteRepository.findByUserId(userId);
+      const favorites = await this.favoriteRepository.findByUserId(userId, type);
 
       return {
         success: true,
