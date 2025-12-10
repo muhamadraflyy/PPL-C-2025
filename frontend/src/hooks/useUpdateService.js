@@ -34,6 +34,12 @@ export default function useUpdateService() {
       if (form.judul) fd.append("judul", form.judul);
       if (form.deskripsi) fd.append("deskripsi", form.deskripsi);
       if (form.kategori_id) fd.append("kategori_id", form.kategori_id);
+      
+      // Tambahkan sub_kategori_id
+      if (form.sub_kategori_id !== undefined) {
+         fd.append("sub_kategori_id", form.sub_kategori_id || "");
+      }
+
       if (form.harga) fd.append("harga", form.harga);
       if (form.waktu_pengerjaan) {
         fd.append("waktu_pengerjaan", form.waktu_pengerjaan);

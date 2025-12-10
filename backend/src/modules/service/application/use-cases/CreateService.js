@@ -51,9 +51,13 @@ class CreateService {
       finalSlug = `${base}-${i + 1}`;
     }
 
+    // Ambil sub_kategori_id dari payload
+    const subKategoriId = payload.sub_kategori_id || payload.subKategoriId || null;
+
     // DTO sesuai schema DB (snake_case)
     const dto = {
       kategori_id: kategoriId,
+      sub_kategori_id: subKategoriId,
       judul: payload.judul,
       slug: finalSlug,
       deskripsi: payload.deskripsi,
@@ -68,7 +72,7 @@ class CreateService {
           : Number(payload.batasRevisi ?? 1),
       thumbnail: payload.thumbnail ?? null,
       gambar: Array.isArray(payload.gambar) ? payload.gambar : [],
-      status: "draft",
+      status: "aktif",
     };
 
     // Persist
