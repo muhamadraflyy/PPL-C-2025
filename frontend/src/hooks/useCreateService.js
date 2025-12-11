@@ -20,7 +20,7 @@ function sanitizeDecimal(value) {
 
   let result = intPart;
   if (cleaned.includes(".")) {
-    result = decPart.length ? `${intPart}.${decPart}` : intPart; // kalau cuma "123." → kirim "123"
+    result = decPart.length ? `${intPart}.${decPart}` : intPart;
   }
   return result;
 }
@@ -43,6 +43,12 @@ export default function useCreateService() {
     fd.append("waktu_pengerjaan", waktu);
     fd.append("batas_revisi", batas);
     fd.append("kategori_id", form.kategori_id);
+    
+    // Tambahkan sub_kategori_id jika ada
+    if (form.sub_kategori_id) {
+      fd.append("sub_kategori_id", form.sub_kategori_id);
+    }
+
     fd.append("harga", harga);
 
     if (form.thumbnail) {

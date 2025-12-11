@@ -15,6 +15,7 @@ import NotFoundPage from "./pages/Public/NotFoundPage";
 import FreelancerPublicProfile from "./pages/Public/FreelancerPublicProfile";
 import FreelancerDetailPage from "./pages/Public/FreelancerDetailPage";
 import ServiceDetailPage from "./pages/jobs/ServiceDetailPage";
+import StartWorkPage from "./pages/Public/StartWorkPage";
 
 // Client pages
 import DashboardPage from "./pages/Client/DashboardPage";
@@ -87,6 +88,9 @@ export default function App() {
         path="/reset-password/new-password"
         element={<NewPasswordPage />}
       />
+
+      {/* Halaman Panduan publik */}
+      <Route path="/cara-jual-pekerjaan" element={<StartWorkPage />} />
 
       {/* List layanan publik */}
       <Route path="/services" element={<ServiceListPage />} />
