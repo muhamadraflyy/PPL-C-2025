@@ -19,7 +19,6 @@ function Row({ icon: IconCmp, label, value }) {
 
 /**
  * Komponen rating
- *
  */
 function StarRating({ value = 0, max = 5 }) {
   const rating = Math.max(0, Math.min(max, Number(value) || 0));
@@ -54,16 +53,17 @@ export default function OrderCard({
   completed = 0,
   waktu_pengerjaan,
   batas_revisi,
+  status,    // [BARU] Menerima status
   onOrder,
   onContact,
+  onReview,  // [BARU] Menerima fungsi ulasan
 }) {
   const safeRating = Number.isFinite(Number(rating)) ? Number(rating) : 0;
-  const safeReviews = Number.isFinite(Number(reviewCount))
-    ? Number(reviewCount)
-    : 0;
-  const safeCompleted = Number.isFinite(Number(completed))
-    ? Number(completed)
-    : 0;
+  const safeReviews = Number.isFinite(Number(reviewCount)) ? Number(reviewCount) : 0;
+  const safeCompleted = Number.isFinite(Number(completed)) ? Number(completed) : 0;
+
+  // [BARU] Cek apakah status selesai
+  const isCompleted = status?.toLowerCase() === 'selesai';
 
   return (
     <aside className="rounded-2xl border border-neutral-200 bg-white p-4 sm:p-5 shadow-sm">
@@ -105,23 +105,39 @@ export default function OrderCard({
         <Row icon={Headset} label="Didukung customer servis 24/7" />
       </div>
 
-      {/* Tombol aksi */}
+      {/* Tombol aksi (BAGIAN INI YANG DIMODIFIKASI) */}
       <div className="mt-5 flex flex-col gap-2">
-        <Button
-          variant="order"
-          onClick={onOrder}
-          className="w-full px-4 py-2.5 text-sm font-semibold shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F172A]/60 focus-visible:ring-offset-2"
-        >
-          Pesan Sekarang
-        </Button>
+        {isCompleted ? (
+            // JIKA STATUS SELESAI -> TOMBOL HIJAU ULASAN
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onReview) onReview();
+              }}
+              className="w-full rounded-xl bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 text-sm font-semibold shadow transition-colors flex items-center justify-center gap-2"
+            >
+              <Star className="w-4 h-4 fill-current" /> Berikan Ulasan
+            </button>
+        ) : (
+            // JIKA STATUS LAIN -> TOMBOL ASLI TEMAN ANDA
+            <>
+                <Button
+                  variant="order"
+                  onClick={onOrder}
+                  className="w-full px-4 py-2.5 text-sm font-semibold shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F172A]/60 focus-visible:ring-offset-2"
+                >
+                  Pesan Sekarang
+                </Button>
 
-        <Button
-          variant="outline"
-          onClick={onContact}
-          className="w-full rounded-xl border-none bg-[#F3F4F6] px-4 py-2.5 text-sm font-semibold text-[#111827] hover:bg-[#E5E7EB]"
-        >
-          Hubungi Freelancer
-        </Button>
+                <Button
+                  variant="outline"
+                  onClick={onContact}
+                  className="w-full rounded-xl border-none bg-[#F3F4F6] px-4 py-2.5 text-sm font-semibold text-[#111827] hover:bg-[#E5E7EB]"
+                >
+                  Hubungi Freelancer
+                </Button>
+            </>
+        )}
       </div>
     </aside>
   );
