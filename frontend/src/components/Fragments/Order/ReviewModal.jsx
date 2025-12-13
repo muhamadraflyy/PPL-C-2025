@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { reviewService } from '../../../services/reviewService';
 
 // Komponen Bintang (SVG Manual agar tidak error library)
@@ -32,6 +33,7 @@ const StarRating = ({ currentRating, setRating, label }) => {
 };
 
 export default function ReviewModal({ isOpen, onClose, order }) {
+    const queryClient = useQueryClient();
     const [ratings, setRatings] = useState({ quality: 0, communication: 0, timeliness: 0 });
     const [comment, setComment] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -72,8 +74,17 @@ export default function ReviewModal({ isOpen, onClose, order }) {
 
             if (result.status === 'success') {
                 setIsSuccess(true);
+                // Invalidate orders query to refetch and show updated hasReview status
+                queryClient.invalidateQueries(['orders']);
             } else {
-                alert(result.message || 'Gagal mengirim ulasan. Silakan coba lagi.');
+                // If error is "already reviewed", invalidate query to update UI
+                if (result.message && result.message.toLowerCase().includes('sudah pernah diulas')) {
+                    queryClient.invalidateQueries(['orders']);
+                    alert('Pesanan ini sudah pernah Anda ulas sebelumnya.');
+                    onClose(); // Close modal
+                } else {
+                    alert(result.message || 'Gagal mengirim ulasan. Silakan coba lagi.');
+                }
             }
         } catch (error) {
             console.error('Error submitting review:', error);

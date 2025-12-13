@@ -72,14 +72,26 @@ const ClientOrderCard = ({ order, onClick, onReviewClick }) => {
       {/* --- BAGIAN TOMBOL --- */}
       <div className="flex flex-col gap-3">
         {isCompleted ? (
-          // JIKA SELESAI -> MUNCUL TOMBOL HIJAU
-          <button
-            type="button"
-            onClick={handleReviewBtnClick}
-            className="w-full py-4 bg-green-500 hover:bg-green-600 text-white font-bold text-lg rounded-xl flex justify-center items-center gap-2 shadow-sm transition-colors"
-          >
-            <FaStar className="text-xl" /> Berikan Ulasan
-          </button>
+          // JIKA SELESAI -> CEK APAKAH SUDAH DIREVIEW
+          order.hasReview ? (
+            // SUDAH DIREVIEW -> TOMBOL DISABLED/INFO
+            <button
+              type="button"
+              disabled
+              className="w-full py-4 bg-gray-200 text-gray-600 font-bold text-lg rounded-xl flex justify-center items-center gap-2 shadow-sm cursor-not-allowed"
+            >
+              <FaStar className="text-xl text-yellow-500" /> Sudah Diulas
+            </button>
+          ) : (
+            // BELUM DIREVIEW -> TOMBOL HIJAU AKTIF
+            <button
+              type="button"
+              onClick={handleReviewBtnClick}
+              className="w-full py-4 bg-green-500 hover:bg-green-600 text-white font-bold text-lg rounded-xl flex justify-center items-center gap-2 shadow-sm transition-colors"
+            >
+              <FaStar className="text-xl" /> Berikan Ulasan
+            </button>
+          )
         ) : (
           // JIKA TIDAK SELESAI -> MUNCUL TOMBOL BIRU & GRAY (Default Teman)
           <>
