@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import OrderCard from './OrderCard'
 
-// [1] Tambahkan prop onReviewClick di sini
 const OrderList = ({ orders = [], onOrderClick, onReviewClick, loading }) => {
   const [filter, setFilter] = useState('all')
 

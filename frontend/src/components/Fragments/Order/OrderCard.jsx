@@ -97,7 +97,7 @@ export default function OrderCard({
             // TOMBOL HIJAU: BERIKAN ULASAN
             <button
                 onClick={(e) => {
-                    e.stopPropagation(); // Biar gak ketimpa klik kartu
+                    e.stopPropagation(); 
                     if(onReview) onReview();
                 }}
                 className="w-full rounded-xl bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 text-sm font-semibold shadow transition-colors flex items-center justify-center gap-2"
@@ -106,7 +106,6 @@ export default function OrderCard({
                 Berikan Ulasan
             </button>
         ) : (
-            // TOMBOL ASLI TEMAN ANDA
             <>
                 <Button
                   variant="order"
