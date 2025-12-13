@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { reviewService } from '../../../services/reviewService';
 
 // Komponen Bintang (SVG Manual agar tidak error library)
 const StarRating = ({ currentRating, setRating, label }) => {
@@ -45,17 +46,41 @@ export default function ReviewModal({ isOpen, onClose, order }) {
         }
     }, [isOpen]);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         if (ratings.quality === 0 || ratings.communication === 0 || ratings.timeliness === 0) {
             alert("Mohon isi semua bintang!");
             return;
         }
+
         setIsSubmitting(true);
-        setTimeout(() => {
+
+        try {
+            // Calculate average rating from the 3 ratings
+            const averageRating = Math.round((ratings.quality + ratings.communication + ratings.timeliness) / 3);
+
+            // Prepare review data
+            const reviewData = {
+                pesanan_id: order.id,
+                rating: averageRating,
+                judul: `Review untuk ${order.title || 'pesanan'}`,
+                komentar: comment || 'Tidak ada komentar',
+            };
+
+            // Call API to create review
+            const result = await reviewService.createReview(reviewData);
+
+            if (result.status === 'success') {
+                setIsSuccess(true);
+            } else {
+                alert(result.message || 'Gagal mengirim ulasan. Silakan coba lagi.');
+            }
+        } catch (error) {
+            console.error('Error submitting review:', error);
+            alert('Terjadi kesalahan saat mengirim ulasan. Silakan coba lagi.');
+        } finally {
             setIsSubmitting(false);
-            setIsSuccess(true);
-        }, 1500);
+        }
     };
 
     const handleCloseFinal = () => {
