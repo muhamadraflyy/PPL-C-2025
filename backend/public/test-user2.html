@@ -841,6 +841,10 @@
                     allMessages = history;
                     updateAllMessagesList();
                     log('success', `Loaded ${history.length} messages from history`);
+
+                    // Auto-mark messages as read
+                    await apiCall(`/chat/conversations/${conversationId}/read`, 'PATCH');
+                    log('success', 'Messages marked as read');
                 }
             } catch (error) {
                 log('error', 'Failed to load chat history: ' + error.message);
