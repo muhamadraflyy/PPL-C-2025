@@ -30,6 +30,9 @@ class CreateFreelancerProfile {
     // - deskripsi (string) -> stored on users.bio
     // Any other fields sent will be ignored by this use-case (keahlian, portfolio, etc. handled elsewhere)
 
+    // Maximum allowed length for description fields
+    const MAX_DESCRIPTION_LENGTH = 1000;
+
     // Update user's basic contact/profile fields when provided
     const userUpdates = {};
     if (profileData.nama_lengkap) {
@@ -37,8 +40,30 @@ class CreateFreelancerProfile {
       userUpdates.nama_depan = parts.shift() || '';
       userUpdates.nama_belakang = parts.join(' ') || '';
     }
-    if (profileData.no_telepon) userUpdates.no_telepon = profileData.no_telepon;
-    if (profileData.deskripsi) userUpdates.bio = profileData.deskripsi;
+    if (profileData.no_telepon) {
+      const phone = String(profileData.no_telepon).trim();
+      // Reject if contains alphabetic letters
+      if (/[A-Za-z]/.test(phone)) {
+        const error = new Error('Nomor telepon tidak boleh mengandung huruf');
+        error.statusCode = 400;
+        throw error;
+      }
+      // Enforce max length (15)
+      if (phone.length > 15) {
+        const error = new Error('Nomor telepon maksimal 15 karakter');
+        error.statusCode = 400;
+        throw error;
+      }
+      userUpdates.no_telepon = phone;
+    }
+    if (profileData.deskripsi) {
+      if (String(profileData.deskripsi).length > MAX_DESCRIPTION_LENGTH) {
+        const error = new Error('Deskripsi maksimal ' + MAX_DESCRIPTION_LENGTH + ' karakter');
+        error.statusCode = 400;
+        throw error;
+      }
+      userUpdates.bio = profileData.deskripsi;
+    }
 
     // Prepare freelancer profile payload (only gelar -> judul_profesi)
     const profilePayload = {};

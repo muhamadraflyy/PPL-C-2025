@@ -1,5 +1,8 @@
 const { validateFileType, validateFileSize } = require('../../../../shared/utils/fileValidator');
 
+// Maximum allowed length for user "about" / bio field
+const MAX_DESCRIPTION_LENGTH = 1000;
+
 class UpdateProfile {
   constructor({ userRepository }) {
     this.userRepository = userRepository;
@@ -98,6 +101,31 @@ class UpdateProfile {
     if (data.foto_latar && !isLocalPath(data.foto_latar)) {
       validateFileType(data.foto_latar, 'Background photo');
       validateFileSize(data.foto_latar, 'Background photo');
+    }
+
+    // Validate bio / tentang kami length
+    if (data.bio !== undefined && data.bio !== null) {
+      if (String(data.bio).length > MAX_DESCRIPTION_LENGTH) {
+        const error = new Error('Deskripsi maksimal ' + MAX_DESCRIPTION_LENGTH + ' karakter');
+        error.statusCode = 400;
+        throw error;
+      }
+    }
+
+    // Validate phone number (reject letters, enforce DB max length 20)
+    if (data.no_telepon !== undefined && data.no_telepon !== null) {
+      const phone = String(data.no_telepon).trim();
+      if (/[A-Za-z]/.test(phone)) {
+        const error = new Error('Nomor telepon tidak boleh mengandung huruf');
+        error.statusCode = 400;
+        throw error;
+      }
+      if (phone.length > 15) {
+        const error = new Error('Nomor telepon maksimal 15 karakter');
+        error.statusCode = 400;
+        throw error;
+      }
+      data.no_telepon = phone;
     }
 
     await user.update(data);
