@@ -230,6 +230,61 @@
             color: #65676b;
             margin-top: 4px;
         }
+
+        /* Delivery Status */
+        .delivery-status {
+            display: inline-block;
+            margin-left: 8px;
+            font-size: 11px;
+        }
+
+        .delivery-status.sent { color: #999; }
+        .delivery-status.delivered { color: #667eea; }
+        .delivery-status.read { color: #00c851; }
+
+        /* File Upload */
+        .file-upload-container {
+            margin: 12px 0;
+            padding: 12px;
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            text-align: center;
+            background: #fafafa;
+            display: none;
+        }
+
+        .file-upload-container.active {
+            display: block;
+        }
+
+        .file-preview {
+            margin-top: 12px;
+            padding: 8px;
+            background: #f0f2f5;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        .file-preview img {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 6px;
+            margin-top: 8px;
+        }
+
+        /* Message Attachment */
+        .message-attachment {
+            margin-top: 8px;
+            padding: 8px;
+            background: rgba(0,0,0,0.05);
+            border-radius: 6px;
+        }
+
+        .message-attachment img {
+            max-width: 100%;
+            max-height: 150px;
+            border-radius: 4px;
+        }
     </style>
 </head>
 <body>
@@ -267,7 +322,18 @@
                         <label>Message</label>
                         <textarea id="quickChatMessage" placeholder="Type your message..."></textarea>
                     </div>
-                    <button onclick="quickSendChat()">📤 Send Message</button>
+
+                    <!-- File Upload Section -->
+                    <div class="button-group" style="margin-bottom: 12px;">
+                        <button onclick="quickSendChat()">📤 Send Message</button>
+                        <button onclick="toggleFileUpload()" style="background: #00c851;">📎 Attach File</button>
+                    </div>
+
+                    <div class="file-upload-container" id="fileUploadContainer">
+                        <input type="file" id="fileInput" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar" style="margin-bottom: 8px;">
+                        <button onclick="uploadFile()">⬆️ Upload & Attach</button>
+                        <div id="filePreview"></div>
+                    </div>
                 </div>
                 <div class="card">
                     <h3>💬 Chat Messages (Real-Time)</h3>
@@ -359,6 +425,7 @@
 
         let socket = null;
         let allMessages = []; // Unified array for all messages
+        let uploadedFile = null; // Store uploaded file data
 
         // Tab switching
         function switchTab(tabName) {
@@ -422,13 +489,42 @@
 
                 // Add to unified messages list
                 allMessages.push({
+                    id: msg.id,
                     message: msg.pesan || msg.isi_pesan || msg.message,
                     from: msg.pengirim_id || msg.sender_id,
                     isMine: msg.pengirim_id === CURRENT_USER_ID,
-                    time: new Date().toLocaleTimeString()
+                    time: new Date().toLocaleTimeString(),
+                    status: msg.status || 'sent',
+                    tipe: msg.tipe || 'text',
+                    lampiran: msg.lampiran
                 });
 
                 updateAllMessagesList();
+
+                // Auto-send delivered confirmation if not mine
+                if (!msg.isMine && msg.id && msg.pengirim_id) {
+                    setTimeout(() => {
+                        socket.emit('chat:message-delivered', {
+                            messageId: msg.id,
+                            conversationId: msg.percakapan_id,
+                            senderId: msg.pengirim_id
+                        });
+                        logSocket('SENT DELIVERED CONFIRMATION', { messageId: msg.id });
+                    }, 500);
+                }
+            });
+
+            // Listen for delivery status updates
+            socket.on('chat:delivery-status', (data) => {
+                log('socket', 'Delivery status update', data);
+                logSocket('DELIVERY STATUS', data);
+
+                // Update message status in allMessages
+                const message = allMessages.find(m => m.id === data.messageId);
+                if (message) {
+                    message.status = data.status;
+                    updateAllMessagesList();
+                }
             });
 
             socket.on('notification:new', (notif) => {
@@ -508,17 +604,81 @@
             const convId = convData.data.id;
 
             // Send message
-            const msgData = await apiCall(`/chat/conversations/${convId}/messages`, 'POST', {
+            const msgPayload = {
                 pesan: message,
-                tipe: 'text'
-            });
+                tipe: uploadedFile ? (uploadedFile.mimetype.startsWith('image/') ? 'image' : 'file') : 'text'
+            };
+
+            if (uploadedFile) {
+                msgPayload.lampiran = uploadedFile;
+            }
+
+            const msgData = await apiCall(`/chat/conversations/${convId}/messages`, 'POST', msgPayload);
 
             if (msgData && msgData.status === 'success') {
                 document.getElementById('quickChatMessage').value = '';
+                uploadedFile = null;
+                document.getElementById('fileUploadContainer').classList.remove('active');
+                document.getElementById('filePreview').innerHTML = '';
                 showResponse('chatResponse', msgData);
 
                 // Note: Message will be added via socket event (chat:new-message)
                 // No need to manually add here as sender also receives the socket event
+            }
+        }
+
+        // File Upload Functions
+        function toggleFileUpload() {
+            const container = document.getElementById('fileUploadContainer');
+            container.classList.toggle('active');
+        }
+
+        async function uploadFile() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                log('error', 'Please select a file');
+                return;
+            }
+
+            log('info', `Uploading file: ${file.name}`);
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch(`${API_BASE}/chat/upload`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${TOKEN}`
+                    },
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    uploadedFile = result.data;
+                    log('success', 'File uploaded successfully', result.data);
+
+                    // Show preview
+                    const preview = document.getElementById('filePreview');
+                    if (result.data.mimetype.startsWith('image/')) {
+                        preview.innerHTML = `<div class="file-preview">
+                            ✅ Image uploaded: ${result.data.filename}
+                            <img src="${result.data.url}" alt="Preview">
+                        </div>`;
+                    } else {
+                        preview.innerHTML = `<div class="file-preview">
+                            ✅ File uploaded: ${result.data.filename} (${(result.data.size / 1024).toFixed(1)} KB)
+                        </div>`;
+                    }
+                } else {
+                    log('error', 'Upload failed', result);
+                }
+            } catch (error) {
+                log('error', 'Upload error: ' + error.message);
             }
         }
 
@@ -529,12 +689,45 @@
                 return;
             }
 
-            list.innerHTML = allMessages.map(msg => `
-                <div class="message-item ${msg.isMine ? 'sent' : ''}">
-                    <div><strong>${msg.isMine ? 'You' : 'User 2'}:</strong> ${msg.message}</div>
-                    <div class="meta">${msg.time}</div>
-                </div>
-            `).join('');
+            list.innerHTML = allMessages.map(msg => {
+                // Delivery status icon
+                let statusIcon = '';
+                if (msg.isMine) {
+                    if (msg.status === 'read') {
+                        statusIcon = '<span class="delivery-status read">✓✓</span>';
+                    } else if (msg.status === 'delivered') {
+                        statusIcon = '<span class="delivery-status delivered">✓✓</span>';
+                    } else {
+                        statusIcon = '<span class="delivery-status sent">✓</span>';
+                    }
+                }
+
+                // Attachment display
+                let attachmentHtml = '';
+                if (msg.lampiran) {
+                    if (msg.tipe === 'image') {
+                        attachmentHtml = `<div class="message-attachment">
+                            <img src="${msg.lampiran.url}" alt="${msg.lampiran.filename}">
+                        </div>`;
+                    } else if (msg.tipe === 'file') {
+                        attachmentHtml = `<div class="message-attachment">
+                            📎 <a href="${msg.lampiran.url}" target="_blank">${msg.lampiran.filename}</a>
+                            (${(msg.lampiran.size / 1024).toFixed(1)} KB)
+                        </div>`;
+                    }
+                }
+
+                return `
+                    <div class="message-item ${msg.isMine ? 'sent' : ''}">
+                        <div>
+                            <strong>${msg.isMine ? 'You' : 'User 2'}:</strong> ${msg.message}
+                            ${statusIcon}
+                        </div>
+                        ${attachmentHtml}
+                        <div class="meta">${msg.time} ${msg.status ? `• ${msg.status}` : ''}</div>
+                    </div>
+                `;
+            }).join('');
 
             // Auto-scroll to bottom
             list.scrollTop = list.scrollHeight;
@@ -633,10 +826,14 @@
                     const history = data.data.messages
                         .reverse() // Database returns newest first, we want oldest first
                         .map(msg => ({
+                            id: msg.id,
                             message: msg.pesan,
                             from: msg.pengirim_id,
                             isMine: msg.pengirim_id === CURRENT_USER_ID,
-                            time: new Date(msg.createdAt).toLocaleTimeString()
+                            time: new Date(msg.createdAt).toLocaleTimeString(),
+                            status: msg.status || 'read', // Historical messages are usually read
+                            tipe: msg.tipe || 'text',
+                            lampiran: msg.lampiran
                         }));
 
                     allMessages = history;
