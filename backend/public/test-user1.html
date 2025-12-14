@@ -276,6 +276,14 @@
                     </div>
                 </div>
             </div>
+            <div class="grid" style="margin-top: 20px;">
+                <div class="card">
+                    <h3>📨 Received Messages</h3>
+                    <div class="message-list" id="receivedMessagesList">
+                        <p style="color: #999; text-align: center;">No messages received yet</p>
+                    </div>
+                </div>
+            </div>
             <div class="response" id="chatResponse" style="display: none;"></div>
         </div>
 
@@ -359,6 +367,7 @@
 
         let socket = null;
         let sentMessages = [];
+        let receivedMessages = [];
 
         // Tab switching
         function switchTab(tabName) {
@@ -419,6 +428,16 @@
             socket.on('chat:new-message', (msg) => {
                 log('socket', 'New message received', msg);
                 logSocket('NEW MESSAGE', msg);
+
+                // Add to received messages list
+                receivedMessages.unshift({
+                    message: msg.pesan || msg.message,
+                    from: msg.pengirim_id || msg.sender_id,
+                    time: new Date().toLocaleTimeString(),
+                    convId: msg.percakapan_id || msg.conversation_id
+                });
+
+                updateReceivedMessagesList();
             });
 
             socket.on('notification:new', (notif) => {
@@ -530,6 +549,21 @@
                 <div class="message-item sent">
                     <div>${msg.message}</div>
                     <div class="meta">To: ${msg.to} | ${msg.time}</div>
+                </div>
+            `).join('');
+        }
+
+        function updateReceivedMessagesList() {
+            const list = document.getElementById('receivedMessagesList');
+            if (receivedMessages.length === 0) {
+                list.innerHTML = '<p style="color: #999; text-align: center;">No messages received yet</p>';
+                return;
+            }
+
+            list.innerHTML = receivedMessages.map(msg => `
+                <div class="message-item">
+                    <div>${msg.message}</div>
+                    <div class="meta">From: ${msg.from} | ${msg.time}</div>
                 </div>
             `).join('');
         }
