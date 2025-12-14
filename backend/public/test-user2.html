@@ -621,9 +621,37 @@
             el.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
         }
 
-        // Auto-connect socket on load
+        // Load chat history on page load
+        async function loadChatHistory() {
+            const conversationId = 'd3ab6078-40f5-4371-b977-4f424153c62e'; // Fixed conv ID untuk test
+
+            try {
+                const data = await apiCall(`/chat/conversations/${conversationId}/messages`);
+
+                if (data && data.status === 'success' && data.data.messages) {
+                    // Convert database messages to allMessages format
+                    const history = data.data.messages
+                        .reverse() // Database returns newest first, we want oldest first
+                        .map(msg => ({
+                            message: msg.pesan,
+                            from: msg.pengirim_id,
+                            isMine: msg.pengirim_id === CURRENT_USER_ID,
+                            time: new Date(msg.createdAt).toLocaleTimeString()
+                        }));
+
+                    allMessages = history;
+                    updateAllMessagesList();
+                    log('success', `Loaded ${history.length} messages from history`);
+                }
+            } catch (error) {
+                log('error', 'Failed to load chat history: ' + error.message);
+            }
+        }
+
+        // Auto-connect socket and load history on page load
         window.addEventListener('load', () => {
             connectSocket();
+            loadChatHistory(); // Load existing messages
             log('success', 'Dashboard loaded - USER 2 (Freelancer)');
         });
     </script>
