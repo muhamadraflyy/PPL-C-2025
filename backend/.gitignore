@@ -56,6 +56,7 @@ public/order-attachments/
 public/portfolio/
 public/profiles/
 public/bukti-transfer/
+public/chat-attachments/
 invoices/
 src/modules/exports/reports/*.pdf
 .claude
