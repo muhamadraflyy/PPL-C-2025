@@ -628,6 +628,9 @@
 
             const convId = convData.data.id;
 
+            // Mark existing messages as read before sending new message
+            await apiCall(`/chat/conversations/${convId}/read`, 'PATCH');
+
             // Send message
             const msgPayload = {
                 pesan: message,
