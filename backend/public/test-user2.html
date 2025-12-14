@@ -255,32 +255,24 @@
 
         <!-- Tab: Chat -->
         <div class="tab-content active" id="tab-chat">
-            <h2 style="margin-bottom: 20px;">Test Chat Features</h2>
+            <h2 style="margin-bottom: 20px;">Real-Time Chat Test</h2>
             <div class="grid">
                 <div class="card">
-                    <h3>Quick Chat Test</h3>
+                    <h3>Send Message</h3>
                     <div class="form-group">
-                        <label>User 1 ID (Client)</label>
-                        <input type="text" id="quickChatUserId" value="05ad4cbf-d4b8-11f0-b8ba-00726ae0a87c">
+                        <label>Chat with User 1 (Client)</label>
+                        <input type="text" id="quickChatUserId" value="05ad4cbf-d4b8-11f0-b8ba-00726ae0a87c" readonly style="background: #f5f5f5;">
                     </div>
                     <div class="form-group">
                         <label>Message</label>
                         <textarea id="quickChatMessage" placeholder="Type your message..."></textarea>
                     </div>
-                    <button onclick="quickSendChat()">Send Quick Chat</button>
+                    <button onclick="quickSendChat()">📤 Send Message</button>
                 </div>
                 <div class="card">
-                    <h3>Last Sent Messages</h3>
-                    <div class="message-list" id="sentMessagesList">
-                        <p style="color: #999; text-align: center;">No messages sent yet</p>
-                    </div>
-                </div>
-            </div>
-            <div class="grid" style="margin-top: 20px;">
-                <div class="card">
-                    <h3>📨 Received Messages</h3>
-                    <div class="message-list" id="receivedMessagesList">
-                        <p style="color: #999; text-align: center;">No messages received yet</p>
+                    <h3>💬 Chat Messages (Real-Time)</h3>
+                    <div class="message-list" id="allMessagesList">
+                        <p style="color: #999; text-align: center;">Send a message to start chatting...</p>
                     </div>
                 </div>
             </div>
@@ -366,8 +358,7 @@
         const CURRENT_USER_ID = '05ad55af-d4b8-11f0-b8ba-00726ae0a87c';
 
         let socket = null;
-        let sentMessages = [];
-        let receivedMessages = [];
+        let allMessages = []; // Unified array for all messages
 
         // Tab switching
         function switchTab(tabName) {
@@ -429,15 +420,15 @@
                 log('socket', 'New message received', msg);
                 logSocket('NEW MESSAGE', msg);
 
-                // Add to received messages list
-                receivedMessages.unshift({
-                    message: msg.pesan || msg.message,
+                // Add to unified messages list
+                allMessages.push({
+                    message: msg.pesan || msg.isi_pesan || msg.message,
                     from: msg.pengirim_id || msg.sender_id,
-                    time: new Date().toLocaleTimeString(),
-                    convId: msg.percakapan_id || msg.conversation_id
+                    isMine: msg.pengirim_id === CURRENT_USER_ID,
+                    time: new Date().toLocaleTimeString()
                 });
 
-                updateReceivedMessagesList();
+                updateAllMessagesList();
             });
 
             socket.on('notification:new', (notif) => {
@@ -524,48 +515,29 @@
 
             if (msgData && msgData.status === 'success') {
                 document.getElementById('quickChatMessage').value = '';
-
-                // Add to sent messages list
-                sentMessages.unshift({
-                    message,
-                    to: userId,
-                    time: new Date().toLocaleTimeString(),
-                    convId
-                });
-
-                updateSentMessagesList();
                 showResponse('chatResponse', msgData);
+
+                // Note: Message will be added via socket event (chat:new-message)
+                // No need to manually add here as sender also receives the socket event
             }
         }
 
-        function updateSentMessagesList() {
-            const list = document.getElementById('sentMessagesList');
-            if (sentMessages.length === 0) {
-                list.innerHTML = '<p style="color: #999; text-align: center;">No messages sent yet</p>';
+        function updateAllMessagesList() {
+            const list = document.getElementById('allMessagesList');
+            if (allMessages.length === 0) {
+                list.innerHTML = '<p style="color: #999; text-align: center;">Send a message to start chatting...</p>';
                 return;
             }
 
-            list.innerHTML = sentMessages.map(msg => `
-                <div class="message-item sent">
-                    <div>${msg.message}</div>
-                    <div class="meta">To: ${msg.to} | ${msg.time}</div>
+            list.innerHTML = allMessages.map(msg => `
+                <div class="message-item ${msg.isMine ? 'sent' : ''}">
+                    <div><strong>${msg.isMine ? 'You' : 'User 1'}:</strong> ${msg.message}</div>
+                    <div class="meta">${msg.time}</div>
                 </div>
             `).join('');
-        }
 
-        function updateReceivedMessagesList() {
-            const list = document.getElementById('receivedMessagesList');
-            if (receivedMessages.length === 0) {
-                list.innerHTML = '<p style="color: #999; text-align: center;">No messages received yet</p>';
-                return;
-            }
-
-            list.innerHTML = receivedMessages.map(msg => `
-                <div class="message-item">
-                    <div>${msg.message}</div>
-                    <div class="meta">From: ${msg.from} | ${msg.time}</div>
-                </div>
-            `).join('');
+            // Auto-scroll to bottom
+            list.scrollTop = list.scrollHeight;
         }
 
         // Conversations
