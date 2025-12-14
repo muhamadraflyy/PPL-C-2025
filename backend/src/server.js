@@ -31,6 +31,21 @@ const mockPaymentHelmet = helmet({
   crossOriginEmbedderPolicy: false,
 });
 
+const testDashboardHelmet = helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.socket.io"],
+      scriptSrcElem: ["'self'", "'unsafe-inline'", "https://cdn.socket.io"],
+      scriptSrcAttr: ["'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      connectSrc: ["'self'", "http://localhost:5001", "ws://localhost:5001"],
+    },
+  },
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginEmbedderPolicy: false,
+});
+
 const scalarHelmet = helmet({
   contentSecurityPolicy: {
     directives: {
@@ -79,6 +94,8 @@ app.use((req, res, next) => {
     scalarHelmet(req, res, next);
   } else if (req.path.includes("/audit-report")) {
     scalarHelmet(req, res, next); // Reuse Scalar CSP for audit page (needs CDN)
+  } else if (req.path.includes("/xX-m00nL1ght-ph03n1x-Xx") || req.path.includes("/test-u53r")) {
+    testDashboardHelmet(req, res, next); // Allow inline scripts + socket.io CDN for test dashboards
   } else {
     baseHelmet(req, res, next);
   }
@@ -214,6 +231,20 @@ app.get("/health", async (req, res) => {
   }
 });
 
+// Test dashboard with weird route
+app.get("/xX-m00nL1ght-ph03n1x-Xx/test-d4shb0ard", (req, res) => {
+  res.sendFile(path.join(__dirname, "../public/test-moonlight-phoenix.html"));
+});
+
+// User 1 & User 2 test pages
+app.get("/test-u53r-0n3", (req, res) => {
+  res.sendFile(path.join(__dirname, "../public/test-user1.html"));
+});
+
+app.get("/test-u53r-tw0", (req, res) => {
+  res.sendFile(path.join(__dirname, "../public/test-user2.html"));
+});
+
 // ==================== MODULE ROUTES ====================
 // Import sequelize for dependencies
 const { sequelize } = require("./shared/database/connection");
@@ -296,11 +327,13 @@ const reviewController = new ReviewController(sequelize);
 const reviewRoutes = require("./modules/review/presentation/routes/reviewRoutes");
 app.use("/api/reviews", reviewRoutes(reviewController));
 
-// ===== Modul 6: Chat & Notification (Dalam Pengembangan) =====
-const ChatController = require("./modules/chat/presentation/controllers/ChatController");
-const chatController = new ChatController(sequelize);
-const chatRoutes = require("./modules/chat/presentation/routes/chatRoutes");
-app.use("/api/chat", chatRoutes(chatController));
+// ===== Modul 6: Chat & Notification =====
+// Socket.io service will be initialized after server starts
+const socketService = require('./modules/chat/infrastructure/services/SocketService');
+
+// Chat & Notification controllers will be initialized AFTER database connection
+// Placeholder routes - will be setup in connectDatabase().then()
+let chatController, notificationController;
 
 // ===== Modul 7: DashboardAdmin) =====
 const adminKategoriRoutes = require("./modules/admin/presentation/routes/adminKategoriRoutes");
@@ -373,34 +406,58 @@ app.post("/test/notification", async (req, res) => {
   }
 });
 
-// ==================== ERROR HANDLING ====================
-// 404 Handler
-app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: "Endpoint not found",
-  });
-});
-
-// Global Error Handler
-app.use((err, req, res, next) => {
-  console.error("Error:", err);
-
-  res.status(err.statusCode || 500).json({
-    success: false,
-    message: err.message || "Internal server error",
-    ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
-  });
-});
-
 // ==================== START SERVER ====================
 connectDatabase()
   .then(() => {
-    const server = app.listen(PORT, () => {
+    const http = require('http');
+    const httpServer = http.createServer(app);
+
+    // Initialize Socket.io
+    socketService.init(httpServer);
+    console.log('✅ Socket.IO initialized');
+
+    // Initialize Chat & Notification controllers AFTER models are loaded
+    const ChatController = require("./modules/chat/presentation/controllers/ChatController");
+    const NotificationController = require("./modules/chat/presentation/controllers/NotificationController");
+    chatController = new ChatController(sequelize, socketService);
+    notificationController = new NotificationController(sequelize, socketService);
+
+    // Register chat routes
+    const chatRoutes = require("./modules/chat/presentation/routes/chatRoutes");
+    app.use("/api/chat", chatRoutes(chatController));
+
+    // Register notification routes
+    const notificationRoutes = require("./modules/chat/presentation/routes/notificationRoutes");
+    app.use("/api/notifications", notificationRoutes(notificationController));
+
+    console.log('✅ Chat & Notification routes registered');
+
+    // ==================== ERROR HANDLING ====================
+    // 404 Handler (must be registered AFTER all routes)
+    app.use((req, res) => {
+      res.status(404).json({
+        success: false,
+        message: "Endpoint not found",
+      });
+    });
+
+    // Global Error Handler
+    app.use((err, req, res, next) => {
+      console.error("Error:", err);
+
+      res.status(err.statusCode || 500).json({
+        success: false,
+        message: err.message || "Internal server error",
+        ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
+      });
+    });
+
+    const server = httpServer.listen(PORT, () => {
       console.log(`🚀 Server is running on http://localhost:${PORT}`);
       console.log(`📝 Environment: ${process.env.NODE_ENV || "development"}`);
       console.log(`📡 API Base URL: http://localhost:${PORT}/api`);
       console.log(`📚 API Documentation: http://localhost:${PORT}/api-docs`);
+      console.log(`🔌 Socket.IO ready for connections`);
     });
 
     // Graceful shutdown

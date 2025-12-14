@@ -40,6 +40,16 @@ const ConversationModel = sequelize.define('percakapan', {
     pesan_terakhir_pada: {
         type: DataTypes.DATE,
         allowNull: true
+    },
+    user1_unread_count: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
+    },
+    user2_unread_count: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
     }
 }, {
     tableName: 'percakapan', // Nama tabel di database

@@ -6,6 +6,7 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../../../../shared/middleware/authMiddleware');
+const upload = require('../../../../shared/middleware/uploadMiddleware');
 
 module.exports = (chatController) => {
   /**
@@ -110,6 +111,34 @@ module.exports = (chatController) => {
    *         $ref: '#/components/responses/UnauthorizedError'
    */
   router.patch('/conversations/:id/read', authMiddleware, (req, res) => chatController.markAsRead(req, res));
+
+  /**
+   * @swagger
+   * /api/chat/upload:
+   *   post:
+   *     tags: [Chat]
+   *     summary: Upload file/image for chat
+   *     description: Upload file atau gambar yang akan dikirim dalam pesan
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       content:
+   *         multipart/form-data:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               file:
+   *                 type: string
+   *                 format: binary
+   *     responses:
+   *       200:
+   *         description: File uploaded successfully
+   *       400:
+   *         description: No file uploaded
+   *       401:
+   *         $ref: '#/components/responses/UnauthorizedError'
+   */
+  router.post('/upload', authMiddleware, upload.single('file'), (req, res) => chatController.uploadFile(req, res));
 
   return router;
 };
