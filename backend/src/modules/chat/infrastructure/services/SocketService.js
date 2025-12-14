@@ -92,6 +92,38 @@ class SocketService {
                 });
             });
 
+            // Handle message delivered confirmation
+            socket.on('chat:message-delivered', (data) => {
+                const { messageId, conversationId, senderId } = data;
+                console.log(`[Socket] Message ${messageId} delivered to user ${socket.userId}`);
+
+                // Notify sender that message was delivered
+                if (senderId) {
+                    this.io.to(`user:${senderId}`).emit('chat:delivery-status', {
+                        messageId,
+                        conversationId,
+                        status: 'delivered',
+                        deliveredAt: new Date()
+                    });
+                }
+            });
+
+            // Handle message read confirmation
+            socket.on('chat:message-read', (data) => {
+                const { messageId, conversationId, senderId } = data;
+                console.log(`[Socket] Message ${messageId} read by user ${socket.userId}`);
+
+                // Notify sender that message was read
+                if (senderId) {
+                    this.io.to(`user:${senderId}`).emit('chat:delivery-status', {
+                        messageId,
+                        conversationId,
+                        status: 'read',
+                        readAt: new Date()
+                    });
+                }
+            });
+
             // Handle send message via socket (alternative to HTTP POST)
             socket.on('chat:send-message', async (data, callback) => {
                 try {

@@ -191,6 +191,42 @@ class ChatController {
       });
     }
   }
+
+  /**
+   * Upload file/image for chat
+   * POST /api/chat/upload
+   */
+  async uploadFile(req, res) {
+    try {
+      if (!req.file) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'No file uploaded'
+        });
+      }
+
+      const fileUrl = `/uploads/chat/${req.file.filename}`;
+      const fileData = {
+        url: fileUrl,
+        filename: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size
+      };
+
+      return res.status(200).json({
+        status: 'success',
+        message: 'File uploaded successfully',
+        data: fileData
+      });
+
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      return res.status(500).json({
+        status: 'error',
+        message: error.message
+      });
+    }
+  }
 }
 
 module.exports = ChatController;

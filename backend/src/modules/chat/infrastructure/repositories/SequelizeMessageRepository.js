@@ -83,6 +83,7 @@ class SequelizeMessageRepository {
     await this.Pesan.update(
       {
         is_read: true,
+        status: 'read',
         dibaca_pada: new Date()
       },
       {
@@ -93,6 +94,29 @@ class SequelizeMessageRepository {
         }
       }
     );
+  }
+
+  /**
+   * Update message status (sent -> delivered -> read)
+   * @param {string} messageId
+   * @param {string} status - 'sent', 'delivered', 'read'
+   * @returns {Promise<boolean>}
+   */
+  async updateStatus(messageId, status) {
+    const updateData = { status };
+
+    if (status === 'delivered') {
+      updateData.terkirim_pada = new Date();
+    } else if (status === 'read') {
+      updateData.is_read = true;
+      updateData.dibaca_pada = new Date();
+    }
+
+    const [affectedRows] = await this.Pesan.update(updateData, {
+      where: { id: messageId }
+    });
+
+    return affectedRows > 0;
   }
 
   async countUnread(percakapanId, userId) {

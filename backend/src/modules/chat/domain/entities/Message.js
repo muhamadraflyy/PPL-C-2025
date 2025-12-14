@@ -11,8 +11,10 @@ class Message {
     isi_pesan,
     tipe_pesan,
     attachment_url,
+    status,
     is_read,
     dibaca_pada,
+    terkirim_pada,
     created_at,
     updated_at,
     // Support database column names (Indonesian)
@@ -29,8 +31,10 @@ class Message {
     this.tipe_pesan = tipe_pesan || tipe; // 'text', 'image', 'file', 'system'
     this.attachment_url = attachment_url || lampiran;
 
+    this.status = status || 'sent'; // 'sent', 'delivered', 'read'
     this.is_read = is_read;
     this.dibaca_pada = dibaca_pada;
+    this.terkirim_pada = terkirim_pada;
     this.created_at = created_at;
     this.updated_at = updated_at;
 
@@ -55,7 +59,27 @@ class Message {
 
   markAsRead() {
     this.is_read = true;
+    this.status = 'read';
     this.dibaca_pada = new Date();
+  }
+
+  markAsDelivered() {
+    if (this.status === 'sent') {
+      this.status = 'delivered';
+      this.terkirim_pada = new Date();
+    }
+  }
+
+  isSent() {
+    return this.status === 'sent';
+  }
+
+  isDelivered() {
+    return this.status === 'delivered' || this.status === 'read';
+  }
+
+  isRead() {
+    return this.status === 'read';
   }
 }
 
