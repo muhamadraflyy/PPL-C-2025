@@ -534,6 +534,29 @@
                 logSocket('NEW NOTIFICATION', notif);
             });
 
+            // Listen for message status updates (delivered/read)
+            socket.on('message:status-updated', (data) => {
+                log('socket', 'Message status updated', data);
+                logSocket('STATUS UPDATE', data);
+
+                // Update message status in allMessages array
+                if (data.messageId) {
+                    const message = allMessages.find(m => m.id === data.messageId);
+                    if (message) {
+                        message.status = data.status;
+                        updateAllMessagesList();
+                    }
+                } else if (data.percakapanId) {
+                    // Update all messages in conversation to "read"
+                    allMessages.forEach(msg => {
+                        if (msg.isMine && msg.status !== 'read') {
+                            msg.status = 'read';
+                        }
+                    });
+                    updateAllMessagesList();
+                }
+            });
+
             socket.on('connect_error', (err) => {
                 log('error', 'Connection error: ' + err.message);
                 logSocket('Connection error: ' + err.message);
