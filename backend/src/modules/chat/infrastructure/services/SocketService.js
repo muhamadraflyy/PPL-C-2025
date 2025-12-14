@@ -74,6 +74,8 @@ class SocketService {
     setupEventHandlers() {
         this.io.on('connection', (socket) => {
             console.log(`🎉 User connected: ${socket.userId}`);
+            // Tambahkan ke daftar online users
+            this.onlineUsers.set(socket.userId, socket.id);
             // user join room pribadi
             socket.join(`user:${socket.userId}`);
             // handle join room percakapan
@@ -124,6 +126,8 @@ class SocketService {
             // Handle disconnect
             socket.on('disconnect', () => {
                 console.log(`🔌 User disconnected: ${socket.userId}`);
+                // Hapus dari daftar online users
+                this.onlineUsers.delete(socket.userId);
             });
         });
     }
@@ -132,10 +136,16 @@ class SocketService {
    * Method untuk di-panggil dari Use Case (SendMessage)
    * @param {string} percakapanId
    * @param {object} message
+   * @param {string} receiverId - ID penerima pesan (opsional)
    */
-    emitNewMessage(percakapanId, message) {
+    emitNewMessage(percakapanId, message, receiverId = null) {
         // kirim pesan baru ke semua client di room percakapan
         this.io.to(`conversation:${percakapanId}`).emit('chat:new-message', message);
+
+        // JUGA kirim ke room pribadi penerima (untuk notifikasi real-time)
+        if (receiverId) {
+            this.io.to(`user:${receiverId}`).emit('chat:new-message', message);
+        }
     }
 
     /**
