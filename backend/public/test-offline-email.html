@@ -4,177 +4,113 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Test Offline Email Notification</title>
-    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: 'Courier New', monospace;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            color: #00ff88;
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
             padding: 20px;
-            min-height: 100vh;
         }
-        .container { max-width: 800px; margin: 0 auto; }
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
         h1 {
-            text-align: center;
-            margin-bottom: 30px;
-            text-shadow: 0 0 20px #ff0080;
-            font-size: 28px;
-            color: #ff0080;
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 24px;
         }
         .info-box {
-            background: rgba(255, 0, 128, 0.1);
-            border: 2px solid #ff0080;
-            border-radius: 12px;
-            padding: 20px;
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 5px;
             margin-bottom: 20px;
-        }
-        .info-box h2 {
-            font-size: 18px;
-            color: #ff0080;
-            margin-bottom: 10px;
         }
         .info-box p {
             margin: 5px 0;
-            color: #00ff88;
+            color: #666;
         }
-        .send-box {
-            background: #1a1a1a;
-            border: 2px solid #00ff88;
-            border-radius: 12px;
-            padding: 25px;
-            margin-bottom: 20px;
-        }
-        .send-box h2 {
-            font-size: 18px;
-            color: #00ff88;
-            margin-bottom: 15px;
+        .status {
+            display: inline-block;
+            padding: 3px 10px;
+            background: #dc3545;
+            color: white;
+            border-radius: 3px;
+            font-size: 14px;
         }
         textarea {
             width: 100%;
-            padding: 15px;
-            background: #0a0a0a;
-            border: 1px solid #00ff88;
-            color: #00ff88;
-            font-family: 'Courier New', monospace;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-family: Arial, sans-serif;
             font-size: 14px;
-            border-radius: 8px;
-            min-height: 120px;
-            resize: vertical;
+            margin: 10px 0;
+            min-height: 100px;
         }
         button {
-            width: 100%;
-            padding: 15px;
-            margin-top: 15px;
-            background: linear-gradient(135deg, #ff0080, #ff4d94);
-            border: none;
+            background: #007bff;
             color: white;
-            font-family: 'Courier New', monospace;
-            font-weight: bold;
-            font-size: 16px;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
             cursor: pointer;
-            border-radius: 8px;
-            transition: all 0.3s;
+            font-size: 14px;
+            width: 100%;
         }
         button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(255, 0, 128, 0.5);
+            background: #0056b3;
         }
         button:disabled {
-            background: #333;
+            background: #ccc;
             cursor: not-allowed;
-            transform: none;
         }
         .log-box {
-            background: #000;
-            border: 2px solid #00ff88;
-            border-radius: 12px;
-            padding: 20px;
-            height: 400px;
+            margin-top: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            max-height: 300px;
             overflow-y: auto;
-        }
-        .log-box h2 {
-            font-size: 18px;
-            color: #00ff88;
-            margin-bottom: 15px;
+            background: #fafafa;
         }
         .log-entry {
-            margin: 8px 0;
-            padding: 10px;
-            border-left: 3px solid #00ff88;
-            padding-left: 12px;
-            background: rgba(0, 255, 136, 0.05);
+            padding: 8px;
+            margin: 5px 0;
+            border-left: 3px solid #007bff;
+            background: white;
+            font-size: 13px;
         }
-        .log-entry.success { border-left-color: #00ff00; color: #00ff88; }
-        .log-entry.error { border-left-color: #ff0000; color: #ff6666; }
-        .log-entry.info { border-left-color: #00bfff; color: #00bfff; }
-        .log-entry.email { border-left-color: #ff0080; color: #ff88ff; }
-        .status-indicator {
-            display: inline-block;
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-weight: bold;
-            font-size: 14px;
-        }
-        .status-offline {
-            background: #ff0000;
-            color: white;
-        }
+        .log-entry.error { border-left-color: #dc3545; color: #dc3545; }
+        .log-entry.success { border-left-color: #28a745; color: #28a745; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>📧 Test Offline Email Notification</h1>
+        <h1>Test Email Notification (Offline User)</h1>
 
-        <!-- Target User Info -->
         <div class="info-box">
-            <h2>🎯 Target User (OFFLINE)</h2>
-            <p><strong>Nama:</strong> Lisvindanu</p>
-            <p><strong>Email:</strong> lisvindanu015@gmail.com</p>
+            <p><strong>Target:</strong> Lisvindanu (lisvindanu015@gmail.com)</p>
             <p><strong>UUID:</strong> d3dbc82b-7f58-4344-8042-1b252d15784c</p>
-            <p><strong>Status:</strong> <span class="status-indicator status-offline">🔴 OFFLINE</span></p>
-            <p style="margin-top: 10px; color: #ff88ff;">
-                💡 Karena user offline, email notification akan terkirim!
-            </p>
+            <p><strong>Status:</strong> <span class="status">OFFLINE</span></p>
+            <p style="margin-top: 10px; font-size: 13px;">Email notification akan terkirim karena user offline.</p>
         </div>
 
-        <!-- Send Message Box -->
-        <div class="send-box">
-            <h2>📨 Send Test Message</h2>
-            <textarea id="messageText" placeholder="Ketik pesan test untuk Lisvindanu...
+        <textarea id="messageText" placeholder="Ketik pesan test..."></textarea>
+        <button onclick="sendMessage()" id="sendBtn">Send Test Message</button>
 
-Contoh:
-- Halo, ini test email notification
-- Testing offline message delivery
-- Pesan ini akan dikirim via email"></textarea>
-            <button onclick="sendTestMessage()" id="sendBtn">
-                📤 Send Message & Trigger Email Notification
-            </button>
-        </div>
-
-        <!-- Log Box -->
-        <div class="log-box">
-            <h2>📋 Activity Log</h2>
-            <div id="logContainer">
-                <div class="log-entry success">
-                    [${new Date().toLocaleTimeString()}] System initialized
-                </div>
-                <div class="log-entry info">
-                    [${new Date().toLocaleTimeString()}] Ready to send test message
-                </div>
-            </div>
+        <div class="log-box" id="logContainer">
+            <div class="log-entry">Ready to send test message</div>
         </div>
     </div>
 
     <script>
         const API_BASE = `${window.location.origin}/api`;
-
-        // Auto-detect and login
-        const SENDER_EMAIL = 'testermodul4-freelancer@test.com';
-        const SENDER_PASSWORD = 'password123@!';
         const TARGET_USER_ID = 'd3dbc82b-7f58-4344-8042-1b252d15784c';
-        const TARGET_EMAIL = 'lisvindanu015@gmail.com';
-
         let token = null;
         let conversationId = null;
 
@@ -184,122 +120,79 @@ Contoh:
             entry.className = `log-entry ${type}`;
             entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
             container.appendChild(entry);
-            container.parentElement.scrollTop = container.parentElement.scrollHeight;
+            container.scrollTop = container.scrollHeight;
         }
 
         async function apiCall(endpoint, method = 'GET', body = null) {
-            try {
-                const options = {
-                    method,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...(token && { 'Authorization': `Bearer ${token}` })
-                    }
-                };
-
-                if (body) {
-                    options.body = JSON.stringify(body);
+            const options = {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token && { 'Authorization': `Bearer ${token}` })
                 }
+            };
+            if (body) options.body = JSON.stringify(body);
 
-                const response = await fetch(`${API_BASE}${endpoint}`, options);
-                const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(data.message || 'API call failed');
-                }
-
-                return data;
-            } catch (error) {
-                throw error;
-            }
+            const response = await fetch(`${API_BASE}${endpoint}`, options);
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || 'API call failed');
+            return data;
         }
 
         async function initialize() {
             try {
-                log('info', 'Logging in as test sender...');
-
                 const loginData = await apiCall('/users/login', 'POST', {
-                    email: SENDER_EMAIL,
-                    password: SENDER_PASSWORD
+                    email: 'testermodul4-freelancer@test.com',
+                    password: 'password123@!'
                 });
-
                 token = loginData.data.token;
-                log('success', `Logged in as: ${SENDER_EMAIL}`);
+                log('success', 'Logged in as freelancer');
 
-                // Create/Get conversation
-                log('info', 'Creating conversation with Lisvindanu...');
                 const convData = await apiCall('/chat/conversations', 'POST', {
                     user2_id: TARGET_USER_ID
                 });
-
                 conversationId = convData.data.id;
-                log('success', `Conversation ready: ${conversationId}`);
-                log('email', `📧 Target: ${TARGET_EMAIL} (OFFLINE - Email will be sent)`);
-
+                log('success', 'Conversation ready');
             } catch (error) {
-                log('error', `Initialization failed: ${error.message}`);
+                log('error', 'Init failed: ' + error.message);
             }
         }
 
-        async function sendTestMessage() {
+        async function sendMessage() {
             const messageText = document.getElementById('messageText').value.trim();
-
             if (!messageText) {
-                log('error', 'Pesan tidak boleh kosong!');
-                return;
-            }
-
-            if (!token || !conversationId) {
-                log('error', 'Not initialized yet, please refresh page');
+                log('error', 'Message cannot be empty');
                 return;
             }
 
             const sendBtn = document.getElementById('sendBtn');
             sendBtn.disabled = true;
-            sendBtn.textContent = '⏳ Sending...';
+            sendBtn.textContent = 'Sending...';
 
             try {
-                log('info', 'Sending message...');
-
                 const msgData = await apiCall(
                     `/chat/conversations/${conversationId}/messages`,
                     'POST',
-                    {
-                        pesan: messageText,
-                        tipe: 'text'
-                    }
+                    { pesan: messageText, tipe: 'text' }
                 );
 
-                log('success', '✅ Message sent to database!');
-                log('success', `Message ID: ${msgData.data.id}`);
-                log('success', `Message Status: ${msgData.data.status}`);
+                log('success', `Message sent (ID: ${msgData.data.id})`);
+                log('success', `Status: ${msgData.data.status}`);
 
-                // Check status
-                if (msgData.data.status === 'delivered') {
-                    log('info', '⚠️  User is ONLINE - Real-time delivery via Socket.IO');
-                    log('info', '📭 Email notification NOT sent (user online)');
-                } else {
-                    log('email', '📧 User is OFFLINE - Email notification SENT!');
-                    log('email', `📬 Email sent to: ${TARGET_EMAIL}`);
-                    log('email', '💡 Check inbox for notification email');
+                if (msgData.data.status === 'sent') {
+                    log('success', 'Email notification sent to lisvindanu015@gmail.com');
                 }
 
                 document.getElementById('messageText').value = '';
-                log('success', 'Ready to send another message');
-
             } catch (error) {
-                log('error', `Send failed: ${error.message}`);
+                log('error', 'Send failed: ' + error.message);
             } finally {
                 sendBtn.disabled = false;
-                sendBtn.textContent = '📤 Send Message & Trigger Email Notification';
+                sendBtn.textContent = 'Send Test Message';
             }
         }
 
-        // Auto-initialize on page load
-        window.addEventListener('load', () => {
-            log('info', 'Initializing test environment...');
-            initialize();
-        });
+        window.addEventListener('load', initialize);
     </script>
 </body>
 </html>
