@@ -8,7 +8,7 @@ const path = require('path');
 const fs = require('fs');
 
 // Pastikan upload directory exists
-const uploadDir = path.join(__dirname, '../../../public/uploads/chat');
+const uploadDir = path.join(__dirname, '../../../public/chat-attachments');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }

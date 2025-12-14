@@ -39,7 +39,14 @@ const testDashboardHelmet = helmet({
       scriptSrcElem: ["'self'", "'unsafe-inline'", "https://cdn.socket.io"],
       scriptSrcAttr: ["'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
-      connectSrc: ["'self'", "http://localhost:5001", "ws://localhost:5001"],
+      connectSrc: [
+        "'self'",
+        "http://localhost:5001",
+        "ws://localhost:5001",
+        "https://api-ppl.vinmedia.my.id",
+        "wss://api-ppl.vinmedia.my.id",
+        "ws://api-ppl.vinmedia.my.id",
+      ],
     },
   },
   crossOriginResourcePolicy: { policy: "cross-origin" },
@@ -131,17 +138,22 @@ const profilesPath = path.join(process.cwd(), "public", "profiles");
 const layananPath = path.join(process.cwd(), "public", "layanan");
 const portfolioPath = path.join(process.cwd(), "public", "portfolio");
 const orderAttachmentsPath = path.join(process.cwd(), "public", "order-attachments");
+const chatAttachmentsPath = path.join(process.cwd(), "public", "chat-attachments");
 
 console.log("📁 Serving static files:");
 console.log("   Profiles:", profilesPath);
 console.log("   Layanan:", layananPath);
 console.log("   Portfolio:", portfolioPath);
 console.log("   Order Attachments:", orderAttachmentsPath);
+console.log("   Chat Attachments:", chatAttachmentsPath);
 
 app.use("/profiles", express.static(profilesPath));
 app.use("/layanan", express.static(layananPath));
 app.use("/portfolio", express.static(portfolioPath));
 app.use("/order-attachments", express.static(orderAttachmentsPath));
+app.use("/chat-attachments", express.static(chatAttachmentsPath));
+// Backward compatibility for old chat uploads
+app.use("/uploads/chat", express.static(chatAttachmentsPath));
 
 // ==================== API DOCUMENTATION ====================
 // Serve spec with cache busting

@@ -205,7 +205,7 @@ class ChatController {
         });
       }
 
-      const fileUrl = `/uploads/chat/${req.file.filename}`;
+      const fileUrl = `/chat-attachments/${req.file.filename}`;
       const fileData = {
         url: fileUrl,
         filename: req.file.originalname,
