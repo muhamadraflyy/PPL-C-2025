@@ -27,7 +27,7 @@ class EmailNotificationService {
         const subject = `Pesan Baru dari ${senderName} di SkillConnect`;
 
         let messageText = message.pesan;
-        if (message.tipe !== 'text') {
+        if (message.tipe && message.tipe !== 'text') {
             messageText = `[${message.tipe.toUpperCase()}]: ${message.pesan.substring(0, 50)}...`;
         }
 

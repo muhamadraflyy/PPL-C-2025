@@ -7,9 +7,9 @@ const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 
 class SocketService {
-    constructor(server) {
+    constructor() {
         this.onlineUsers = new Map();
-        this.setupSocketEvents();
+        this.io = null;
     }
 
     async isUserOnline(userId) {
@@ -88,6 +88,37 @@ class SocketService {
                     userId: socket.userId,
                     isTyping: data.isTyping
                 });
+            });
+
+            // Handle send message via socket (alternative to HTTP POST)
+            socket.on('chat:send-message', async (data, callback) => {
+                try {
+                    const { conversationId, pesan, tipe = 'text', lampiran = null } = data;
+
+                    // Validasi
+                    if (!conversationId || (!pesan && tipe === 'text')) {
+                        return callback?.({
+                            status: 'error',
+                            message: 'conversationId dan pesan wajib diisi'
+                        });
+                    }
+
+                    // Call use case (will be injected via dependency)
+                    // For now, just emit acknowledgment
+                    // TODO: Inject SendMessage use case to actually save to DB
+                    console.log(`[Socket] User ${socket.userId} sending message to conversation ${conversationId}`);
+
+                    callback?.({
+                        status: 'success',
+                        message: 'Pesan akan diproses (implement use case injection)'
+                    });
+                } catch (error) {
+                    console.error('[Socket] Error handling chat:send-message:', error);
+                    callback?.({
+                        status: 'error',
+                        message: error.message
+                    });
+                }
             });
 
             // Handle disconnect

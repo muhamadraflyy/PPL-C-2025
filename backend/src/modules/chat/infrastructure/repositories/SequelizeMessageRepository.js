@@ -47,8 +47,8 @@ class SequelizeMessageRepository {
       include: [
         {
           model: this.User,
-          as: 'Pengirim',
-          attributes: ['id', 'nama', 'foto_profil'],
+          as: 'sender',
+          attributes: ['id', 'nama_depan', 'nama_belakang', 'avatar'],
         },
       ],
 

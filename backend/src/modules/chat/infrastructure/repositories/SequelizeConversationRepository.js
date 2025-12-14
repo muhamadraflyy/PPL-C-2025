@@ -71,12 +71,12 @@ class SequelizeConversationRepository {
       where,
       include: options.includeOtherUser ? [
         {
-          model: this.User, as: 'user1',
+          model: this.User,
           as: 'user1',
           attributes: ['id', 'nama_depan', 'nama_belakang', 'avatar']
         },
         {
-          model: this.User, as: 'user2',
+          model: this.User,
           as: 'user2',
           attributes: ['id', 'nama_depan', 'nama_belakang', 'avatar']
         }

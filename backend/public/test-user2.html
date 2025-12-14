@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>USER 2 - Test Dashboard</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Courier New', monospace;
+            background: #150a0a;
+            color: #ff0099;
+            padding: 20px;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px #ff0099;
+            font-size: 24px;
+        }
+        .section {
+            background: #1a1a1a;
+            border: 2px solid #ff0099;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .section h2 {
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: #ff00ff;
+        }
+        input, textarea, button {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            background: #150a0a;
+            border: 1px solid #ff0099;
+            color: #ff0099;
+            font-family: 'Courier New', monospace;
+        }
+        button {
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        button:hover {
+            background: #ff0099;
+            color: #150a0a;
+        }
+        .log {
+            background: #000;
+            padding: 10px;
+            border: 1px solid #ff0099;
+            height: 200px;
+            overflow-y: auto;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+        .log-entry {
+            margin: 3px 0;
+            padding: 3px;
+            border-left: 2px solid #ff0099;
+            padding-left: 5px;
+        }
+        .log-entry.error { border-left-color: #ff0000; color: #ff6666; }
+        .log-entry.success { border-left-color: #00ff00; color: #ff0099; }
+        .log-entry.socket { border-left-color: #ff00ff; color: #ff88ff; }
+        .status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin: 5px 0;
+        }
+        .status.connected { background: #ff0099; color: #000; }
+        .status.disconnected { background: #ff0000; color: #fff; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>👥 USER 2 (PINK) - Chat Test Dashboard</h1>
+
+        <!-- Auth Section -->
+        <div class="section">
+            <h2>🔐 Authentication</h2>
+            <input type="text" id="token" placeholder="JWT Token (paste from login)">
+            <button onclick="saveToken()">Save Token</button>
+            <div id="authStatus"></div>
+        </div>
+
+        <div class="grid">
+            <!-- Socket.io Section -->
+            <div class="section">
+                <h2>⚡ Socket.IO</h2>
+                <div id="socketStatus" class="status disconnected">Disconnected</div>
+                <button onclick="connectSocket()">Connect Socket</button>
+                <button onclick="disconnectSocket()">Disconnect</button>
+                <div class="log" id="socketLog"></div>
+            </div>
+
+            <!-- Conversations Section -->
+            <div class="section">
+                <h2>💬 Conversations</h2>
+                <button onclick="getConversations()">Get Conversations</button>
+                <input type="text" id="createConvUserId" placeholder="User ID to chat with">
+                <button onclick="createConversation()">Create Conversation</button>
+                <div class="log" id="conversationLog"></div>
+            </div>
+        </div>
+
+        <div class="grid">
+            <!-- Messages Section -->
+            <div class="section">
+                <h2>📨 Messages</h2>
+                <input type="text" id="convIdMessages" placeholder="Conversation ID">
+                <button onclick="getMessages()">Get Messages</button>
+                <textarea id="messageText" rows="3" placeholder="Type message..."></textarea>
+                <button onclick="sendMessage()">Send Message</button>
+                <button onclick="markAsRead()">Mark as Read</button>
+                <div class="log" id="messageLog"></div>
+            </div>
+
+            <!-- Notifications Section -->
+            <div class="section">
+                <h2>🔔 Notifications</h2>
+                <button onclick="getNotifications()">Get Notifications</button>
+                <button onclick="getUnreadCount()">Unread Count</button>
+                <button onclick="markAllRead()">Mark All Read</button>
+                <div class="log" id="notificationLog"></div>
+            </div>
+        </div>
+
+        <!-- System Log -->
+        <div class="section">
+            <h2>📋 System Log</h2>
+            <button onclick="clearLog()">Clear Log</button>
+            <div class="log" id="systemLog"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5001/api';
+        let socket = null;
+        let token = localStorage.getItem('testToken') || '';
+
+        if (token) {
+            document.getElementById('token').value = token;
+            updateAuthStatus();
+        }
+
+        function saveToken() {
+            token = document.getElementById('token').value;
+            localStorage.setItem('testToken', token);
+            updateAuthStatus();
+            log('system', 'Token saved');
+        }
+
+        function updateAuthStatus() {
+            const status = document.getElementById('authStatus');
+            if (token) {
+                status.innerHTML = '<span class="status connected">Token Set</span>';
+            } else {
+                status.innerHTML = '<span class="status disconnected">No Token</span>';
+            }
+        }
+
+        function log(type, message, data = null) {
+            const systemLog = document.getElementById('systemLog');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            if (data) {
+                entry.textContent += ' | ' + JSON.stringify(data, null, 2);
+            }
+            systemLog.appendChild(entry);
+            systemLog.scrollTop = systemLog.scrollHeight;
+        }
+
+        function logToSection(sectionId, message, data = null) {
+            const section = document.getElementById(sectionId);
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            if (data) {
+                entry.textContent += '\n' + JSON.stringify(data, null, 2);
+            }
+            section.appendChild(entry);
+            section.scrollTop = section.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('systemLog').innerHTML = '';
+        }
+
+        // Socket.IO Functions
+        function connectSocket() {
+            if (!token) {
+                log('error', 'No token set!');
+                return;
+            }
+
+            socket = io('http://localhost:5001', {
+                auth: { token: token }
+            });
+
+            socket.on('connect', () => {
+                document.getElementById('socketStatus').className = 'status connected';
+                document.getElementById('socketStatus').textContent = 'Connected';
+                log('success', 'Socket connected');
+                logToSection('socketLog', 'Connected to server');
+            });
+
+            socket.on('disconnect', () => {
+                document.getElementById('socketStatus').className = 'status disconnected';
+                document.getElementById('socketStatus').textContent = 'Disconnected';
+                log('error', 'Socket disconnected');
+                logToSection('socketLog', 'Disconnected from server');
+            });
+
+            socket.on('chat:new-message', (message) => {
+                log('socket', 'New message received', message);
+                logToSection('socketLog', 'NEW MESSAGE', message);
+            });
+
+            socket.on('chat:typing-indicator', (data) => {
+                logToSection('socketLog', 'User typing...', data);
+            });
+
+            socket.on('notification:new', (notification) => {
+                log('socket', 'New notification', notification);
+                logToSection('socketLog', 'NEW NOTIFICATION', notification);
+            });
+
+            socket.on('connect_error', (error) => {
+                log('error', 'Socket connection error', error.message);
+                logToSection('socketLog', 'Connection error: ' + error.message);
+            });
+        }
+
+        function disconnectSocket() {
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+            }
+        }
+
+        // API Functions
+        async function apiCall(endpoint, method = 'GET', body = null) {
+            if (!token) {
+                log('error', 'No token set!');
+                return;
+            }
+
+            try {
+                const options = {
+                    method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                };
+
+                if (body) {
+                    options.body = JSON.stringify(body);
+                }
+
+                const response = await fetch(`${API_BASE}${endpoint}`, options);
+                const data = await response.json();
+
+                if (response.ok) {
+                    log('success', `${method} ${endpoint}`, data);
+                    return data;
+                } else {
+                    log('error', `${method} ${endpoint} failed`, data);
+                    return null;
+                }
+            } catch (error) {
+                log('error', `API call failed: ${error.message}`);
+                return null;
+            }
+        }
+
+        // Conversation Functions
+        async function getConversations() {
+            const data = await apiCall('/chat/conversations');
+            if (data) logToSection('conversationLog', 'Conversations loaded', data);
+        }
+
+        async function createConversation() {
+            const userId = document.getElementById('createConvUserId').value;
+            if (!userId) {
+                log('error', 'Enter user ID first');
+                return;
+            }
+            const data = await apiCall('/chat/conversations', 'POST', { user2_id: userId });
+            if (data) logToSection('conversationLog', 'Conversation created', data);
+        }
+
+        // Message Functions
+        async function getMessages() {
+            const convId = document.getElementById('convIdMessages').value;
+            if (!convId) {
+                log('error', 'Enter conversation ID first');
+                return;
+            }
+            const data = await apiCall(`/chat/conversations/${convId}/messages`);
+            if (data) logToSection('messageLog', 'Messages loaded', data);
+        }
+
+        async function sendMessage() {
+            const convId = document.getElementById('convIdMessages').value;
+            const text = document.getElementById('messageText').value;
+            if (!convId || !text) {
+                log('error', 'Enter conversation ID and message');
+                return;
+            }
+            const data = await apiCall(`/chat/conversations/${convId}/messages`, 'POST', {
+                pesan: text,
+                tipe: 'text'
+            });
+            if (data) {
+                logToSection('messageLog', 'Message sent', data);
+                document.getElementById('messageText').value = '';
+            }
+        }
+
+        async function markAsRead() {
+            const convId = document.getElementById('convIdMessages').value;
+            if (!convId) {
+                log('error', 'Enter conversation ID first');
+                return;
+            }
+            const data = await apiCall(`/chat/conversations/${convId}/read`, 'PATCH');
+            if (data) logToSection('messageLog', 'Marked as read', data);
+        }
+
+        // Notification Functions
+        async function getNotifications() {
+            const data = await apiCall('/notifications');
+            if (data) logToSection('notificationLog', 'Notifications loaded', data);
+        }
+
+        async function getUnreadCount() {
+            const data = await apiCall('/notifications/unread-count');
+            if (data) logToSection('notificationLog', 'Unread count', data);
+        }
+
+        async function markAllRead() {
+            const data = await apiCall('/notifications/mark-all-read', 'PATCH');
+            if (data) logToSection('notificationLog', 'All marked as read', data);
+        }
+
+        // Initial log
+        log('success', 'USER 2 - Test Dashboard initialized');
+        log('success', 'Paste your JWT token and click "Save Token" to start testing');
+    </script>
+</body>
+</html>

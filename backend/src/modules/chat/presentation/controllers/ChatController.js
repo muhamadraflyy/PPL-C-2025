@@ -16,7 +16,7 @@ class ChatController {
 
     // Inisialisasi repository
     this.conversationRepository = new SequelizeConversationRepository(sequelize);
-    this.massageRepository = new SequelizeMessageRepository(sequelize);
+    this.messageRepository = new SequelizeMessageRepository(sequelize);
     this.userRepository = new SequelizeUserRepository(sequelize);
     this.emailService = new EmailService(/* dependencies EmailService, misal: new Mailer() */);
     this.notificationService = new EmailNotificationService(this.userRepository, this.emailService);
