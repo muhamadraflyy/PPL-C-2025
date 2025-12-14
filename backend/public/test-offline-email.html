@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Offline Email Notification</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #00ff88;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            text-shadow: 0 0 20px #ff0080;
+            font-size: 28px;
+            color: #ff0080;
+        }
+        .info-box {
+            background: rgba(255, 0, 128, 0.1);
+            border: 2px solid #ff0080;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .info-box h2 {
+            font-size: 18px;
+            color: #ff0080;
+            margin-bottom: 10px;
+        }
+        .info-box p {
+            margin: 5px 0;
+            color: #00ff88;
+        }
+        .send-box {
+            background: #1a1a1a;
+            border: 2px solid #00ff88;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+        .send-box h2 {
+            font-size: 18px;
+            color: #00ff88;
+            margin-bottom: 15px;
+        }
+        textarea {
+            width: 100%;
+            padding: 15px;
+            background: #0a0a0a;
+            border: 1px solid #00ff88;
+            color: #00ff88;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            border-radius: 8px;
+            min-height: 120px;
+            resize: vertical;
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            margin-top: 15px;
+            background: linear-gradient(135deg, #ff0080, #ff4d94);
+            border: none;
+            color: white;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(255, 0, 128, 0.5);
+        }
+        button:disabled {
+            background: #333;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .log-box {
+            background: #000;
+            border: 2px solid #00ff88;
+            border-radius: 12px;
+            padding: 20px;
+            height: 400px;
+            overflow-y: auto;
+        }
+        .log-box h2 {
+            font-size: 18px;
+            color: #00ff88;
+            margin-bottom: 15px;
+        }
+        .log-entry {
+            margin: 8px 0;
+            padding: 10px;
+            border-left: 3px solid #00ff88;
+            padding-left: 12px;
+            background: rgba(0, 255, 136, 0.05);
+        }
+        .log-entry.success { border-left-color: #00ff00; color: #00ff88; }
+        .log-entry.error { border-left-color: #ff0000; color: #ff6666; }
+        .log-entry.info { border-left-color: #00bfff; color: #00bfff; }
+        .log-entry.email { border-left-color: #ff0080; color: #ff88ff; }
+        .status-indicator {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .status-offline {
+            background: #ff0000;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📧 Test Offline Email Notification</h1>
+
+        <!-- Target User Info -->
+        <div class="info-box">
+            <h2>🎯 Target User (OFFLINE)</h2>
+            <p><strong>Nama:</strong> Lisvindanu</p>
+            <p><strong>Email:</strong> lisvindanu015@gmail.com</p>
+            <p><strong>UUID:</strong> d3dbc82b-7f58-4344-8042-1b252d15784c</p>
+            <p><strong>Status:</strong> <span class="status-indicator status-offline">🔴 OFFLINE</span></p>
+            <p style="margin-top: 10px; color: #ff88ff;">
+                💡 Karena user offline, email notification akan terkirim!
+            </p>
+        </div>
+
+        <!-- Send Message Box -->
+        <div class="send-box">
+            <h2>📨 Send Test Message</h2>
+            <textarea id="messageText" placeholder="Ketik pesan test untuk Lisvindanu...
+
+Contoh:
+- Halo, ini test email notification
+- Testing offline message delivery
+- Pesan ini akan dikirim via email"></textarea>
+            <button onclick="sendTestMessage()" id="sendBtn">
+                📤 Send Message & Trigger Email Notification
+            </button>
+        </div>
+
+        <!-- Log Box -->
+        <div class="log-box">
+            <h2>📋 Activity Log</h2>
+            <div id="logContainer">
+                <div class="log-entry success">
+                    [${new Date().toLocaleTimeString()}] System initialized
+                </div>
+                <div class="log-entry info">
+                    [${new Date().toLocaleTimeString()}] Ready to send test message
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = `${window.location.origin}/api`;
+
+        // Auto-detect and login
+        const SENDER_EMAIL = 'testermodul4-freelancer@test.com';
+        const SENDER_PASSWORD = 'password123@!';
+        const TARGET_USER_ID = 'd3dbc82b-7f58-4344-8042-1b252d15784c';
+        const TARGET_EMAIL = 'lisvindanu015@gmail.com';
+
+        let token = null;
+        let conversationId = null;
+
+        function log(type, message) {
+            const container = document.getElementById('logContainer');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            container.appendChild(entry);
+            container.parentElement.scrollTop = container.parentElement.scrollHeight;
+        }
+
+        async function apiCall(endpoint, method = 'GET', body = null) {
+            try {
+                const options = {
+                    method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token && { 'Authorization': `Bearer ${token}` })
+                    }
+                };
+
+                if (body) {
+                    options.body = JSON.stringify(body);
+                }
+
+                const response = await fetch(`${API_BASE}${endpoint}`, options);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.message || 'API call failed');
+                }
+
+                return data;
+            } catch (error) {
+                throw error;
+            }
+        }
+
+        async function initialize() {
+            try {
+                log('info', 'Logging in as test sender...');
+
+                const loginData = await apiCall('/users/login', 'POST', {
+                    email: SENDER_EMAIL,
+                    password: SENDER_PASSWORD
+                });
+
+                token = loginData.data.token;
+                log('success', `Logged in as: ${SENDER_EMAIL}`);
+
+                // Create/Get conversation
+                log('info', 'Creating conversation with Lisvindanu...');
+                const convData = await apiCall('/chat/conversations', 'POST', {
+                    user2_id: TARGET_USER_ID
+                });
+
+                conversationId = convData.data.id;
+                log('success', `Conversation ready: ${conversationId}`);
+                log('email', `📧 Target: ${TARGET_EMAIL} (OFFLINE - Email will be sent)`);
+
+            } catch (error) {
+                log('error', `Initialization failed: ${error.message}`);
+            }
+        }
+
+        async function sendTestMessage() {
+            const messageText = document.getElementById('messageText').value.trim();
+
+            if (!messageText) {
+                log('error', 'Pesan tidak boleh kosong!');
+                return;
+            }
+
+            if (!token || !conversationId) {
+                log('error', 'Not initialized yet, please refresh page');
+                return;
+            }
+
+            const sendBtn = document.getElementById('sendBtn');
+            sendBtn.disabled = true;
+            sendBtn.textContent = '⏳ Sending...';
+
+            try {
+                log('info', 'Sending message...');
+
+                const msgData = await apiCall(
+                    `/chat/conversations/${conversationId}/messages`,
+                    'POST',
+                    {
+                        pesan: messageText,
+                        tipe: 'text'
+                    }
+                );
+
+                log('success', '✅ Message sent to database!');
+                log('success', `Message ID: ${msgData.data.id}`);
+                log('success', `Message Status: ${msgData.data.status}`);
+
+                // Check status
+                if (msgData.data.status === 'delivered') {
+                    log('info', '⚠️  User is ONLINE - Real-time delivery via Socket.IO');
+                    log('info', '📭 Email notification NOT sent (user online)');
+                } else {
+                    log('email', '📧 User is OFFLINE - Email notification SENT!');
+                    log('email', `📬 Email sent to: ${TARGET_EMAIL}`);
+                    log('email', '💡 Check inbox for notification email');
+                }
+
+                document.getElementById('messageText').value = '';
+                log('success', 'Ready to send another message');
+
+            } catch (error) {
+                log('error', `Send failed: ${error.message}`);
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.textContent = '📤 Send Message & Trigger Email Notification';
+            }
+        }
+
+        // Auto-initialize on page load
+        window.addEventListener('load', () => {
+            log('info', 'Initializing test environment...');
+            initialize();
+        });
+    </script>
+</body>
+</html>
