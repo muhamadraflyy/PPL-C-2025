@@ -58,6 +58,21 @@ class SendMessage {
     // 6. Emit socket event buat real-time (C-2)
     if (this.socketService) {
       this.socketService.emitNewMessage(percakapanId, newMessage, receiverId);
+
+      // Check if receiver is online, update status to "delivered"
+      const isOnline = await this.socketService.isUserOnline(receiverId);
+      if (isOnline) {
+        await this.messageRepository.updateStatus(newMessage.id, 'delivered');
+        newMessage.status = 'delivered';
+        newMessage.terkirim_pada = new Date();
+
+        // Emit status update to sender
+        this.socketService.io.to(`user:${userId}`).emit('message:status-updated', {
+          messageId: newMessage.id,
+          status: 'delivered',
+          terkirim_pada: newMessage.terkirim_pada
+        });
+      }
     }
 
     // 7. Kirim notifikasi email jika penerima offline
