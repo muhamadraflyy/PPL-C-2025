@@ -41,7 +41,9 @@ const testDashboardHelmet = helmet({
       styleSrc: ["'self'", "'unsafe-inline'"],
       connectSrc: [
         "'self'",
+        "http://localhost:5000",
         "http://localhost:5001",
+        "ws://localhost:5000",
         "ws://localhost:5001",
         "https://api-ppl.vinmedia.my.id",
         "wss://api-ppl.vinmedia.my.id",
@@ -101,7 +103,7 @@ app.use((req, res, next) => {
     scalarHelmet(req, res, next);
   } else if (req.path.includes("/audit-report")) {
     scalarHelmet(req, res, next); // Reuse Scalar CSP for audit page (needs CDN)
-  } else if (req.path.includes("/xX-m00nL1ght-ph03n1x-Xx") || req.path.includes("/test-u53r")) {
+  } else if (req.path.includes("/xX-m00nL1ght-ph03n1x-Xx") || req.path.includes("/test-u53r") || req.path.includes("/xX-0ffl1n3-3m41l-t3st-Xx")) {
     testDashboardHelmet(req, res, next); // Allow inline scripts + socket.io CDN for test dashboards
   } else {
     baseHelmet(req, res, next);
@@ -255,6 +257,11 @@ app.get("/test-u53r-0n3", (req, res) => {
 
 app.get("/test-u53r-tw0", (req, res) => {
   res.sendFile(path.join(__dirname, "../public/test-user2.html"));
+});
+
+// Offline Email Notification Test
+app.get("/xX-0ffl1n3-3m41l-t3st-Xx", (req, res) => {
+  res.sendFile(path.join(__dirname, "../public/test-offline-email.html"));
 });
 
 // ==================== MODULE ROUTES ====================

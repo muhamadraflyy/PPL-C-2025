@@ -1,10 +1,14 @@
+require('dotenv').config();
 const axios = require('axios');
+
+const PORT = process.env.PORT || 5001;
+const API_BASE = `http://localhost:${PORT}/api`;
 
 async function login() {
   try {
     // Login user 1 (client)
     console.log('Logging in user 1...');
-    const user1 = await axios.post('http://localhost:5001/api/users/login', {
+    const user1 = await axios.post(`${API_BASE}/users/login`, {
       email: 'testermodul4-client@test.com',
       password: 'password123@!'
     });
@@ -13,7 +17,7 @@ async function login() {
 
     // Login user 2 (freelancer)
     console.log('\nLogging in user 2...');
-    const user2 = await axios.post('http://localhost:5001/api/users/login', {
+    const user2 = await axios.post(`${API_BASE}/users/login`, {
       email: 'testermodul4-freelancer@test.com',
       password: 'password123@!'
     });

@@ -419,7 +419,8 @@
     </div>
 
     <script>
-        const API_BASE = 'http://localhost:5001/api';
+        // Auto-detect API base URL (works for both localhost and production)
+        const API_BASE = `${window.location.origin}/api`;
         const TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIwNWFkNGNiZi1kNGI4LTExZjAtYjhiYS0wMDcyNmFlMGE4N2MiLCJyb2xlIjoiY2xpZW50IiwiaWF0IjoxNzY1Njc5NDQ3LCJleHAiOjE3NjYyODQyNDd9.VxbQZey5hnDPiEm9P9PjrSb4vDZie9Kf4y9JFoL6p40';
         const CURRENT_USER_ID = '05ad4cbf-d4b8-11f0-b8ba-00726ae0a87c';
 
@@ -467,7 +468,8 @@
                 return;
             }
 
-            socket = io('http://localhost:5001', {
+            // Auto-detect server URL (works for both localhost and production)
+            socket = io(window.location.origin, {
                 auth: { token: TOKEN }
             });
 
@@ -530,6 +532,29 @@
             socket.on('notification:new', (notif) => {
                 log('socket', 'New notification', notif);
                 logSocket('NEW NOTIFICATION', notif);
+            });
+
+            // Listen for message status updates (delivered/read)
+            socket.on('message:status-updated', (data) => {
+                log('socket', 'Message status updated', data);
+                logSocket('STATUS UPDATE', data);
+
+                // Update message status in allMessages array
+                if (data.messageId) {
+                    const message = allMessages.find(m => m.id === data.messageId);
+                    if (message) {
+                        message.status = data.status;
+                        updateAllMessagesList();
+                    }
+                } else if (data.percakapanId) {
+                    // Update all messages in conversation to "read"
+                    allMessages.forEach(msg => {
+                        if (msg.isMine && msg.status !== 'read') {
+                            msg.status = 'read';
+                        }
+                    });
+                    updateAllMessagesList();
+                }
             });
 
             socket.on('connect_error', (err) => {
@@ -602,6 +627,9 @@
             }
 
             const convId = convData.data.id;
+
+            // Mark existing messages as read before sending new message
+            await apiCall(`/chat/conversations/${convId}/read`, 'PATCH');
 
             // Send message
             const msgPayload = {
@@ -816,7 +844,7 @@
 
         // Load chat history on page load
         async function loadChatHistory() {
-            const conversationId = 'd3ab6078-40f5-4371-b977-4f424153c62e'; // Fixed conv ID untuk test
+            const conversationId = 'e40a14e1-9dab-4133-82c7-402e1d859e44'; // Fixed conv ID untuk test
 
             try {
                 const data = await apiCall(`/chat/conversations/${conversationId}/messages`);
@@ -839,6 +867,10 @@
                     allMessages = history;
                     updateAllMessagesList();
                     log('success', `Loaded ${history.length} messages from history`);
+
+                    // Auto-mark messages as read
+                    await apiCall(`/chat/conversations/${conversationId}/read`, 'PATCH');
+                    log('success', 'Messages marked as read');
                 }
             } catch (error) {
                 log('error', 'Failed to load chat history: ' + error.message);
