@@ -154,6 +154,8 @@ app.use("/layanan", express.static(layananPath));
 app.use("/portfolio", express.static(portfolioPath));
 app.use("/order-attachments", express.static(orderAttachmentsPath));
 app.use("/chat-attachments", express.static(chatAttachmentsPath));
+// Backward compatibility for old chat uploads
+app.use("/uploads/chat", express.static(chatAttachmentsPath));
 
 // ==================== API DOCUMENTATION ====================
 // Serve spec with cache busting
