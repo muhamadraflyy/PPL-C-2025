@@ -22,9 +22,26 @@ class SocketService {
    */
 
     init(httpServer) {
+        // Allow multiple origins for Socket.IO
+        const allowedOrigins = [
+            process.env.FRONTEND_URL || "http://localhost:3000",
+            "http://localhost:5137",
+            "https://api-ppl.vinmedia.my.id",
+            "http://api-ppl.vinmedia.my.id"
+        ];
+
         this.io = new Server(httpServer, {
             cors: {
-                origin: process.env.FRONTEND_URL || "http://localhost:5137",
+                origin: (origin, callback) => {
+                    // Allow requests with no origin (like mobile apps or curl requests)
+                    if (!origin) return callback(null, true);
+
+                    if (allowedOrigins.includes(origin)) {
+                        callback(null, true);
+                    } else {
+                        callback(new Error('Not allowed by CORS'));
+                    }
+                },
                 credentials: true
             }
         });
