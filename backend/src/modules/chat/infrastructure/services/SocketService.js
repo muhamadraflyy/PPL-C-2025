@@ -139,12 +139,28 @@ class SocketService {
    * @param {string} receiverId - ID penerima pesan (opsional)
    */
     emitNewMessage(percakapanId, message, receiverId = null) {
-        // kirim pesan baru ke semua client di room percakapan
-        this.io.to(`conversation:${percakapanId}`).emit('chat:new-message', message);
+        console.log('[SocketService] emitNewMessage called:', {
+            percakapanId,
+            receiverId,
+            senderId: message?.pengirim_id,
+            messageId: message?.id,
+            pesan: message?.pesan || message?.isi_pesan
+        });
 
-        // JUGA kirim ke room pribadi penerima (untuk notifikasi real-time)
+        // Kirim ke room percakapan (untuk yang sudah join conversation room)
+        this.io.to(`conversation:${percakapanId}`).emit('chat:new-message', message);
+        console.log(`[SocketService] Emitted to conversation:${percakapanId}`);
+
+        // Kirim ke room pribadi PENERIMA
         if (receiverId) {
             this.io.to(`user:${receiverId}`).emit('chat:new-message', message);
+            console.log(`[SocketService] Emitted to receiver user:${receiverId}`);
+        }
+
+        // PENTING: Kirim juga ke room pribadi PENGIRIM (agar muncul di chat sendiri!)
+        if (message?.pengirim_id) {
+            this.io.to(`user:${message.pengirim_id}`).emit('chat:new-message', message);
+            console.log(`[SocketService] Emitted to sender user:${message.pengirim_id}`);
         }
     }
 
