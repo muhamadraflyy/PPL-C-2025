@@ -419,7 +419,8 @@
     </div>
 
     <script>
-        const API_BASE = 'http://localhost:5001/api';
+        // Auto-detect API base URL (works for both localhost and production)
+        const API_BASE = `${window.location.origin}/api`;
         const TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIwNWFkNGNiZi1kNGI4LTExZjAtYjhiYS0wMDcyNmFlMGE4N2MiLCJyb2xlIjoiY2xpZW50IiwiaWF0IjoxNzY1Njc5NDQ3LCJleHAiOjE3NjYyODQyNDd9.VxbQZey5hnDPiEm9P9PjrSb4vDZie9Kf4y9JFoL6p40';
         const CURRENT_USER_ID = '05ad4cbf-d4b8-11f0-b8ba-00726ae0a87c';
 
@@ -467,7 +468,8 @@
                 return;
             }
 
-            socket = io('http://localhost:5001', {
+            // Auto-detect server URL (works for both localhost and production)
+            socket = io(window.location.origin, {
                 auth: { token: TOKEN }
             });
 
