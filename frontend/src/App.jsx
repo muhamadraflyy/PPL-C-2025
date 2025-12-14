@@ -54,6 +54,7 @@ import WithdrawalManagementPage from "./pages/Admin/WithdrawalManagementPage";
 import AllNotificationsPage from "./pages/Admin/AllNotificationsPage";
 import FraudReportDetailPage from "./pages/Admin/FraudReportDetailPage";
 import RecommendationMonitoringPage from "./pages/Admin/RecommendationMonitoringPage";
+import ReviewPage from "./pages/Admin/ReviewPage";
 
 // Payment pages
 import PaymentSuccessPage from "./pages/payment/PaymentSuccessPage";
@@ -205,6 +206,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <FraudReportDetailPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/reviews"
+        element={
+          <ProtectedRoute>
+            <ReviewPage />
           </ProtectedRoute>
         }
       />

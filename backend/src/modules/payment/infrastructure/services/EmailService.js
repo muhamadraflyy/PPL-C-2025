@@ -34,6 +34,37 @@ class EmailService {
   }
 
   /**
+   * Generic send mail method for any module to use
+   */
+  async sendMail(options) {
+    try {
+      const emailContent = {
+        from: options.from || process.env.EMAIL_FROM || '"SkillConnect" <noreply@skillconnect.id>',
+        to: options.to,
+        subject: options.subject,
+        html: options.html,
+        text: options.text,
+        attachments: options.attachments || []
+      };
+
+      if (this.transporter) {
+        const info = await this.transporter.sendMail(emailContent);
+        console.log('[EMAIL] Email sent:', info.messageId, 'to:', options.to);
+        return info;
+      } else {
+        // Development mode - log instead of sending
+        console.log('[EMAIL] [DEV MODE] Would send email to:', options.to);
+        console.log('[EMAIL] Subject:', options.subject);
+        console.log('[EMAIL] HTML preview:', options.html?.substring(0, 100) + '...');
+        return { messageId: 'dev-mode-' + Date.now() };
+      }
+    } catch (error) {
+      console.error('[EMAIL] Error sending email:', error.message);
+      throw error;
+    }
+  }
+
+  /**
    * Send payment success email
    */
   async sendPaymentSuccessEmail(to, paymentData, invoicePath = null) {

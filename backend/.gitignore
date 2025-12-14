@@ -55,6 +55,7 @@ public/layanan/
 public/order-attachments/
 public/portfolio/
 public/profiles/
+public/bukti-transfer/
 invoices/
 src/modules/exports/reports/*.pdf
 .claude

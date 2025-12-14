@@ -57,13 +57,11 @@ class SendMessage {
 
     // 6. Emit socket event buat real-time (C-2)
     if (this.socketService) {
-      this.socketService.emitNewMessage(percakapanId, newMessage);
+      this.socketService.emitNewMessage(percakapanId, newMessage, receiverId);
     }
 
-    // 7. Kirim notifikasi email jika penerima offlineKirim notifikasi email jika penerima offline
+    // 7. Kirim notifikasi email jika penerima offline
     if (this.notificationService && this.socketService && this.userRepository) {
-      const receiverId = conversation.getOtherUserId(userId);
-
       const isOnline = await this.socketService.isUserOnline(receiverId);
 
       if (!isOnline) {
