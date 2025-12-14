@@ -15,21 +15,40 @@ class EmailService {
   }
 
   async setupTransporter() {
-    if (process.env.NODE_ENV === 'production' && process.env.EMAIL_HOST) {
-      // Production email config
+    // Use SMTP config from .env (supports both EMAIL_* and SMTP_* variables)
+    const smtpHost = process.env.SMTP_HOST || process.env.EMAIL_HOST;
+    const smtpPort = process.env.SMTP_PORT || process.env.EMAIL_PORT || 587;
+    const smtpUser = process.env.SMTP_USER || process.env.EMAIL_USER;
+    const smtpPass = process.env.SMTP_PASS || process.env.EMAIL_PASS;
+
+    if (smtpHost && smtpUser && smtpPass) {
+      // Email config available - setup transporter
       this.transporter = nodemailer.createTransport({
-        host: process.env.EMAIL_HOST,
-        port: process.env.EMAIL_PORT || 587,
-        secure: process.env.EMAIL_SECURE === 'true',
+        host: smtpHost,
+        port: parseInt(smtpPort, 10),
+        secure: smtpPort == 465, // true for 465 (SSL), false for 587 (TLS)
         auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS
+          user: smtpUser,
+          pass: smtpPass
+        },
+        tls: {
+          rejectUnauthorized: process.env.NODE_ENV === 'production'
+        }
+      });
+
+      // Verify connection
+      this.transporter.verify((error) => {
+        if (error) {
+          console.error('[EMAIL SERVICE] SMTP connection error:', error);
+          this.transporter = null; // Fallback to dev mode if connection fails
+        } else {
+          console.log('[EMAIL SERVICE] SMTP ready to send emails');
         }
       });
     } else {
-      // Development - use ethereal (test email)
-      // Atau mock console.log saja
+      // Development - no SMTP config
       console.log('[EMAIL SERVICE] Running in development mode - emails will be logged to console');
+      console.log('[EMAIL SERVICE] To enable real emails, configure SMTP_* variables in .env');
     }
   }
 
