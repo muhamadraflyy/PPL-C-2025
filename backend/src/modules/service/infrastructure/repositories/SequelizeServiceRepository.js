@@ -241,11 +241,25 @@ class SequelizeServiceRepository {
 
     if (!service) return null;
 
-    // 2) Ambil data freelancer dari tabel users
+    // 2) Ambil data freelancer dari tabel users + profil_freelancer (portfolio)
     if (service.freelancer_id) {
       const [uRows] = await this.sequelize.query(
         `
-        SELECT *
+        SELECT
+          id,
+          email,
+          role,
+          nama_depan,
+          nama_belakang,
+          no_telepon,
+          avatar,
+          foto_latar,
+          bio,
+          kota,
+          provinsi,
+          is_verified,
+          created_at,
+          updated_at
         FROM users
         WHERE id = ?
         LIMIT 1
@@ -255,7 +269,50 @@ class SequelizeServiceRepository {
 
       const u = Array.isArray(uRows) ? uRows[0] : uRows;
       if (u) {
+        // Attach user (sanitize sensitive fields defensively)
         service.freelancer = u;
+        if (service.freelancer && typeof service.freelancer === "object") {
+          delete service.freelancer.password;
+          delete service.freelancer.google_id;
+        }
+
+        // Attach profil freelancer (1:1)
+        try {
+          const [pRows] = await this.sequelize.query(
+            `
+            SELECT *
+            FROM profil_freelancer
+            WHERE user_id = ?
+            LIMIT 1
+            `,
+            { replacements: [service.freelancer_id] }
+          );
+
+          const p = Array.isArray(pRows) ? pRows[0] : pRows;
+          if (p) {
+            // Parse file_portfolio if stored as string JSON
+            if (p.file_portfolio && typeof p.file_portfolio === "string") {
+              try {
+                p.file_portfolio = JSON.parse(p.file_portfolio);
+              } catch {
+                // ignore
+              }
+            }
+
+            // Konsisten dengan endpoint public user: profil_freelancer
+            service.freelancer.profil_freelancer = p;
+
+            // Fallback avatar dari profil kalau avatar user kosong
+            if (!service.freelancer.avatar && p.avatar) {
+              service.freelancer.avatar = p.avatar;
+            }
+          }
+        } catch (e) {
+          console.error(
+            "[SequelizeServiceRepository.findBySlug] Failed to load profil_freelancer:",
+            e.message
+          );
+        }
       }
     }
 
