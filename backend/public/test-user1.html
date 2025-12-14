@@ -3,52 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>USER 1 (Client) - Chat Test</title>
+    <title>USER 1 - Chat Test Dashboard</title>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            background: #f0f2f5;
+            color: #1c1e21;
         }
 
-        .app-container {
-            width: 95%;
+        .container {
             max-width: 1400px;
-            height: 90vh;
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
+            margin: 0 auto;
+            padding: 20px;
         }
 
-        /* Header */
         .header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
             display: flex;
-            align-items: center;
             justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
 
-        .header h1 {
-            font-size: 24px;
-            font-weight: 600;
-        }
+        .header h1 { font-size: 24px; font-weight: 600; }
 
-        .connection-status {
+        .status {
             display: flex;
             align-items: center;
             gap: 8px;
-            font-size: 14px;
+            background: rgba(255,255,255,0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
         }
 
         .status-dot {
@@ -63,633 +55,571 @@
             box-shadow: 0 0 8px #00ff88;
         }
 
-        /* Main Content */
-        .main-content {
-            flex: 1;
+        /* Tabs */
+        .tabs {
             display: flex;
-            overflow: hidden;
-        }
-
-        /* Sidebar - Conversation List */
-        .sidebar {
-            width: 350px;
-            border-right: 1px solid #e0e0e0;
-            display: flex;
-            flex-direction: column;
-            background: #f8f9fa;
-        }
-
-        .sidebar-header {
-            padding: 16px;
+            gap: 8px;
+            margin-bottom: 20px;
             background: white;
-            border-bottom: 1px solid #e0e0e0;
-        }
-
-        .sidebar-header input {
-            width: 100%;
-            padding: 10px 12px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-size: 14px;
-        }
-
-        .conversation-list {
-            flex: 1;
-            overflow-y: auto;
-        }
-
-        .conversation-item {
-            padding: 16px;
-            border-bottom: 1px solid #e0e0e0;
-            cursor: pointer;
-            transition: background 0.2s;
-            background: white;
-        }
-
-        .conversation-item:hover {
-            background: #f0f2f5;
-        }
-
-        .conversation-item.active {
-            background: #e3f2fd;
-            border-left: 4px solid #667eea;
-        }
-
-        .conversation-item .name {
-            font-weight: 600;
-            margin-bottom: 4px;
-            color: #333;
-        }
-
-        .conversation-item .last-message {
-            font-size: 13px;
-            color: #65676b;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .conversation-item .unread-badge {
-            background: #667eea;
-            color: white;
-            padding: 2px 8px;
+            padding: 8px;
             border-radius: 12px;
-            font-size: 11px;
-            font-weight: bold;
-            float: right;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         }
 
-        /* Chat Area */
-        .chat-area {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            background: #ffffff;
-        }
-
-        .chat-header {
-            padding: 16px 20px;
-            background: white;
-            border-bottom: 1px solid #e0e0e0;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .chat-header .contact-info {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .chat-header .avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: bold;
-        }
-
-        .chat-header .name {
-            font-weight: 600;
-            font-size: 16px;
-        }
-
-        .empty-state {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #999;
-            font-size: 16px;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .empty-state svg {
-            width: 64px;
-            height: 64px;
-            opacity: 0.3;
-        }
-
-        /* Messages */
-        .messages-container {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-            background: #f0f2f5;
-        }
-
-        .message {
-            display: flex;
-            margin-bottom: 12px;
-            animation: slideIn 0.2s ease-out;
-        }
-
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .message.sent {
-            justify-content: flex-end;
-        }
-
-        .message-bubble {
-            max-width: 60%;
-            padding: 10px 14px;
-            border-radius: 16px;
-            word-wrap: break-word;
-        }
-
-        .message.received .message-bubble {
-            background: white;
-            color: #333;
-            border-bottom-left-radius: 4px;
-        }
-
-        .message.sent .message-bubble {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border-bottom-right-radius: 4px;
-        }
-
-        .message-time {
-            font-size: 11px;
-            opacity: 0.7;
-            margin-top: 4px;
-        }
-
-        .message-sender {
-            font-size: 12px;
-            font-weight: 600;
-            margin-bottom: 4px;
-            opacity: 0.8;
-        }
-
-        /* Input Area */
-        .input-area {
-            padding: 16px 20px;
-            background: white;
-            border-top: 1px solid #e0e0e0;
-            display: flex;
-            gap: 12px;
-            align-items: center;
-        }
-
-        .input-area input {
-            flex: 1;
-            padding: 12px 16px;
-            border: 1px solid #ddd;
-            border-radius: 24px;
-            font-size: 14px;
-            outline: none;
-        }
-
-        .input-area input:focus {
-            border-color: #667eea;
-        }
-
-        .send-btn {
-            width: 44px;
-            height: 44px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        .tab {
+            padding: 12px 24px;
             border: none;
-            color: white;
+            background: transparent;
+            color: #65676b;
+            font-weight: 600;
             cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: transform 0.2s;
-        }
-
-        .send-btn:hover {
-            transform: scale(1.05);
-        }
-
-        .send-btn:active {
-            transform: scale(0.95);
-        }
-
-        /* New Conversation Button */
-        .new-chat-btn {
-            margin: 12px;
-            padding: 12px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
             border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 14px;
+            transition: all 0.2s;
         }
 
-        .new-chat-btn:hover {
-            opacity: 0.9;
+        .tab:hover { background: #f0f2f5; }
+
+        .tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
         }
 
-        /* Modal */
-        .modal {
+        /* Tab Content */
+        .tab-content {
             display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-        }
-
-        .modal.show {
-            display: flex;
-        }
-
-        .modal-content {
             background: white;
             padding: 24px;
             border-radius: 12px;
-            width: 90%;
-            max-width: 400px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         }
 
-        .modal-content h3 {
+        .tab-content.active { display: block; }
+
+        /* Forms */
+        .form-group {
             margin-bottom: 16px;
-            color: #333;
         }
 
-        .modal-content input {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            margin-bottom: 16px;
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #050505;
             font-size: 14px;
         }
 
-        .modal-buttons {
-            display: flex;
-            gap: 12px;
-            justify-content: flex-end;
+        input, textarea, select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
         }
 
-        .modal-buttons button {
-            padding: 10px 20px;
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
+        }
+
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        button {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
             border: none;
             border-radius: 8px;
             cursor: pointer;
             font-weight: 600;
+            font-size: 14px;
+            transition: transform 0.2s;
         }
 
-        .btn-cancel {
-            background: #e0e0e0;
-            color: #333;
+        button:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(102,126,234,0.3); }
+        button:active { transform: translateY(0); }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
         }
 
-        .btn-create {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+        /* Response Display */
+        .response {
+            margin-top: 20px;
+            padding: 16px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
         }
 
-        /* Scrollbar */
-        ::-webkit-scrollbar {
-            width: 6px;
+        .response pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            margin: 0;
         }
 
-        ::-webkit-scrollbar-track {
-            background: #f1f1f1;
+        /* Log */
+        .log-container {
+            background: #1c1e21;
+            color: #e4e6eb;
+            padding: 16px;
+            border-radius: 8px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
         }
 
-        ::-webkit-scrollbar-thumb {
-            background: #888;
-            border-radius: 3px;
+        .log-entry {
+            padding: 8px;
+            margin: 4px 0;
+            border-left: 3px solid #667eea;
+            padding-left: 12px;
         }
 
-        ::-webkit-scrollbar-thumb:hover {
-            background: #555;
+        .log-entry.success { border-left-color: #00c851; color: #00ff88; }
+        .log-entry.error { border-left-color: #ff4444; color: #ff6b6b; }
+        .log-entry.socket { border-left-color: #ff00ff; color: #ff88ff; }
+
+        /* Grid Layout */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
         }
 
-        .loading {
-            text-align: center;
+        .card {
+            background: white;
             padding: 20px;
-            color: #999;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .card h3 {
+            margin-bottom: 16px;
+            color: #667eea;
+            font-size: 18px;
+        }
+
+        /* Message List */
+        .message-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .message-item {
+            padding: 12px;
+            margin: 8px 0;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 3px solid #667eea;
+        }
+
+        .message-item.sent { border-left-color: #764ba2; background: #f0edff; }
+        .message-item .meta {
+            font-size: 12px;
+            color: #65676b;
+            margin-top: 4px;
         }
     </style>
 </head>
 <body>
-    <div class="app-container">
+    <div class="container">
         <!-- Header -->
         <div class="header">
-            <h1>👤 USER 1 - Tester Client</h1>
-            <div class="connection-status">
+            <h1>👤 USER 1 (Client) - Testing Dashboard</h1>
+            <div class="status">
                 <span class="status-dot" id="statusDot"></span>
                 <span id="statusText">Disconnected</span>
             </div>
         </div>
 
-        <!-- Main Content -->
-        <div class="main-content">
-            <!-- Sidebar - Conversations -->
-            <div class="sidebar">
-                <div class="sidebar-header">
-                    <input type="text" placeholder="🔍 Cari percakapan..." id="searchInput">
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('chat')">💬 Chat</button>
+            <button class="tab" onclick="switchTab('conversations')">📋 Conversations</button>
+            <button class="tab" onclick="switchTab('messages')">📨 Messages</button>
+            <button class="tab" onclick="switchTab('notifications')">🔔 Notifications</button>
+            <button class="tab" onclick="switchTab('socket')">⚡ Socket.IO</button>
+            <button class="tab" onclick="switchTab('logs')">📝 System Logs</button>
+        </div>
+
+        <!-- Tab: Chat -->
+        <div class="tab-content active" id="tab-chat">
+            <h2 style="margin-bottom: 20px;">Test Chat Features</h2>
+            <div class="grid">
+                <div class="card">
+                    <h3>Quick Chat Test</h3>
+                    <div class="form-group">
+                        <label>User 2 ID</label>
+                        <input type="text" id="quickChatUserId" value="05ad55af-d4b8-11f0-b8ba-00726ae0a87c">
+                    </div>
+                    <div class="form-group">
+                        <label>Message</label>
+                        <textarea id="quickChatMessage" placeholder="Type your message..."></textarea>
+                    </div>
+                    <button onclick="quickSendChat()">Send Quick Chat</button>
                 </div>
-                <button class="new-chat-btn" onclick="showNewChatModal()">➕ Percakapan Baru</button>
-                <div class="conversation-list" id="conversationList">
-                    <div class="loading">Memuat percakapan...</div>
+                <div class="card">
+                    <h3>Last Sent Messages</h3>
+                    <div class="message-list" id="sentMessagesList">
+                        <p style="color: #999; text-align: center;">No messages sent yet</p>
+                    </div>
                 </div>
             </div>
+            <div class="response" id="chatResponse" style="display: none;"></div>
+        </div>
 
-            <!-- Chat Area -->
-            <div class="chat-area">
-                <div class="empty-state" id="emptyState">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
-                    </svg>
-                    <span>Pilih percakapan untuk mulai chat</span>
-                </div>
+        <!-- Tab: Conversations -->
+        <div class="tab-content" id="tab-conversations">
+            <h2 style="margin-bottom: 20px;">Manage Conversations</h2>
+            <div class="button-group">
+                <button onclick="getConversations()">📋 Get All Conversations</button>
+                <button onclick="showCreateConvForm()">➕ Create New Conversation</button>
+            </div>
 
-                <div id="chatWindow" style="display: none; flex: 1; display: flex; flex-direction: column;">
-                    <div class="chat-header">
-                        <div class="contact-info">
-                            <div class="avatar" id="chatAvatar">U2</div>
-                            <div class="name" id="chatName">User 2</div>
-                        </div>
-                    </div>
-                    <div class="messages-container" id="messagesContainer">
-                        <!-- Messages akan muncul di sini -->
-                    </div>
-                    <div class="input-area">
-                        <input type="text" id="messageInput" placeholder="Ketik pesan..." onkeypress="handleKeyPress(event)">
-                        <button class="send-btn" onclick="sendMessage()">
-                            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
-                            </svg>
-                        </button>
-                    </div>
+            <div id="createConvForm" style="display: none; margin-top: 20px;">
+                <div class="form-group">
+                    <label>User 2 ID</label>
+                    <input type="text" id="createConvUserId" value="05ad55af-d4b8-11f0-b8ba-00726ae0a87c">
                 </div>
+                <button onclick="createConversation()">Create</button>
+            </div>
+
+            <div class="response" id="conversationsResponse" style="display: none;"></div>
+        </div>
+
+        <!-- Tab: Messages -->
+        <div class="tab-content" id="tab-messages">
+            <h2 style="margin-bottom: 20px;">Message Operations</h2>
+            <div class="form-group">
+                <label>Conversation ID</label>
+                <input type="text" id="convId" placeholder="Enter conversation ID">
+            </div>
+            <div class="button-group">
+                <button onclick="getMessages()">📨 Get Messages</button>
+                <button onclick="markAsRead()">✅ Mark as Read</button>
+            </div>
+
+            <div class="form-group" style="margin-top: 20px;">
+                <label>Send Message</label>
+                <textarea id="messageText" placeholder="Type message..."></textarea>
+            </div>
+            <button onclick="sendMessage()">Send Message</button>
+
+            <div class="response" id="messagesResponse" style="display: none;"></div>
+        </div>
+
+        <!-- Tab: Notifications -->
+        <div class="tab-content" id="tab-notifications">
+            <h2 style="margin-bottom: 20px;">Notifications</h2>
+            <div class="button-group">
+                <button onclick="getNotifications()">🔔 Get Notifications</button>
+                <button onclick="getUnreadCount()">📊 Unread Count</button>
+                <button onclick="markAllRead()">✅ Mark All Read</button>
+            </div>
+            <div class="response" id="notificationsResponse" style="display: none;"></div>
+        </div>
+
+        <!-- Tab: Socket.IO -->
+        <div class="tab-content" id="tab-socket">
+            <h2 style="margin-bottom: 20px;">Socket.IO Connection</h2>
+            <div class="button-group">
+                <button onclick="connectSocket()">🔌 Connect</button>
+                <button onclick="disconnectSocket()">❌ Disconnect</button>
+            </div>
+            <div class="log-container" id="socketLog" style="margin-top: 20px;">
+                <div class="log-entry">Socket.IO events will appear here...</div>
             </div>
         </div>
-    </div>
 
-    <!-- Modal untuk New Conversation -->
-    <div class="modal" id="newChatModal">
-        <div class="modal-content">
-            <h3>Percakapan Baru</h3>
-            <input type="text" id="newChatUserId" placeholder="Masukkan User ID" value="05ad55af-d4b8-11f0-b8ba-00726ae0a87c">
-            <div class="modal-buttons">
-                <button class="btn-cancel" onclick="hideNewChatModal()">Batal</button>
-                <button class="btn-create" onclick="createNewConversation()">Buat</button>
+        <!-- Tab: Logs -->
+        <div class="tab-content" id="tab-logs">
+            <h2 style="margin-bottom: 20px;">System Logs</h2>
+            <button onclick="clearLog()">🗑️ Clear Logs</button>
+            <div class="log-container" id="systemLog" style="margin-top: 20px;">
+                <div class="log-entry success">System initialized</div>
             </div>
         </div>
     </div>
 
     <script>
-        // Config
         const API_BASE = 'http://localhost:5001/api';
         const TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIwNWFkNGNiZi1kNGI4LTExZjAtYjhiYS0wMDcyNmFlMGE4N2MiLCJyb2xlIjoiY2xpZW50IiwiaWF0IjoxNzY1Njc5NDQ3LCJleHAiOjE3NjYyODQyNDd9.VxbQZey5hnDPiEm9P9PjrSb4vDZie9Kf4y9JFoL6p40';
         const CURRENT_USER_ID = '05ad4cbf-d4b8-11f0-b8ba-00726ae0a87c';
 
         let socket = null;
-        let conversations = [];
-        let currentConversation = null;
-        let messages = [];
+        let sentMessages = [];
 
-        // Initialize
-        window.addEventListener('load', () => {
-            connectSocket();
-            loadConversations();
-            setInterval(refreshCurrentChat, 3000); // Refresh setiap 3 detik
-        });
+        // Tab switching
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById('tab-' + tabName).classList.add('active');
+        }
+
+        // Logging
+        function log(type, message, data = null) {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+            if (data) {
+                entry.innerHTML += '<br>' + JSON.stringify(data, null, 2);
+            }
+            document.getElementById('systemLog').appendChild(entry);
+            document.getElementById('systemLog').scrollTop = document.getElementById('systemLog').scrollHeight;
+        }
+
+        function logSocket(message, data = null) {
+            const entry = document.createElement('div');
+            entry.className = 'log-entry socket';
+            entry.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+            if (data) entry.innerHTML += '<br>' + JSON.stringify(data, null, 2);
+            document.getElementById('socketLog').appendChild(entry);
+            document.getElementById('socketLog').scrollTop = document.getElementById('socketLog').scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('systemLog').innerHTML = '<div class="log-entry success">Logs cleared</div>';
+        }
 
         // Socket.IO
         function connectSocket() {
+            if (socket) {
+                log('error', 'Already connected');
+                return;
+            }
+
             socket = io('http://localhost:5001', {
                 auth: { token: TOKEN }
             });
 
             socket.on('connect', () => {
-                updateConnectionStatus(true);
+                updateStatus(true);
+                log('success', 'Socket connected');
+                logSocket('Connected to server');
             });
 
             socket.on('disconnect', () => {
-                updateConnectionStatus(false);
+                updateStatus(false);
+                log('error', 'Socket disconnected');
+                logSocket('Disconnected from server');
             });
 
-            socket.on('chat:new-message', (message) => {
-                if (currentConversation && message.percakapan_id === currentConversation.id) {
-                    loadMessages(currentConversation.id);
-                }
-                loadConversations(); // Refresh conversation list
+            socket.on('chat:new-message', (msg) => {
+                log('socket', 'New message received', msg);
+                logSocket('NEW MESSAGE', msg);
+            });
+
+            socket.on('notification:new', (notif) => {
+                log('socket', 'New notification', notif);
+                logSocket('NEW NOTIFICATION', notif);
+            });
+
+            socket.on('connect_error', (err) => {
+                log('error', 'Connection error: ' + err.message);
+                logSocket('Connection error: ' + err.message);
             });
         }
 
-        function updateConnectionStatus(connected) {
+        function disconnectSocket() {
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+                updateStatus(false);
+            }
+        }
+
+        function updateStatus(connected) {
             const dot = document.getElementById('statusDot');
             const text = document.getElementById('statusText');
             if (connected) {
                 dot.classList.add('connected');
-                text.textContent = 'Online';
+                text.textContent = 'Connected';
             } else {
                 dot.classList.remove('connected');
-                text.textContent = 'Offline';
+                text.textContent = 'Disconnected';
             }
         }
 
         // API Calls
         async function apiCall(endpoint, method = 'GET', body = null) {
-            const options = {
-                method,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${TOKEN}`
+            try {
+                const options = {
+                    method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${TOKEN}`
+                    }
+                };
+
+                if (body) {
+                    options.body = JSON.stringify(body);
                 }
-            };
 
-            if (body) {
-                options.body = JSON.stringify(body);
-            }
+                const response = await fetch(`${API_BASE}${endpoint}`, options);
+                const data = await response.json();
 
-            const response = await fetch(`${API_BASE}${endpoint}`, options);
-            return await response.json();
-        }
-
-        // Conversations
-        async function loadConversations() {
-            const data = await apiCall('/chat/conversations');
-            if (data.status === 'success') {
-                conversations = data.data.conversations || [];
-                renderConversations();
+                log('success', `${method} ${endpoint}`, data);
+                return data;
+            } catch (error) {
+                log('error', `API Error: ${error.message}`);
+                return null;
             }
         }
 
-        function renderConversations() {
-            const list = document.getElementById('conversationList');
+        // Quick Chat
+        async function quickSendChat() {
+            const userId = document.getElementById('quickChatUserId').value;
+            const message = document.getElementById('quickChatMessage').value;
 
-            if (conversations.length === 0) {
-                list.innerHTML = '<div class="loading">Tidak ada percakapan</div>';
+            if (!userId || !message) {
+                log('error', 'Enter user ID and message');
                 return;
             }
 
-            list.innerHTML = conversations.map(conv => {
-                const otherUser = conv.user1_id === CURRENT_USER_ID ? conv.user2 : conv.user1;
-                const otherUserId = conv.user1_id === CURRENT_USER_ID ? conv.user2_id : conv.user1_id;
-                const unreadCount = conv.user1_id === CURRENT_USER_ID ? conv.user1_unread_count : conv.user2_unread_count;
-                const name = `${otherUser.nama_depan} ${otherUser.nama_belakang}`;
+            // Create conversation
+            const convData = await apiCall('/chat/conversations', 'POST', { user2_id: userId });
+            if (!convData || convData.status !== 'success') {
+                log('error', 'Failed to create conversation');
+                return;
+            }
 
-                return `
-                    <div class="conversation-item ${currentConversation?.id === conv.id ? 'active' : ''}"
-                         onclick="selectConversation('${conv.id}')">
-                        <div class="name">
-                            ${name}
-                            ${unreadCount > 0 ? `<span class="unread-badge">${unreadCount}</span>` : ''}
-                        </div>
-                        <div class="last-message">${conv.pesan_terakhir || 'Belum ada pesan'}</div>
-                    </div>
-                `;
-            }).join('');
-        }
+            const convId = convData.data.id;
 
-        async function selectConversation(convId) {
-            const conv = conversations.find(c => c.id === convId);
-            if (!conv) return;
+            // Send message
+            const msgData = await apiCall(`/chat/conversations/${convId}/messages`, 'POST', {
+                pesan: message,
+                tipe: 'text'
+            });
 
-            currentConversation = conv;
-            renderConversations(); // Update active state
+            if (msgData && msgData.status === 'success') {
+                document.getElementById('quickChatMessage').value = '';
 
-            // Show chat window
-            document.getElementById('emptyState').style.display = 'none';
-            document.getElementById('chatWindow').style.display = 'flex';
+                // Add to sent messages list
+                sentMessages.unshift({
+                    message,
+                    to: userId,
+                    time: new Date().toLocaleTimeString(),
+                    convId
+                });
 
-            // Update header
-            const otherUser = conv.user1_id === CURRENT_USER_ID ? conv.user2 : conv.user1;
-            const name = `${otherUser.nama_depan} ${otherUser.nama_belakang}`;
-            document.getElementById('chatName').textContent = name;
-            document.getElementById('chatAvatar').textContent = name.split(' ').map(n => n[0]).join('');
-
-            // Load messages
-            await loadMessages(convId);
-
-            // Mark as read
-            await apiCall(`/chat/conversations/${convId}/read`, 'PATCH');
-            loadConversations(); // Refresh to update unread count
-        }
-
-        async function loadMessages(convId) {
-            const data = await apiCall(`/chat/conversations/${convId}/messages?limit=50`);
-            if (data.status === 'success') {
-                messages = data.data.messages.reverse(); // Oldest first
-                renderMessages();
+                updateSentMessagesList();
+                showResponse('chatResponse', msgData);
             }
         }
 
-        function renderMessages() {
-            const container = document.getElementById('messagesContainer');
+        function updateSentMessagesList() {
+            const list = document.getElementById('sentMessagesList');
+            if (sentMessages.length === 0) {
+                list.innerHTML = '<p style="color: #999; text-align: center;">No messages sent yet</p>';
+                return;
+            }
 
-            container.innerHTML = messages.map(msg => {
-                const isSent = msg.pengirim_id === CURRENT_USER_ID;
-                const senderName = msg.sender ? `${msg.sender.nama_depan} ${msg.sender.nama_belakang}` : 'Unknown';
-                const time = new Date(msg.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+            list.innerHTML = sentMessages.map(msg => `
+                <div class="message-item sent">
+                    <div>${msg.message}</div>
+                    <div class="meta">To: ${msg.to} | ${msg.time}</div>
+                </div>
+            `).join('');
+        }
 
-                return `
-                    <div class="message ${isSent ? 'sent' : 'received'}">
-                        <div class="message-bubble">
-                            ${!isSent ? `<div class="message-sender">${senderName}</div>` : ''}
-                            <div>${msg.pesan}</div>
-                            <div class="message-time">${time}</div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
+        // Conversations
+        async function getConversations() {
+            const data = await apiCall('/chat/conversations');
+            showResponse('conversationsResponse', data);
+        }
 
-            // Scroll to bottom
-            container.scrollTop = container.scrollHeight;
+        function showCreateConvForm() {
+            const form = document.getElementById('createConvForm');
+            form.style.display = form.style.display === 'none' ? 'block' : 'none';
+        }
+
+        async function createConversation() {
+            const userId = document.getElementById('createConvUserId').value;
+            const data = await apiCall('/chat/conversations', 'POST', { user2_id: userId });
+            showResponse('conversationsResponse', data);
+        }
+
+        // Messages
+        async function getMessages() {
+            const convId = document.getElementById('convId').value;
+            if (!convId) {
+                log('error', 'Enter conversation ID');
+                return;
+            }
+            const data = await apiCall(`/chat/conversations/${convId}/messages`);
+            showResponse('messagesResponse', data);
         }
 
         async function sendMessage() {
-            const input = document.getElementById('messageInput');
-            const text = input.value.trim();
+            const convId = document.getElementById('convId').value;
+            const text = document.getElementById('messageText').value;
 
-            if (!text || !currentConversation) return;
+            if (!convId || !text) {
+                log('error', 'Enter conversation ID and message');
+                return;
+            }
 
-            const data = await apiCall(`/chat/conversations/${currentConversation.id}/messages`, 'POST', {
+            const data = await apiCall(`/chat/conversations/${convId}/messages`, 'POST', {
                 pesan: text,
                 tipe: 'text'
             });
 
-            if (data.status === 'success') {
-                input.value = '';
-                await loadMessages(currentConversation.id);
-                loadConversations(); // Refresh conversation list
+            if (data && data.status === 'success') {
+                document.getElementById('messageText').value = '';
             }
+            showResponse('messagesResponse', data);
         }
 
-        function handleKeyPress(event) {
-            if (event.key === 'Enter') {
-                sendMessage();
+        async function markAsRead() {
+            const convId = document.getElementById('convId').value;
+            if (!convId) {
+                log('error', 'Enter conversation ID');
+                return;
             }
+            const data = await apiCall(`/chat/conversations/${convId}/read`, 'PATCH');
+            showResponse('messagesResponse', data);
         }
 
-        // New Conversation Modal
-        function showNewChatModal() {
-            document.getElementById('newChatModal').classList.add('show');
+        // Notifications
+        async function getNotifications() {
+            const data = await apiCall('/notifications');
+            showResponse('notificationsResponse', data);
         }
 
-        function hideNewChatModal() {
-            document.getElementById('newChatModal').classList.remove('show');
+        async function getUnreadCount() {
+            const data = await apiCall('/notifications/unread-count');
+            showResponse('notificationsResponse', data);
         }
 
-        async function createNewConversation() {
-            const userId = document.getElementById('newChatUserId').value.trim();
-            if (!userId) return;
-
-            const data = await apiCall('/chat/conversations', 'POST', { user2_id: userId });
-
-            if (data.status === 'success') {
-                hideNewChatModal();
-                await loadConversations();
-                selectConversation(data.data.id);
-            }
+        async function markAllRead() {
+            const data = await apiCall('/notifications/mark-all-read', 'PATCH');
+            showResponse('notificationsResponse', data);
         }
 
-        // Auto-refresh
-        async function refreshCurrentChat() {
-            if (currentConversation) {
-                const oldLength = messages.length;
-                await loadMessages(currentConversation.id);
-
-                // Only refresh conversations if new messages
-                if (messages.length > oldLength) {
-                    loadConversations();
-                }
-            }
+        // Show response
+        function showResponse(elementId, data) {
+            const el = document.getElementById(elementId);
+            el.style.display = 'block';
+            el.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
         }
+
+        // Auto-connect socket on load
+        window.addEventListener('load', () => {
+            connectSocket();
+            log('success', 'Dashboard loaded - USER 1 (Client)');
+        });
     </script>
 </body>
 </html>
