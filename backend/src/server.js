@@ -41,7 +41,9 @@ const testDashboardHelmet = helmet({
       styleSrc: ["'self'", "'unsafe-inline'"],
       connectSrc: [
         "'self'",
+        "http://localhost:5000",
         "http://localhost:5001",
+        "ws://localhost:5000",
         "ws://localhost:5001",
         "https://api-ppl.vinmedia.my.id",
         "wss://api-ppl.vinmedia.my.id",

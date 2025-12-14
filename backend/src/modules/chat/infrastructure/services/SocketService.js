@@ -25,6 +25,8 @@ class SocketService {
         // Allow multiple origins for Socket.IO
         const allowedOrigins = [
             process.env.FRONTEND_URL || "http://localhost:3000",
+            "http://localhost:5000",
+            "http://localhost:5001",
             "http://localhost:5137",
             "https://api-ppl.vinmedia.my.id",
             "http://api-ppl.vinmedia.my.id"
