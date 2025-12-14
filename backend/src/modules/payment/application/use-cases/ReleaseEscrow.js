@@ -6,6 +6,10 @@
 const EscrowService = require('../../infrastructure/services/EscrowService');
 const EscrowModel = require('../../infrastructure/models/EscrowModel');
 
+// Order integration (update order status + history when escrow released)
+const OrderModel = require('../../../order/infrastructure/models/OrderModel');
+const OrderStatusHistoryModel = require('../../../order/infrastructure/models/OrderStatusHistoryModel');
+
 class ReleaseEscrow {
   constructor() {
     this.escrowService = new EscrowService();
@@ -63,20 +67,13 @@ class ReleaseEscrow {
     }
 
     // 3. AUTHORIZATION VALIDATION - Verify user has permission to release
-    // Fetch the order to get client_id and freelancer_id
-    const [orderData] = await EscrowModel.sequelize.query(
-      'SELECT client_id, freelancer_id FROM pesanan WHERE id = ? LIMIT 1',
-      {
-        replacements: [escrow.pesanan_id],
-        type: EscrowModel.sequelize.QueryTypes.SELECT
-      }
-    );
-
-    if (!orderData) {
+    // Fetch the order (we also need current status for history)
+    const orderRecord = await OrderModel.findByPk(escrow.pesanan_id);
+    if (!orderRecord) {
       throw new Error('Order not found for this escrow');
     }
 
-    const { client_id, freelancer_id } = orderData;
+    const { client_id } = orderRecord;
 
     // Role-based authorization checks
     if (user_role === 'freelancer') {
@@ -97,15 +94,55 @@ class ReleaseEscrow {
     }
 
     // 4. Release escrow - use the actual escrow.id
-    const releasedEscrow = await this.escrowService.releaseEscrow(escrow.id, user_id);
+    const releasedEscrow = await this.escrowService.releaseEscrow(
+      escrow.id,
+      user_id,
+      reason
+    );
 
     console.log(`[ESCROW RELEASE] Successfully released escrow ${escrow.id}`);
-    console.log(`[ESCROW RELEASE] Net amount to freelancer: Rp ${parseFloat(releasedEscrow.jumlah_ditahan) - parseFloat(releasedEscrow.biaya_platform)}`);
+    console.log(
+      `[ESCROW RELEASE] Net amount to freelancer: Rp ${parseFloat(releasedEscrow.jumlah_ditahan) - parseFloat(releasedEscrow.biaya_platform)}`
+    );
 
-    // Integration points for other modules:
-    // - Order module: Update order status to 'selesai'
-    // - Notification module: Send notification to freelancer
-    // - Freelancer can now withdraw funds via /api/payments/withdraw
+    // 5. Integrasi Order: setelah escrow dirilis oleh client/admin, order dianggap selesai
+    // Catat juga riwayat perubahan status supaya halaman detail order bisa menampilkan timeline.
+    if (orderRecord.status !== 'selesai') {
+      const fromStatus = orderRecord.status;
+      const now = new Date();
+
+      await orderRecord.update({
+        status: 'selesai',
+        // jangan override selesai_pada kalau sudah ada (freelancer sudah kirim hasil)
+        selesai_pada: orderRecord.selesai_pada || now,
+      });
+
+      const safeRole = ['client', 'admin', 'system'].includes(user_role)
+        ? user_role
+        : 'system';
+
+      await OrderStatusHistoryModel.create({
+        pesanan_id: orderRecord.id,
+        from_status: fromStatus,
+        to_status: 'selesai',
+        changed_by_user_id: user_id,
+        changed_by_role: safeRole,
+        reason:
+          reason ||
+          'Client menyetujui pekerjaan dan melepas dana escrow (pesanan selesai)',
+        metadata: {
+          source: 'escrow_release',
+          escrow_id: releasedEscrow.id,
+          pembayaran_id: releasedEscrow.pembayaran_id || escrow.pembayaran_id || payment_id,
+          escrow_status: releasedEscrow.status,
+          dirilis_pada: releasedEscrow.dirilis_pada,
+        },
+      });
+
+      console.log(
+        `[ESCROW RELEASE] Order ${orderRecord.id} status updated: ${fromStatus} -> selesai`
+      );
+    }
 
     return {
       success: true,
@@ -113,9 +150,14 @@ class ReleaseEscrow {
       status: releasedEscrow.status,
       jumlah_ditahan: parseFloat(releasedEscrow.jumlah_ditahan),
       biaya_platform: parseFloat(releasedEscrow.biaya_platform),
-      jumlah_bersih: parseFloat(releasedEscrow.jumlah_ditahan) - parseFloat(releasedEscrow.biaya_platform),
+      jumlah_bersih:
+        parseFloat(releasedEscrow.jumlah_ditahan) -
+        parseFloat(releasedEscrow.biaya_platform),
       dirilis_pada: releasedEscrow.dirilis_pada,
-      message: 'Escrow released successfully. Freelancer can now withdraw funds.'
+      // extra info untuk FE (opsional)
+      order_id: orderRecord.id,
+      order_status: orderRecord.status,
+      message: 'Escrow released successfully. Order marked as selesai.',
     };
   }
 }
