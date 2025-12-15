@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Navbar from "../../components/Fragments/Common/Navbar";
 import ServiceHeaderCard from "../../components/Fragments/Service/ServiceHeaderCard";
@@ -8,7 +8,11 @@ import ReviewsSection from "../../components/Fragments/Service/ReviewsSection";
 import PortfolioGrid from "../../components/Fragments/Profile/PortfolioGrid";
 import AboutFreelancerCard from "../../components/Fragments/Profile/AboutFreelancerCard";
 import Footer from "../../components/Fragments/Common/Footer";
+import SavedToast from "../../components/Fragments/Common/SavedToast";
+import UnsaveConfirmModal from "../../components/Fragments/Common/UnsaveConfirmModal";
 import { useServiceDetail } from "../../hooks/useServiceDetail";
+import { bookmarkService } from "../../services/bookmarkService";
+import { authService } from "../../services/authService";
 import NotFoundPage from "../Public/NotFoundPage";
 
 export default function ServiceDetailPage() {
@@ -17,6 +21,28 @@ export default function ServiceDetailPage() {
 
   const [selectedPortfolio, setSelectedPortfolio] = useState(null);
   const [showPortfolioModal, setShowPortfolioModal] = useState(false);
+  
+  // Bookmark state
+  const [user, setUser] = useState(() => authService.getCurrentUser());
+  const isClient = user?.role === "client";
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [isBookmarkLoading, setIsBookmarkLoading] = useState(false);
+  const [showBookmarkToast, setShowBookmarkToast] = useState(false);
+  const [showUnbookmarkModal, setShowUnbookmarkModal] = useState(false);
+  const [isProcessingBookmark, setIsProcessingBookmark] = useState(false);
+
+  // Listen to user role changes
+  useEffect(() => {
+    const handleUserRoleChanged = (event) => {
+      const updatedUser = event.detail?.user || authService.getCurrentUser();
+      setUser(updatedUser);
+    };
+
+    window.addEventListener('userRoleChanged', handleUserRoleChanged);
+    return () => {
+      window.removeEventListener('userRoleChanged', handleUserRoleChanged);
+    };
+  }, []);
 
   if (!slug || slug === "undefined") {
     return <NotFoundPage />;
@@ -28,6 +54,100 @@ export default function ServiceDetailPage() {
     isError,
     error,
   } = useServiceDetail(slug);
+
+  // Sync bookmark state from server
+  useEffect(() => {
+    if (!user || !isClient || !serviceData?.id) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const hydrateBookmarkState = async () => {
+      try {
+        const res = await bookmarkService.isBookmarked(serviceData.id);
+        if (cancelled) return;
+
+        if (res?.success && typeof res.data?.isBookmarked === "boolean") {
+          setIsBookmarked(res.data.isBookmarked);
+        } else {
+          setIsBookmarked(false);
+        }
+      } catch (err) {
+        console.log('[ServiceDetailPage] Bookmark sync error:', err);
+        setIsBookmarked(false);
+      }
+    };
+
+    hydrateBookmarkState();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, isClient, serviceData?.id]);
+
+  // Handle bookmark click
+  const handleBookmarkClick = async (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+
+    if (isProcessingBookmark) {
+      return;
+    }
+
+    if (!user || !isClient || !serviceData?.id) {
+      return;
+    }
+
+    if (isBookmarked) {
+      setShowUnbookmarkModal(true);
+      return;
+    }
+
+    setIsProcessingBookmark(true);
+    setIsBookmarkLoading(true);
+
+    try {
+      setIsBookmarked(true);
+      setShowBookmarkToast(true);
+
+      const res = await bookmarkService.addBookmark(serviceData.id);
+
+      if (!res?.success) {
+        if (!res?.message?.includes('sudah ada')) {
+          setIsBookmarked(false);
+        }
+      }
+    } catch (error) {
+      console.error("[ServiceDetailPage] addBookmark error:", error);
+      setIsBookmarked(false);
+    } finally {
+      setIsBookmarkLoading(false);
+      setTimeout(() => setIsProcessingBookmark(false), 500);
+    }
+  };
+
+  // Handle confirm unbookmark
+  const handleConfirmUnbookmark = async () => {
+    setShowUnbookmarkModal(false);
+    setIsProcessingBookmark(true);
+    setIsBookmarkLoading(true);
+
+    try {
+      setIsBookmarked(false);
+      setShowBookmarkToast(true);
+
+      const res = await bookmarkService.removeBookmark(serviceData.id);
+      if (!res?.success) {
+        setIsBookmarked(true);
+      }
+    } catch (error) {
+      console.error("[ServiceDetailPage] removeBookmark error:", error);
+      setIsBookmarked(true);
+    } finally {
+      setIsBookmarkLoading(false);
+      setTimeout(() => setIsProcessingBookmark(false), 500);
+    }
+  };
 
   function handleBack() {
     navigate("/services");
@@ -228,6 +348,11 @@ export default function ServiceDetailPage() {
                 batas_revisi={serviceData.batas_revisi}
                 onOrder={handleOrderNow}
                 onContact={handleContact}
+                serviceId={serviceData.id}
+                isBookmarked={isBookmarked}
+                onBookmarkClick={handleBookmarkClick}
+                isClient={isClient}
+                isBookmarkLoading={isBookmarkLoading}
               />
 
               <InteractionBar />
@@ -239,6 +364,21 @@ export default function ServiceDetailPage() {
       </main>
 
       <Footer />
+
+      {/* Bookmark Toast */}
+      <SavedToast
+        isOpen={showBookmarkToast}
+        onClose={() => setShowBookmarkToast(false)}
+        isSaved={isBookmarked}
+      />
+
+      {/* Unbookmark Confirmation Modal */}
+      <UnsaveConfirmModal
+        isOpen={showUnbookmarkModal}
+        onClose={() => setShowUnbookmarkModal(false)}
+        onConfirm={handleConfirmUnbookmark}
+        serviceName={serviceData?.title}
+      />
 
       {showPortfolioModal && selectedPortfolio && (
         <div

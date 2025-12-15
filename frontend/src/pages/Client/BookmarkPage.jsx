@@ -6,6 +6,38 @@ import Footer from '../../components/Fragments/Common/Footer'
 import ServiceCardItem from '../../components/Fragments/Service/ServiceCardItem'
 import { bookmarkService } from '../../services/bookmarkService'
 
+// ========================
+// Helper URL media (thumbnail dari backend)
+// ========================
+const buildMediaUrl = (raw) => {
+  // fallback ke asset FE
+  const fallback = "/asset/layanan/Layanan.png";
+
+  if (!raw) return fallback;
+
+  const url = String(raw).trim();
+  if (!url) return fallback;
+
+  // Sudah absolute URL
+  if (/^https?:\/\//i.test(url)) return url;
+
+  // Asset lokal FE
+  if (url.startsWith("/asset/") || url.startsWith("/assets/")) {
+    return url;
+  }
+
+  // Base URL backend
+  const apiBase = import.meta.env.VITE_API_BASE_URL || "";
+  const backendBase =
+    apiBase.replace(/\/api\/?$/, "") || "http://localhost:5000";
+
+  // Hapus leading slash & prefix public/ kalau ada
+  const cleanPath = url.replace(/^\/+/, "").replace(/^public\//, "");
+
+  // Hasil akhir: http://localhost:5000/public/layanan/xxx.jpg
+  return `${backendBase}/public/${cleanPath}`;
+};
+
 const BookmarkPage = () => {
   const navigate = useNavigate()
   const [bookmarkedServices, setBookmarkedServices] = useState([])
@@ -38,7 +70,7 @@ const BookmarkPage = () => {
           reviews: parseInt(bookmark.jumlah_rating) || 0,
           price: parseInt(bookmark.harga) || 0,
           favoriteCount: parseInt(bookmark.jumlah_favorit) || 0,
-          thumbnail: bookmark.thumbnail,
+          thumbnail: buildMediaUrl(bookmark.thumbnail),
           isBookmarked: true,
           isSaved: true
         })).filter(s => s.id) // Filter out invalid entries
