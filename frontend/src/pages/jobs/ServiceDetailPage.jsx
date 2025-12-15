@@ -231,14 +231,36 @@ export default function ServiceDetailPage() {
   }
 
   // Helper gambar header (sudah dinormalisasi di hook)
-  const headerImages =
-    serviceData &&
-    Array.isArray(serviceData.gambar) &&
-    serviceData.gambar.length > 0
-      ? serviceData.gambar
-      : serviceData?.thumbnail
-      ? [serviceData.thumbnail]
-      : [];
+  // Pastikan thumbnail selalu menjadi gambar pertama, kemudian diikuti gambar galeri
+  const headerImages = (() => {
+    if (!serviceData) return [];
+    
+    const thumbnail = serviceData.thumbnail;
+    const galleryImages = Array.isArray(serviceData.gambar) ? serviceData.gambar : [];
+    
+    // Jika tidak ada thumbnail, gunakan gambar galeri saja
+    if (!thumbnail) {
+      return galleryImages.length > 0 ? galleryImages : [];
+    }
+    
+    // Normalisasikan URL untuk perbandingan yang lebih akurat
+    const normalizeForComparison = (url) => {
+      const str = String(url || '').trim();
+      // Extract filename/path untuk perbandingan (hilangkan query params dan fragment)
+      return str.split('?')[0].split('#')[0].toLowerCase();
+    };
+    
+    const thumbnailNormalized = normalizeForComparison(thumbnail);
+    
+    // Hapus duplikat thumbnail dari gallery images
+    const filteredGallery = galleryImages.filter(img => {
+      const imgNormalized = normalizeForComparison(img);
+      return imgNormalized !== thumbnailNormalized;
+    });
+    
+    // Thumbnail selalu di posisi pertama, diikuti gambar galeri (tanpa duplikat thumbnail)
+    return [thumbnail, ...filteredGallery];
+  })();
 
   // Portfolio harus ambil dari portofolio freelancer, bukan gambar layanan
   const portfolioItems = Array.isArray(serviceData?.freelancer?.portfolio)
