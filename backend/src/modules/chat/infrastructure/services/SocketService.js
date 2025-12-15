@@ -10,6 +10,15 @@ class SocketService {
     constructor() {
         this.onlineUsers = new Map();
         this.io = null;
+        this.sendMessageUseCase = null;
+    }
+
+    /**
+     * Inject SendMessage use case for socket event handling
+     * @param {SendMessage} sendMessageUseCase
+     */
+    setSendMessageUseCase(sendMessageUseCase) {
+        this.sendMessageUseCase = sendMessageUseCase;
     }
 
     async isUserOnline(userId) {
@@ -156,15 +165,29 @@ class SocketService {
                         });
                     }
 
-                    // Call use case (will be injected via dependency)
-                    // For now, just emit acknowledgment
-                    // TODO: Inject SendMessage use case to actually save to DB
                     console.log(`[Socket] User ${socket.userId} sending message to conversation ${conversationId}`);
 
-                    callback?.({
-                        status: 'success',
-                        message: 'Pesan akan diproses (implement use case injection)'
-                    });
+                    // Call SendMessage use case if injected
+                    if (this.sendMessageUseCase) {
+                        const message = await this.sendMessageUseCase.execute(
+                            socket.userId,
+                            conversationId,
+                            { pesan, tipe, lampiran }
+                        );
+
+                        callback?.({
+                            status: 'success',
+                            message: 'Pesan berhasil dikirim',
+                            data: message
+                        });
+                    } else {
+                        // Fallback jika use case belum di-inject
+                        console.warn('[Socket] SendMessage use case not injected - message not saved to DB');
+                        callback?.({
+                            status: 'error',
+                            message: 'SendMessage use case not configured. Please use REST API instead.'
+                        });
+                    }
                 } catch (error) {
                     console.error('[Socket] Error handling chat:send-message:', error);
                     callback?.({

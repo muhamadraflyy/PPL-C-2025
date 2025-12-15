@@ -441,6 +441,10 @@ connectDatabase()
     chatController = new ChatController(sequelize, socketService);
     notificationController = new NotificationController(sequelize, socketService);
 
+    // Inject SendMessage use case into SocketService for socket event handling
+    socketService.setSendMessageUseCase(chatController.sendMessageUseCase);
+    console.log('✅ SendMessage use case injected into SocketService');
+
     // Register chat routes
     const chatRoutes = require("./modules/chat/presentation/routes/chatRoutes");
     app.use("/api/chat", chatRoutes(chatController));
