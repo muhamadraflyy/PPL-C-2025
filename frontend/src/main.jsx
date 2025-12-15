@@ -4,6 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import App from "./App";
 import { ToastProvider } from "./components/Fragments/Common/ToastProvider";
+import { NotificationProvider } from "./contexts/NotificationContext";
 import "./styles/auth.css";
 import "./styles/fonts.css";
 import "@fortawesome/fontawesome-free/css/all.min.css";
@@ -34,9 +35,11 @@ createRoot(document.getElementById("root")).render(
             v7_relativeSplatPath: true,
           }}
         >
-          <ToastProvider>
-            <App />
-          </ToastProvider>
+          <NotificationProvider>
+            <ToastProvider>
+              <App />
+            </ToastProvider>
+          </NotificationProvider>
         </BrowserRouter>
       </QueryClientProvider>
     </GoogleOAuthProvider>

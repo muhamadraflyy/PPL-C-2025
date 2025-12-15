@@ -384,9 +384,6 @@ export default function App() {
         }
       />
 
-      {/* Chat */}
-      <Route path="/chat" element={<MessagesPage />} />
-
       {/* Withdrawal (Freelancer) */}
       <Route
         path="/withdrawal/create"
@@ -401,6 +398,16 @@ export default function App() {
         element={
           <ProtectedRoute>
             <WithdrawalHistoryPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Chat & Messages */}
+      <Route
+        path="/messages"
+        element={
+          <ProtectedRoute>
+            <MessagesPage />
           </ProtectedRoute>
         }
       />
