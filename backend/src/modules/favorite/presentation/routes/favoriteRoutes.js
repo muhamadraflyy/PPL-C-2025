@@ -2,8 +2,9 @@ const express = require('express');
 const router = express.Router();
 const FavoriteController = require('../controllers/FavoriteController');
 const authMiddleware = require('../../../../shared/middleware/authMiddleware');
+const { sequelize } = require('../../../../shared/database/connection');
 
-const favoriteController = new FavoriteController();
+const favoriteController = new FavoriteController(sequelize);
 
 /**
  * @route   GET /api/favorites

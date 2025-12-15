@@ -14,7 +14,8 @@ class ServiceController {
     updateServiceUseCase,
     deleteServiceUseCase,
     searchServicesUseCase,
-    approveServiceUseCase
+    approveServiceUseCase,
+    getPopularServicesUseCase
   ) {
     this.getAllServicesUseCase = getAllServicesUseCase;
     this.getServiceByIdUseCase = getServiceByIdUseCase;
@@ -23,6 +24,7 @@ class ServiceController {
     this.deleteServiceUseCase = deleteServiceUseCase;
     this.searchServicesUseCase = searchServicesUseCase;
     this.approveServiceUseCase = approveServiceUseCase;
+    this.getPopularServicesUseCase = getPopularServicesUseCase;
 
     // bind semua method
     this.createService = this.createService.bind(this);
@@ -34,6 +36,7 @@ class ServiceController {
     this.updateService = this.updateService.bind(this);
     this.deleteService = this.deleteService.bind(this);
     this.updateServiceStatus = this.updateServiceStatus.bind(this);
+    this.getPopularServices = this.getPopularServices.bind(this);
   }
 
   // ---------- helpers ----------
@@ -157,6 +160,25 @@ class ServiceController {
   }
 
   /**
+   * GET /api/services/popular
+   * Get popular services (public)
+   * Layanan terpopuler per kategori berdasarkan total pesanan selesai
+   */
+  async getPopularServices(req, res) {
+    try {
+      const filters = {
+        kategori_id: req.query.kategori_id,
+        limit: req.query.limit,
+      };
+
+      const result = await this.getPopularServicesUseCase.execute(filters);
+      return this.ok(res, "Popular services retrieved successfully", result);
+    } catch (error) {
+      return this.err(res, error, 400);
+    }
+  }
+
+  /**
    * GET /api/services/:id
    * Get service detail by id (public, hanya aktif)
    */
@@ -203,31 +225,8 @@ class ServiceController {
           .json({ status: "error", message: "Service not found" });
       }
 
-      // 2. Ambil data freelancer dari tabel users
-      let freelancer = null;
-      if (svc.freelancer_id) {
-        try {
-          const [rows] = await repo.sequelize.query(
-            `
-            SELECT *
-            FROM users
-            WHERE id = ?
-            LIMIT 1
-          `,
-            { replacements: [svc.freelancer_id] }
-          );
-          const row = Array.isArray(rows) ? rows[0] : rows;
-          if (row) {
-            freelancer = row;
-          }
-        } catch (e) {
-          console.error(
-            "[ServiceController] Failed to load freelancer for service slug",
-            slug,
-            e.message
-          );
-        }
-      }
+      // 2. Data freelancer sudah di-embed oleh repository (SequelizeServiceRepository.findBySlug)
+      const freelancer = svc.freelancer || null;
 
       // 3. Bentuk payload final (kategori + freelancer dimasukkan)
       const payload = {

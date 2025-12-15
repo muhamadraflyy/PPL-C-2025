@@ -7,9 +7,18 @@ const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 
 class SocketService {
-    constructor(server) {
+    constructor() {
         this.onlineUsers = new Map();
-        this.setupSocketEvents();
+        this.io = null;
+        this.sendMessageUseCase = null;
+    }
+
+    /**
+     * Inject SendMessage use case for socket event handling
+     * @param {SendMessage} sendMessageUseCase
+     */
+    setSendMessageUseCase(sendMessageUseCase) {
+        this.sendMessageUseCase = sendMessageUseCase;
     }
 
     async isUserOnline(userId) {
@@ -22,9 +31,28 @@ class SocketService {
    */
 
     init(httpServer) {
+        // Allow multiple origins for Socket.IO
+        const allowedOrigins = [
+            process.env.FRONTEND_URL || "http://localhost:3000",
+            "http://localhost:5000",
+            "http://localhost:5001",
+            "http://localhost:5137",
+            "https://api-ppl.vinmedia.my.id",
+            "http://api-ppl.vinmedia.my.id"
+        ];
+
         this.io = new Server(httpServer, {
             cors: {
-                origin: process.env.FRONTEND_URL || "http://localhost:5137",
+                origin: (origin, callback) => {
+                    // Allow requests with no origin (like mobile apps or curl requests)
+                    if (!origin) return callback(null, true);
+
+                    if (allowedOrigins.includes(origin)) {
+                        callback(null, true);
+                    } else {
+                        callback(new Error('Not allowed by CORS'));
+                    }
+                },
                 credentials: true
             }
         });
@@ -74,6 +102,8 @@ class SocketService {
     setupEventHandlers() {
         this.io.on('connection', (socket) => {
             console.log(`🎉 User connected: ${socket.userId}`);
+            // Tambahkan ke daftar online users
+            this.onlineUsers.set(socket.userId, socket.id);
             // user join room pribadi
             socket.join(`user:${socket.userId}`);
             // handle join room percakapan
@@ -90,9 +120,88 @@ class SocketService {
                 });
             });
 
+            // Handle message delivered confirmation
+            socket.on('chat:message-delivered', (data) => {
+                const { messageId, conversationId, senderId } = data;
+                console.log(`[Socket] Message ${messageId} delivered to user ${socket.userId}`);
+
+                // Notify sender that message was delivered
+                if (senderId) {
+                    this.io.to(`user:${senderId}`).emit('chat:delivery-status', {
+                        messageId,
+                        conversationId,
+                        status: 'delivered',
+                        deliveredAt: new Date()
+                    });
+                }
+            });
+
+            // Handle message read confirmation
+            socket.on('chat:message-read', (data) => {
+                const { messageId, conversationId, senderId } = data;
+                console.log(`[Socket] Message ${messageId} read by user ${socket.userId}`);
+
+                // Notify sender that message was read
+                if (senderId) {
+                    this.io.to(`user:${senderId}`).emit('chat:delivery-status', {
+                        messageId,
+                        conversationId,
+                        status: 'read',
+                        readAt: new Date()
+                    });
+                }
+            });
+
+            // Handle send message via socket (alternative to HTTP POST)
+            socket.on('chat:send-message', async (data, callback) => {
+                try {
+                    const { conversationId, pesan, tipe = 'text', lampiran = null } = data;
+
+                    // Validasi
+                    if (!conversationId || (!pesan && tipe === 'text')) {
+                        return callback?.({
+                            status: 'error',
+                            message: 'conversationId dan pesan wajib diisi'
+                        });
+                    }
+
+                    console.log(`[Socket] User ${socket.userId} sending message to conversation ${conversationId}`);
+
+                    // Call SendMessage use case if injected
+                    if (this.sendMessageUseCase) {
+                        const message = await this.sendMessageUseCase.execute(
+                            socket.userId,
+                            conversationId,
+                            { pesan, tipe, lampiran }
+                        );
+
+                        callback?.({
+                            status: 'success',
+                            message: 'Pesan berhasil dikirim',
+                            data: message
+                        });
+                    } else {
+                        // Fallback jika use case belum di-inject
+                        console.warn('[Socket] SendMessage use case not injected - message not saved to DB');
+                        callback?.({
+                            status: 'error',
+                            message: 'SendMessage use case not configured. Please use REST API instead.'
+                        });
+                    }
+                } catch (error) {
+                    console.error('[Socket] Error handling chat:send-message:', error);
+                    callback?.({
+                        status: 'error',
+                        message: error.message
+                    });
+                }
+            });
+
             // Handle disconnect
             socket.on('disconnect', () => {
                 console.log(`🔌 User disconnected: ${socket.userId}`);
+                // Hapus dari daftar online users
+                this.onlineUsers.delete(socket.userId);
             });
         });
     }
@@ -101,10 +210,32 @@ class SocketService {
    * Method untuk di-panggil dari Use Case (SendMessage)
    * @param {string} percakapanId
    * @param {object} message
+   * @param {string} receiverId - ID penerima pesan (opsional)
    */
-    emitNewMessage(percakapanId, message) {
-        // kirim pesan baru ke semua client di room percakapan
+    emitNewMessage(percakapanId, message, receiverId = null) {
+        console.log('[SocketService] emitNewMessage called:', {
+            percakapanId,
+            receiverId,
+            senderId: message?.pengirim_id,
+            messageId: message?.id,
+            pesan: message?.pesan || message?.isi_pesan
+        });
+
+        // Kirim ke room percakapan (untuk yang sudah join conversation room)
         this.io.to(`conversation:${percakapanId}`).emit('chat:new-message', message);
+        console.log(`[SocketService] Emitted to conversation:${percakapanId}`);
+
+        // Kirim ke room pribadi PENERIMA
+        if (receiverId) {
+            this.io.to(`user:${receiverId}`).emit('chat:new-message', message);
+            console.log(`[SocketService] Emitted to receiver user:${receiverId}`);
+        }
+
+        // PENTING: Kirim juga ke room pribadi PENGIRIM (agar muncul di chat sendiri!)
+        if (message?.pengirim_id) {
+            this.io.to(`user:${message.pengirim_id}`).emit('chat:new-message', message);
+            console.log(`[SocketService] Emitted to sender user:${message.pengirim_id}`);
+        }
     }
 
     /**

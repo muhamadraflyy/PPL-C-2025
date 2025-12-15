@@ -27,7 +27,8 @@ class GetConversations {
     const conversation = await this.conversationRepository.findByUserId(userId, {
       page,
       limit,
-      order: 'DESC'
+      order: 'DESC',
+      includeOtherUser: true // PENTING: Include user1 dan user2 data
     });
 
     const result = conversation.map(conv => {

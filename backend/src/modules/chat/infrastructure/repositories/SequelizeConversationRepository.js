@@ -71,17 +71,17 @@ class SequelizeConversationRepository {
       where,
       include: options.includeOtherUser ? [
         {
-          model: this.User, as: 'user1',
+          model: this.User,
           as: 'user1',
           attributes: ['id', 'nama_depan', 'nama_belakang', 'avatar']
         },
         {
-          model: this.User, as: 'user2',
+          model: this.User,
           as: 'user2',
           attributes: ['id', 'nama_depan', 'nama_belakang', 'avatar']
         }
       ] : [],
-      order: [['last_message_at', options.order || 'DESC']],
+      order: [['pesan_terakhir_pada', options.order || 'DESC']],
       limit: options.limit || 20,
       offset: ((options.page || 1) - 1) * (options.limit || 20)
     });

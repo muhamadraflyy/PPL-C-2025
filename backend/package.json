@@ -12,16 +12,14 @@
     "test:integration": "jest --testPathPattern=integration",
     "lint": "eslint src/**/*.js",
     "lint:fix": "eslint src/**/*.js --fix",
-
     "migrate": "sequelize db:migrate --config config/config.js --migrations-path src/shared/database/migrations",
     "migrate:undo": "sequelize db:migrate:undo --config config/config.js --migrations-path src/shared/database/migrations",
     "migrate:undo:all": "sequelize db:migrate:undo:all --config config/config.js --migrations-path src/shared/database/migrations",
-    "migrate:fresh": "sequelize db:drop --config config/config.js && sequelize db:create --config config/config.js && sequelize db:migrate --config config/config.js --migrations-path src/shared/database/migrations",
+    "clean:uploads": "node scripts/clean-uploads.js",
+    "migrate:fresh": "node scripts/clean-uploads.js && sequelize db:drop --config config/config.js && sequelize db:create --config config/config.js && sequelize db:migrate --config config/config.js --migrations-path src/shared/database/migrations",
     "seed": "node src/shared/database/seeders/seed.js",
     "seed:fresh": "npm run migrate:fresh && npm run seed"
-
   },
-
   "keywords": [
     "marketplace",
     "freelance",
@@ -65,6 +63,7 @@
     "uuid": "^9.0.1"
   },
   "devDependencies": {
+    "@faker-js/faker": "^10.1.0",
     "@types/jest": "^29.5.11",
     "eslint": "^8.55.0",
     "eslint-config-airbnb-base": "^15.0.0",

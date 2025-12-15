@@ -1,16 +1,18 @@
 const SequelizeFavoriteRepository = require('../../infrastructure/repositories/SequelizeFavoriteRepository');
+const SequelizeServiceRepository = require('../../../service/infrastructure/repositories/SequelizeServiceRepository');
 const GetFavorites = require('../../application/use-cases/GetFavorites');
 const AddFavorite = require('../../application/use-cases/AddFavorite');
 const RemoveFavorite = require('../../application/use-cases/RemoveFavorite');
 const CheckFavorite = require('../../application/use-cases/CheckFavorite');
 
 class FavoriteController {
-  constructor() {
+  constructor(sequelize) {
     const favoriteRepository = new SequelizeFavoriteRepository();
+    const layananRepository = sequelize ? new SequelizeServiceRepository(sequelize) : null;
 
     this.getFavoritesUseCase = new GetFavorites(favoriteRepository);
-    this.addFavoriteUseCase = new AddFavorite(favoriteRepository);
-    this.removeFavoriteUseCase = new RemoveFavorite(favoriteRepository);
+    this.addFavoriteUseCase = new AddFavorite(favoriteRepository, layananRepository);
+    this.removeFavoriteUseCase = new RemoveFavorite(favoriteRepository, layananRepository);
     this.checkFavoriteUseCase = new CheckFavorite(favoriteRepository);
   }
 
@@ -34,7 +36,8 @@ class FavoriteController {
         throw err;
       }
 
-      const result = await this.getFavoritesUseCase.execute(userId);
+      // Pass 'favorite' type to only get favorites, not bookmarks
+      const result = await this.getFavoritesUseCase.execute(userId, 'favorite');
 
       if (!result.success) {
         const err = new Error(result.message);

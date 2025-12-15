@@ -1,13 +1,13 @@
 import React, { useState } from "react";
-import { SlidersHorizontal, ChevronDown, ChevronUp } from "lucide-react";
+import { Funnel, ChevronDown, ChevronUp} from "lucide-react";
 
 function FilterSection({ title, isOpen, onToggle, children }) {
   return (
-    <div className="border-b border-neutral-200 pb-3 last:border-none last:pb-0">
+    <div className="border p-2 rounded-lg border-black">
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center justify-between text-left text-sm font-semibold text-neutral-900"
+        className="flex w-full items-center justify-between text-left text-sm font-semibold text-[#626365]"
       >
         <span>{title}</span>
         {isOpen ? (
@@ -67,9 +67,7 @@ export default function SearchFilterSidebar({
   return (
     <aside className="w-full rounded-2xl bg-white p-4 shadow-sm lg:w-60 xl:w-64">
       <div className="mb-4 flex items-center gap-2">
-        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#111827]">
-          <SlidersHorizontal className="h-4 w-4 text-white" />
-        </span>
+        <Funnel className="h-4 w-4" />
         <h2 className="text-sm font-semibold text-neutral-900">
           Filter Layanan
         </h2>
@@ -135,7 +133,7 @@ export default function SearchFilterSidebar({
 
           {/* Input range custom */}
           <div className="mt-3 space-y-2">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-neutral-500">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-neutral-500">
               Batas Harga
             </p>
             <div className="flex items-center gap-2">
@@ -160,7 +158,7 @@ export default function SearchFilterSidebar({
             <button
               type="button"
               onClick={onApplyPriceFilter}
-              className="mt-1 w-full rounded-full bg-[#111827] px-3 py-1.5 text-xs font-semibold text-white hover:bg-black"
+              className="mt-1 w-full rounded-lg bg-[#112c4f] px-3 py-1.5 text-xs font-semibold text-white hover:bg-black"
             >
               Terapkan Harga
             </button>

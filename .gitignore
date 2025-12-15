@@ -18,6 +18,10 @@ pnpm-lock.yaml
 .env.local
 .env.*.local
 
+# Local development configuration
+frontend/vite.config.js
+.claude/*.local.json
+
 # Logs
 logs/
 *.log

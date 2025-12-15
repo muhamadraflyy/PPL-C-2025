@@ -24,9 +24,14 @@ class RegisterUser {
 
     const existing = await this.userRepository.findByEmail(emailVo.value);
     if (existing) {
-      const error = new Error('Email already registered');
-      error.statusCode = 409;
-      throw error;
+      // If user exists but not verified, allow re-registration (delete old unverified account)
+      if (!existing.is_verified) {
+        await this.userRepository.delete(existing.id);
+      } else {
+        const error = new Error('Email already registered');
+        error.statusCode = 409;
+        throw error;
+      }
     }
 
     const hashedPassword = await this.hashService.hash(passwordVo.value);

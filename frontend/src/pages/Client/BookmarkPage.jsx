@@ -5,8 +5,6 @@ import Navbar from '../../components/Fragments/Common/Navbar'
 import Footer from '../../components/Fragments/Common/Footer'
 import ServiceCardItem from '../../components/Fragments/Service/ServiceCardItem'
 import { bookmarkService } from '../../services/bookmarkService'
-import { serviceService } from '../../services/serviceService'
-import { mapServiceDetailToFrontend } from '../../utils/mapServiceToFrontend'
 
 const BookmarkPage = () => {
   const navigate = useNavigate()
@@ -16,19 +14,37 @@ const BookmarkPage = () => {
   useEffect(() => {
     const load = async () => {
       try {
+        console.log('[BookmarkPage] Fetching bookmarks...')
         const res = await bookmarkService.getBookmarks()
+        console.log('[BookmarkPage] Bookmarks response:', res)
+
         if (!res.success) {
+          console.log('[BookmarkPage] Failed to get bookmarks:', res.message)
           setBookmarkedServices([])
           return
         }
+
         const rows = res.data || []
-        const ids = rows.map(r => r.layanan_id).filter(Boolean)
-const details = await Promise.all(ids.map(async (id) => {
-          const d = await serviceService.getServiceById(id)
-          if (d.success && d.service) return { ...mapServiceDetailToFrontend(d.service), isSaved: true }
-          return null
-        }))
-        setBookmarkedServices(details.filter(Boolean))
+        console.log('[BookmarkPage] Bookmark rows:', rows)
+
+        // Map bookmark data directly (backend already returns joined data with layanan details)
+        const services = rows.map(bookmark => ({
+          id: bookmark.layanan_id,
+          slug: bookmark.slug,
+          title: bookmark.judul,
+          category: bookmark.nama_kategori || 'Kategori',
+          freelancer: bookmark.freelancer_name || 'Unknown',
+          rating: parseFloat(bookmark.rating_rata_rata) || 0,
+          reviews: parseInt(bookmark.jumlah_rating) || 0,
+          price: parseInt(bookmark.harga) || 0,
+          favoriteCount: parseInt(bookmark.jumlah_favorit) || 0,
+          thumbnail: bookmark.thumbnail,
+          isBookmarked: true,
+          isSaved: true
+        })).filter(s => s.id) // Filter out invalid entries
+
+        console.log('[BookmarkPage] Mapped services:', services)
+        setBookmarkedServices(services)
       } catch (e) {
         console.error('[BookmarkPage] load error:', e)
         setBookmarkedServices([])

@@ -15,6 +15,7 @@ module.exports = (sequelize) => {
   const DeleteService = require("../application/use-cases/DeleteService");
   const SearchServices = require("../application/use-cases/SearchServices");
   const ApproveService = require("../application/use-cases/ApproveService");
+  const GetPopularServices = require("../application/use-cases/GetPopularServices");
 
   // Controllers
   const ServiceController = require("../presentation/controllers/ServiceController");
@@ -32,6 +33,7 @@ module.exports = (sequelize) => {
   const deleteServiceUseCase = new DeleteService(serviceRepository);
   const searchServicesUseCase = new SearchServices(serviceRepository);
   const approveServiceUseCase = new ApproveService(serviceRepository);
+  const getPopularServicesUseCase = new GetPopularServices(serviceRepository);
 
   // Initialize Controllers
   const serviceController = new ServiceController(
@@ -41,7 +43,8 @@ module.exports = (sequelize) => {
     updateServiceUseCase,
     deleteServiceUseCase,
     searchServicesUseCase,
-    approveServiceUseCase
+    approveServiceUseCase,
+    getPopularServicesUseCase
   );
 
   const kategoriController = new KategoriController(sequelize);

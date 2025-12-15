@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Offline Email Notification</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+        .info-box {
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .info-box p {
+            margin: 5px 0;
+            color: #666;
+        }
+        .status {
+            display: inline-block;
+            padding: 3px 10px;
+            background: #dc3545;
+            color: white;
+            border-radius: 3px;
+            font-size: 14px;
+        }
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            margin: 10px 0;
+            min-height: 100px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            width: 100%;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .log-box {
+            margin-top: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+            background: #fafafa;
+        }
+        .log-entry {
+            padding: 8px;
+            margin: 5px 0;
+            border-left: 3px solid #007bff;
+            background: white;
+            font-size: 13px;
+        }
+        .log-entry.error { border-left-color: #dc3545; color: #dc3545; }
+        .log-entry.success { border-left-color: #28a745; color: #28a745; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Test Email Notification (Offline User)</h1>
+
+        <div class="info-box">
+            <p><strong>Target:</strong> Lisvindanu (lisvindanu015@gmail.com)</p>
+            <p><strong>UUID:</strong> d3dbc82b-7f58-4344-8042-1b252d15784c</p>
+            <p><strong>Status:</strong> <span class="status">OFFLINE</span></p>
+            <p style="margin-top: 10px; font-size: 13px;">Email notification akan terkirim karena user offline.</p>
+        </div>
+
+        <textarea id="messageText" placeholder="Ketik pesan test..."></textarea>
+        <button onclick="sendMessage()" id="sendBtn">Send Test Message</button>
+
+        <div class="log-box" id="logContainer">
+            <div class="log-entry">Ready to send test message</div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = `${window.location.origin}/api`;
+        const TARGET_USER_ID = 'd3dbc82b-7f58-4344-8042-1b252d15784c';
+        let token = null;
+        let conversationId = null;
+
+        function log(type, message) {
+            const container = document.getElementById('logContainer');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            container.appendChild(entry);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        async function apiCall(endpoint, method = 'GET', body = null) {
+            const options = {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token && { 'Authorization': `Bearer ${token}` })
+                }
+            };
+            if (body) options.body = JSON.stringify(body);
+
+            const response = await fetch(`${API_BASE}${endpoint}`, options);
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || 'API call failed');
+            return data;
+        }
+
+        async function initialize() {
+            try {
+                const loginData = await apiCall('/users/login', 'POST', {
+                    email: 'testermodul4-freelancer@test.com',
+                    password: 'password123@!'
+                });
+                token = loginData.data.token;
+                log('success', 'Logged in as freelancer');
+
+                const convData = await apiCall('/chat/conversations', 'POST', {
+                    user2_id: TARGET_USER_ID
+                });
+                conversationId = convData.data.id;
+                log('success', 'Conversation ready');
+            } catch (error) {
+                log('error', 'Init failed: ' + error.message);
+            }
+        }
+
+        async function sendMessage() {
+            const messageText = document.getElementById('messageText').value.trim();
+            if (!messageText) {
+                log('error', 'Message cannot be empty');
+                return;
+            }
+
+            const sendBtn = document.getElementById('sendBtn');
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Sending...';
+
+            try {
+                const msgData = await apiCall(
+                    `/chat/conversations/${conversationId}/messages`,
+                    'POST',
+                    { pesan: messageText, tipe: 'text' }
+                );
+
+                log('success', `Message sent (ID: ${msgData.data.id})`);
+                log('success', `Status: ${msgData.data.status}`);
+
+                if (msgData.data.status === 'sent') {
+                    log('success', 'Email notification sent to lisvindanu015@gmail.com');
+                }
+
+                document.getElementById('messageText').value = '';
+            } catch (error) {
+                log('error', 'Send failed: ' + error.message);
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'Send Test Message';
+            }
+        }
+
+        window.addEventListener('load', initialize);
+    </script>
+</body>
+</html>

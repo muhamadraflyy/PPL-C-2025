@@ -337,6 +337,123 @@ Jika Anda tidak melakukan permintaan ini, abaikan pesan ini.
     }
     return otp;
   }
+
+  /**
+   * Send new message notification email
+   * @param {string} receiverId - Receiver user ID
+   * @param {string} senderId - Sender user ID
+   * @param {Object} message - Message object
+   * @returns {Promise<Object>} Result object
+   */
+  async sendNewMessageNotification(receiverId, senderId, message) {
+    if (!this.emailTransport) {
+      console.error('[NotificationService] Email transport not configured');
+      return { success: false, error: 'Email service not configured' };
+    }
+
+    try {
+      // Get receiver and sender info
+      const { User } = require('../database/models');
+      const receiver = await User.findByPk(receiverId);
+      const sender = await User.findByPk(senderId);
+
+      if (!receiver || !receiver.email) {
+        console.error('[NotificationService] Receiver not found or no email');
+        return { success: false, error: 'Receiver not found' };
+      }
+
+      const senderName = sender
+        ? `${sender.nama_depan} ${sender.nama_belakang || ''}`.trim()
+        : 'Someone';
+
+      const subject = `Pesan baru dari ${senderName} - SkillConnect`;
+      const appName = process.env.APP_NAME || 'SkillConnect';
+      const appUrl = process.env.FRONTEND_URL || 'https://skillconnect.com';
+      const fromAddress = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
+
+      // Message preview (truncate if too long)
+      const messagePreview = message.pesan?.length > 100
+        ? message.pesan.substring(0, 100) + '...'
+        : message.pesan || '[Attachment]';
+
+      const text = `
+Halo ${receiver.nama_depan},
+
+Anda menerima pesan baru dari ${senderName}:
+
+"${messagePreview}"
+
+Login ke ${appName} untuk membaca dan membalas pesan:
+${appUrl}/messages
+
+Terima kasih,
+Tim ${appName}
+      `.trim();
+
+      const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: #007bff; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+    .content { background: #fff; padding: 30px; border: 1px solid #ddd; border-top: none; }
+    .message-box { background: #f8f9fa; border-left: 4px solid #007bff; padding: 15px; margin: 20px 0; border-radius: 4px; }
+    .message-text { font-style: italic; color: #555; }
+    .button { display: inline-block; background: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+    .footer { margin-top: 30px; font-size: 12px; color: #666; border-top: 1px solid #ddd; padding-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>📬 Pesan Baru</h2>
+    </div>
+    <div class="content">
+      <p>Halo <strong>${receiver.nama_depan}</strong>,</p>
+      <p>Anda menerima pesan baru dari <strong>${senderName}</strong>:</p>
+
+      <div class="message-box">
+        <p class="message-text">"${messagePreview}"</p>
+      </div>
+
+      <p>Login untuk membaca dan membalas pesan:</p>
+      <a href="${appUrl}/messages" class="button">Buka Pesan</a>
+
+      <div class="footer">
+        <p>Terima kasih,<br>Tim ${appName}</p>
+        <p style="font-size: 11px; color: #999;">Email ini dikirim secara otomatis, mohon tidak membalas email ini.</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+      `.trim();
+
+      const info = await this.emailTransport.sendMail({
+        from: `"${appName}" <${fromAddress}>`,
+        to: receiver.email,
+        subject,
+        text,
+        html
+      });
+
+      console.log('[NotificationService] New message email sent:', info.messageId);
+      return {
+        success: true,
+        messageId: info.messageId,
+        recipient: receiver.email
+      };
+    } catch (error) {
+      console.error('[NotificationService] Failed to send message notification:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
 }
 
 module.exports = NotificationService;

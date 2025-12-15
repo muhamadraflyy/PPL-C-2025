@@ -86,6 +86,13 @@ class UpdateService {
       patch.kategori_id = k;
     }
 
+    // Logic update sub_kategori_id
+    if (payload.sub_kategori_id !== undefined) {
+      // Jika payload string kosong atau null, set ke null (hapus sub kategori)
+      // Jika ada isi, set isi UUID-nya
+      patch.sub_kategori_id = payload.sub_kategori_id || null;
+    }
+
     if (payload.harga != null) {
       const h = Number(payload.harga);
       if (!Number.isFinite(h) || h <= 0) throw boom("harga harus > 0");
@@ -113,8 +120,8 @@ class UpdateService {
       const arr = Array.isArray(payload.gambar)
         ? payload.gambar
         : payload.gambar
-          ? [payload.gambar]
-          : [];
+        ? [payload.gambar]
+        : [];
       patch.gambar = arr;
     }
 

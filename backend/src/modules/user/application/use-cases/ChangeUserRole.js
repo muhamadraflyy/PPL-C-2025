@@ -1,6 +1,7 @@
 class ChangeUserRole {
-  constructor({ userRepository }) {
+  constructor({ userRepository, jwtService }) {
     this.userRepository = userRepository;
+    this.jwtService = jwtService;
   }
 
   async execute(userId, newRole) {
@@ -53,12 +54,16 @@ class ChangeUserRole {
 
     await user.update({ role: newRole });
 
+    // Generate new JWT token with updated role
+    const token = this.jwtService ? this.jwtService.generate(user.id, newRole) : null;
+
     return {
       id: user.id,
       email: user.email,
       role: user.role,
       nama_depan: user.nama_depan,
-      nama_belakang: user.nama_belakang
+      nama_belakang: user.nama_belakang,
+      token // Include new JWT token
     };
   }
 }

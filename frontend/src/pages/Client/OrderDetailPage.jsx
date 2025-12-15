@@ -9,6 +9,47 @@ import Footer from '../../components/Fragments/Common/Footer'
 import { orderService } from '../../services/orderService'
 import { authService } from '../../services/authService'
 import paymentService from '../../services/paymentService'
+import { buildMediaUrl } from '../../utils/mediaUrl'
+import { Download } from 'lucide-react'
+
+// Normalisasi berbagai bentuk payload riwayat status/timeline yang dikirim BE
+const normalizeStatusHistory = (raw = []) => {
+  if (!Array.isArray(raw)) return []
+
+  const mapped = raw.map((item) => {
+    const from = item.from ?? item.from_status ?? item.old_status ?? null
+    const to = item.to ?? item.to_status ?? item.status ?? item.new_status ?? null
+    const note = item.note ?? item.label ?? item.metadata?.note ?? item.metadata?.message ?? null
+    const reason = item.reason ?? item.metadata?.reason ?? null
+    const changedBy = item.changedBy ?? item.changed_by ?? item.changed_by_user_id ?? item.user_id ?? item.by ?? null
+    const changedByRole = item.changedByRole ?? item.changed_by_role ?? item.role ?? item.by ?? null
+    const metadata = item.metadata ?? {}
+    const changedAt =
+      item.changedAt ??
+      item.changed_at ??
+      item.created_at ??
+      item.updated_at ??
+      item.updatedAt ??
+      item.at ??
+      null
+
+    return {
+      id: item.id ?? item.key ?? `${to}-${changedAt ?? Math.random()}`,
+      from,
+      to,
+      note,
+      reason,
+      changedBy,
+      changedByRole,
+      metadata,
+      changedAt,
+    }
+  })
+
+  return mapped
+    .filter((item) => item.to && item.changedAt)
+    .sort((a, b) => new Date(b.changedAt) - new Date(a.changedAt))
+}
 
 const OrderDetailPage = () => {
   const { id } = useParams()
@@ -21,6 +62,71 @@ const OrderDetailPage = () => {
   const [refundReason, setRefundReason] = useState('')
   const [refundAmount, setRefundAmount] = useState(0)
   const [processingPayment, setProcessingPayment] = useState(false)
+  const [confirmModal, setConfirmModal] = useState({ open: false, title: '', message: '', onConfirm: null })
+  const [infoModal, setInfoModal] = useState({ open: false, title: '', message: '' })
+
+  const openConfirmModal = (title, message, onConfirm) => {
+    setConfirmModal({ open: true, title, message, onConfirm })
+  }
+
+  const closeConfirmModal = () => {
+    setConfirmModal({ open: false, title: '', message: '', onConfirm: null })
+  }
+
+  const openInfoModal = (title, message) => {
+    setInfoModal({ open: true, title, message })
+  }
+
+  const closeInfoModal = () => {
+    setInfoModal({ open: false, title: '', message: '' })
+  }
+
+  const formatFileSize = (size) => {
+    if (!size || Number.isNaN(Number(size))) return ''
+
+    const bytes = Number(size)
+    if (bytes < 1024) return `${bytes} B`
+
+    const kb = bytes / 1024
+    if (kb < 1024) return `${kb.toFixed(1)} KB`
+
+    const mb = kb / 1024
+    return `${mb.toFixed(2)} MB`
+  }
+
+  const normalizeAttachments = (attachments = []) => {
+    if (!Array.isArray(attachments)) return []
+
+    return attachments
+      .filter(Boolean)
+      .map((item, idx) => {
+        if (typeof item === 'string') {
+          const filename = item.split('/').pop() || `lampiran-${idx + 1}`
+          return {
+            name: filename,
+            url: item,
+            size: ''
+          }
+        }
+
+        const name =
+          item.name ||
+          item.filename ||
+          item.originalname ||
+          (item.url ? item.url.split('/').pop() : '') ||
+          `lampiran-${idx + 1}`
+
+        // Hindari nilai URL dummy seperti '#' yang akan menghasilkan /public/#
+        const rawUrl = item.url || item.path || ''
+        const sanitizedUrl = rawUrl === '#' ? '' : rawUrl
+
+        return {
+          name,
+          url: sanitizedUrl,
+          size: item.size || item.filesize || item.fileSize || ''
+        }
+      })
+  }
 
   const loadOrder = async () => {
     setLoading(true)
@@ -37,6 +143,16 @@ const OrderDetailPage = () => {
     // Ambil payload fleksibel
     const o = res?.data?.order || res?.data || res
 
+    // Ambil sumber riwayat status/timeline dari berbagai bentuk field
+    const rawStatusHistory =
+      o?.statusHistory ||
+      o?.history ||
+      o?.timeline ||
+      o?.status_history ||
+      []
+
+    const normalizedHistory = normalizeStatusHistory(rawStatusHistory)
+
     // Normalisasi ke bentuk yang dipakai UI saat ini
     const normalized = o
       ? {
@@ -50,8 +166,14 @@ const OrderDetailPage = () => {
           waktu_pengerjaan: o.waktu_pengerjaan ?? o.duration_days ?? 0,
           deskripsi: o.deskripsi ?? o.description ?? '',
           catatan_client: o.catatan_client ?? o.client_note ?? '',
-          lampiran_client: o.lampiran_client ?? o.client_attachments ?? [],
-          lampiran_freelancer: o.lampiran_freelancer ?? o.freelancer_attachments ?? [],
+          catatan_freelancer:
+            o.catatan_freelancer ??
+            o.freelancer_note ??
+            o.note_for_client ??
+            o.metadata?.note_for_client ??
+            '',
+          lampiran_client: normalizeAttachments(o.lampiran_client ?? o.client_attachments ?? []),
+          lampiran_freelancer: normalizeAttachments(o.lampiran_freelancer ?? o.freelancer_attachments ?? []),
           tenggat_waktu: o.tenggat_waktu ?? o.deadline ?? o.due_date ?? null,
           // Client normalization
           client:
@@ -78,9 +200,12 @@ const OrderDetailPage = () => {
               : null),
           client_id: o.client_id ?? o.clientId ?? o.client?.id,
           freelancer_id: o.freelancer_id ?? o.freelancerId ?? o.freelancer?.id,
-          statusHistory: o.statusHistory || o.history || [],
+          statusHistory: normalizedHistory,
           payment_id: o.payment_id ?? o.paymentId ?? o.pembayaran_id ?? null,
-          escrow_id: o.escrow_id ?? o.escrowId ?? null
+          escrow_id: o.escrow_id ?? o.escrowId ?? null,
+          escrow_status: o.escrow_status ?? o.escrowStatus ?? null,
+          refund_status: o.refund_status ?? o.refundStatus ?? null,
+          refund_reason: o.refund_reason ?? o.refundReason ?? null
         }
       : null
 
@@ -95,36 +220,39 @@ const OrderDetailPage = () => {
   }, [id])
 
   // Real API handlers
-  const handleAccept = async () => {
+  const handleAccept = () => {
     if (actionLoading) return
 
-    if (!window.confirm('Apakah Anda yakin ingin menerima pesanan ini?')) {
-      return
-    }
+    openConfirmModal(
+      'Terima Pesanan',
+      'Apakah Anda yakin ingin menerima pesanan ini?',
+      async () => {
+        setActionLoading(true)
+        try {
+          const result = await orderService.acceptOrder(id)
 
-    setActionLoading(true)
-    try {
-      const result = await orderService.acceptOrder(id)
-
-      if (result.success) {
-        alert('✅ Pesanan berhasil diterima!')
-        await loadOrder() // Reload order data
-      } else {
-        alert(`❌ Gagal menerima pesanan: ${result.message}`)
+          if (result.success) {
+            openInfoModal('Berhasil', 'Pesanan berhasil diterima.')
+            await loadOrder() // Reload order data
+          } else {
+            openInfoModal('Gagal', `Gagal menerima pesanan: ${result.message}`)
+          }
+        } catch (err) {
+          console.error('Error accepting order:', err)
+          openInfoModal('Terjadi Kesalahan', 'Terjadi kesalahan saat menerima pesanan. Silakan coba lagi.')
+        } finally {
+          setActionLoading(false)
+          closeConfirmModal()
+        }
       }
-    } catch (err) {
-      console.error('Error accepting order:', err)
-      alert('❌ Terjadi kesalahan saat menerima pesanan')
-    } finally {
-      setActionLoading(false)
-    }
+    )
   }
 
   const handleReject = async (reason) => {
     if (actionLoading) return
 
     if (!reason || reason.trim() === '') {
-      alert('Harap masukkan alasan penolakan')
+      openInfoModal('Validasi', 'Harap masukkan alasan penolakan.')
       return
     }
 
@@ -133,14 +261,14 @@ const OrderDetailPage = () => {
       const result = await orderService.cancelOrder(id, reason)
 
       if (result.success) {
-        alert('✅ Pesanan berhasil ditolak!')
+        openInfoModal('Berhasil', 'Pesanan berhasil ditolak.')
         await loadOrder() // Reload order data
       } else {
-        alert(`❌ Gagal menolak pesanan: ${result.message}`)
+        openInfoModal('Gagal', `Gagal menolak pesanan: ${result.message}`)
       }
     } catch (err) {
       console.error('Error rejecting order:', err)
-      alert('❌ Terjadi kesalahan saat menolak pesanan')
+      openInfoModal('Terjadi Kesalahan', 'Terjadi kesalahan saat menolak pesanan. Silakan coba lagi.')
     } finally {
       setActionLoading(false)
     }
@@ -151,63 +279,71 @@ const OrderDetailPage = () => {
 
     setActionLoading(true)
     try {
-      // data.files adalah array of files, convert ke format yang dibutuhkan backend
-      const lampiranFreelancer = data.files.map(file => ({
-        name: file.name,
-        url: file.url || '#', // Nanti disesuaikan kalau ada upload service
-        size: file.size
-      }))
-
-      const result = await orderService.completeOrder(id, lampiranFreelancer)
+      // Kirim file asli ke backend, backend yang akan membentuk URL publik
+      const result = await orderService.completeOrder(
+        id,
+        data.files,
+        data.note,
+      )
 
       if (result.success) {
-        alert('✅ Pesanan berhasil diselesaikan!')
+        openInfoModal('Berhasil', 'Pesanan berhasil diselesaikan.')
         await loadOrder() // Reload order data
       } else {
-        alert(`❌ Gagal menyelesaikan pesanan: ${result.message}`)
+        openInfoModal('Gagal', `Gagal menyelesaikan pesanan: ${result.message}`)
       }
     } catch (err) {
       console.error('Error completing order:', err)
-      alert('❌ Terjadi kesalahan saat menyelesaikan pesanan')
+      openInfoModal('Terjadi Kesalahan', 'Terjadi kesalahan saat menyelesaikan pesanan. Silakan coba lagi.')
     } finally {
       setActionLoading(false)
     }
   }
 
   // Release Escrow - Client approves completed work
-  const handleReleaseEscrow = async () => {
-    if (!window.confirm('Apakah Anda yakin ingin melepas dana escrow ke freelancer? Dana akan segera ditransfer.')) {
-      return
-    }
+  const handleReleaseEscrow = () => {
+    openConfirmModal(
+      'Release Payment',
+      'Apakah Anda yakin ingin melepas dana escrow ke freelancer? Dana akan segera ditransfer.',
+      async () => {
+        setProcessingPayment(true)
+        try {
+          // Get escrow ID from order (assuming order has escrow_id or payment_id)
+          const escrowId = order.escrow_id || order.payment_id
+          if (!escrowId) {
+            openInfoModal('Data Tidak Lengkap', 'Escrow ID tidak ditemukan untuk order ini.')
+            return
+          }
 
-    setProcessingPayment(true)
-    try {
-      // Get escrow ID from order (assuming order has escrow_id or payment_id)
-      const escrowId = order.escrow_id || order.payment_id
-      if (!escrowId) {
-        alert('Escrow ID tidak ditemukan untuk order ini')
-        return
-      }
+          // Get current user ID
+          const currentUser = authService.getCurrentUser()
+          if (!currentUser?.id) {
+            openInfoModal('Autentikasi', 'User tidak terautentikasi. Silakan login kembali.')
+            return
+          }
 
-      const result = await paymentService.releaseEscrow(escrowId)
-      if (result.success) {
-        alert('✅ Dana escrow berhasil dirilis ke freelancer!')
-        await loadOrder()
-      } else {
-        alert(`❌ Gagal merilis escrow: ${result.message}`)
+          const result = await paymentService.releaseEscrow(escrowId, currentUser.id, 'Order completed successfully')
+          if (result.success) {
+            openInfoModal('Berhasil', 'Dana escrow berhasil dirilis ke freelancer.')
+            await loadOrder()
+          } else {
+            openInfoModal('Gagal', `Gagal merilis escrow: ${result.message}`)
+          }
+        } catch (err) {
+          console.error('Error releasing escrow:', err)
+          openInfoModal('Terjadi Kesalahan', 'Terjadi kesalahan saat merilis escrow. Silakan coba lagi.')
+        } finally {
+          setProcessingPayment(false)
+          closeConfirmModal()
+        }
       }
-    } catch (err) {
-      console.error('Error releasing escrow:', err)
-      alert('❌ Terjadi kesalahan saat merilis escrow')
-    } finally {
-      setProcessingPayment(false)
-    }
+    )
   }
 
   // Request Refund - Client requests refund
   const handleRequestRefund = async () => {
     if (!refundReason.trim()) {
-      alert('Harap masukkan alasan refund')
+      openInfoModal('Validasi', 'Harap masukkan alasan refund.')
       return
     }
 
@@ -220,17 +356,17 @@ const OrderDetailPage = () => {
       })
 
       if (result.success) {
-        alert('✅ Permintaan refund berhasil diajukan! Tim kami akan segera memprosesnya.')
+        openInfoModal('Berhasil', 'Permintaan refund berhasil diajukan. Tim kami akan segera memprosesnya.')
         setShowRefundModal(false)
         setRefundReason('')
         setRefundAmount(0)
         await loadOrder()
       } else {
-        alert(`❌ Gagal mengajukan refund: ${result.message}`)
+        openInfoModal('Gagal', `Gagal mengajukan refund: ${result.message}`)
       }
     } catch (err) {
       console.error('Error requesting refund:', err)
-      alert('❌ Terjadi kesalahan saat mengajukan refund')
+      openInfoModal('Terjadi Kesalahan', 'Terjadi kesalahan saat mengajukan refund. Silakan coba lagi.')
     } finally {
       setProcessingPayment(false)
     }
@@ -242,7 +378,7 @@ const OrderDetailPage = () => {
     try {
       const paymentId = order.payment_id
       if (!paymentId) {
-        alert('Payment ID tidak ditemukan')
+        openInfoModal('Data Tidak Lengkap', 'Payment ID tidak ditemukan untuk order ini.')
         return
       }
 
@@ -258,11 +394,11 @@ const OrderDetailPage = () => {
         link.remove()
         window.URL.revokeObjectURL(url)
       } else {
-        alert(result.message || 'Gagal mengunduh invoice')
+        openInfoModal('Gagal', result.message || 'Gagal mengunduh invoice.')
       }
     } catch (err) {
       console.error('Error downloading invoice:', err)
-      alert('Terjadi kesalahan saat mengunduh invoice')
+      openInfoModal('Terjadi Kesalahan', 'Terjadi kesalahan saat mengunduh invoice. Silakan coba lagi.')
     } finally {
       setProcessingPayment(false)
     }
@@ -277,13 +413,13 @@ const OrderDetailPage = () => {
     try {
       const result = await paymentService.sendInvoiceEmail(order.payment_id, email)
       if (result.success) {
-        alert('✅ Invoice berhasil dikirim ke email!')
+        openInfoModal('Berhasil', 'Invoice berhasil dikirim ke email.')
       } else {
-        alert(result.message || 'Gagal mengirim invoice')
+        openInfoModal('Gagal', result.message || 'Gagal mengirim invoice.')
       }
     } catch (err) {
       console.error('Error sending invoice:', err)
-      alert('Terjadi kesalahan saat mengirim invoice')
+      openInfoModal('Terjadi Kesalahan', 'Terjadi kesalahan saat mengirim invoice. Silakan coba lagi.')
     } finally {
       setProcessingPayment(false)
     }
@@ -363,6 +499,34 @@ const OrderDetailPage = () => {
     return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase()
   })()
 
+  const handleDownloadClientAttachment = async (file) => {
+    try {
+      if (!file?.url) {
+        openInfoModal('File Tidak Tersedia', 'File lampiran tidak memiliki URL valid untuk diunduh.')
+        return
+      }
+
+      const urlToFetch = buildMediaUrl(file.url || '')
+      const response = await fetch(urlToFetch)
+      if (!response.ok) {
+        throw new Error('Gagal mengunduh lampiran')
+      }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = file.name || 'lampiran'
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Error downloading client attachment:', err)
+      openInfoModal('Terjadi Kesalahan', 'Gagal mengunduh lampiran. Silakan coba lagi.')
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Navbar />
@@ -431,7 +595,7 @@ const OrderDetailPage = () => {
                 <div className="mb-4">
                   <h3 className="text-sm font-medium text-gray-700 mb-2">Catatan Client</h3>
                   <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-gray-900">{order.catatan_client}</p>
+                    <p className="text-gray-900 whitespace-pre-line">{order.catatan_client}</p>
                   </div>
                 </div>
               )}
@@ -443,7 +607,11 @@ const OrderDetailPage = () => {
                     {order.lampiran_client.map((file, idx) => (
                       <a
                         key={idx}
-                        href={file.url}
+                        href={buildMediaUrl(file.url)}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          handleDownloadClientAttachment(file)
+                        }}
                         className="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                       >
                         <svg className="w-5 h-5 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -451,8 +619,11 @@ const OrderDetailPage = () => {
                         </svg>
                         <div className="flex-1">
                           <span className="text-gray-900 font-medium">{file.name}</span>
-                          <span className="text-gray-500 text-sm ml-2">({file.size})</span>
+                          {file.size ? (
+                            <span className="text-gray-500 text-sm ml-2">({formatFileSize(file.size)})</span>
+                          ) : null}
                         </div>
+                        <Download className="w-5 h-5 text-gray-700 ml-3 flex-shrink-0" strokeWidth={2.25} />
                       </a>
                     ))}
                   </div>
@@ -466,7 +637,11 @@ const OrderDetailPage = () => {
                     {order.lampiran_freelancer.map((file, idx) => (
                       <a
                         key={idx}
-                        href={file.url}
+                        href={file.url ? buildMediaUrl(file.url) : '#'}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          handleDownloadClientAttachment(file)
+                        }}
                         className="flex items-center p-3 bg-green-50 rounded-lg hover:bg-green-100 transition-colors border border-green-200"
                       >
                         <svg className="w-5 h-5 text-green-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -474,10 +649,22 @@ const OrderDetailPage = () => {
                         </svg>
                         <div className="flex-1">
                           <span className="text-gray-900 font-medium">{file.name}</span>
-                          <span className="text-gray-500 text-sm ml-2">({file.size})</span>
+                          {file.size ? (
+                            <span className="text-gray-500 text-sm ml-2">({formatFileSize(file.size)})</span>
+                          ) : null}
                         </div>
+                        <Download className="w-5 h-5 text-green-700 ml-3 flex-shrink-0" strokeWidth={2.25} />
                       </a>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {order.catatan_freelancer && (
+                <div className="mb-4">
+                  <h3 className="text-sm font-medium text-gray-700 mb-2">Catatan Freelancer</h3>
+                  <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                    <p className="text-gray-900 whitespace-pre-line">{order.catatan_freelancer}</p>
                   </div>
                 </div>
               )}
@@ -550,6 +737,7 @@ const OrderDetailPage = () => {
                 onReject={handleReject}
                 onComplete={handleComplete}
                 loading={actionLoading}
+                showInfo={(title, message) => openInfoModal(title, message)}
               />
             )}
 
@@ -573,16 +761,36 @@ const OrderDetailPage = () => {
             {isClient && (order.status === 'selesai' || order.status === 'menunggu_review') && (
               <div className="bg-white rounded-lg border border-gray-200 shadow p-6">
                 <h3 className="font-semibold text-lg mb-2">Release Payment</h3>
-                <p className="text-sm text-gray-600 mb-4">
-                  Pekerjaan telah selesai. Lepas dana escrow ke freelancer?
-                </p>
-                <button
-                  onClick={handleReleaseEscrow}
-                  disabled={processingPayment}
-                  className="w-full px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {processingPayment ? 'Memproses...' : 'Release Payment'}
-                </button>
+                {order.escrow_status === 'released' ? (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-start">
+                      <svg className="w-5 h-5 text-green-600 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <div>
+                        <p className="text-sm font-medium text-green-800 mb-1">
+                          ✅ Payment Telah Dirilis
+                        </p>
+                        <p className="text-xs text-green-700">
+                          Dana escrow telah berhasil dirilis ke freelancer. Terima kasih atas kepercayaan Anda!
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Pekerjaan telah selesai. Lepas dana escrow ke freelancer?
+                    </p>
+                    <button
+                      onClick={handleReleaseEscrow}
+                      disabled={processingPayment}
+                      className="w-full px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {processingPayment ? 'Memproses...' : 'Release Payment'}
+                    </button>
+                  </>
+                )}
               </div>
             )}
 
@@ -590,18 +798,38 @@ const OrderDetailPage = () => {
             {isClient && ['dibayar', 'dikerjakan', 'dispute'].includes(order.status) && (
               <div className="bg-white rounded-lg border border-gray-200 shadow p-6">
                 <h3 className="font-semibold text-lg mb-2">Refund</h3>
-                <p className="text-sm text-gray-600 mb-4">
-                  Ada masalah dengan pesanan ini?
-                </p>
-                <button
-                  onClick={() => {
-                    setRefundAmount(order.total_bayar)
-                    setShowRefundModal(true)
-                  }}
-                  className="w-full px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
-                >
-                  Request Refund
-                </button>
+                {order.refund_status === 'pending' || order.refund_status === 'processing' ? (
+                  <div>
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-3">
+                      <p className="text-sm font-medium text-yellow-800 mb-1">
+                        🕐 Refund Sedang Diproses
+                      </p>
+                      <p className="text-xs text-yellow-700">
+                        Permintaan refund Anda sedang dievaluasi oleh tim admin dan akan disampaikan ke freelancer. Kami akan memberitahu Anda segera setelah ada keputusan.
+                      </p>
+                    </div>
+                    {order.refund_reason && (
+                      <p className="text-xs text-gray-600">
+                        <span className="font-medium">Alasan:</span> {order.refund_reason}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Ada masalah dengan pesanan ini?
+                    </p>
+                    <button
+                      onClick={() => {
+                        setRefundAmount(order.total_bayar)
+                        setShowRefundModal(true)
+                      }}
+                      className="w-full px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
+                    >
+                      Request Refund
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -642,7 +870,8 @@ const OrderDetailPage = () => {
 
       {/* Refund Modal */}
       {showRefundModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-40">
+
           <div className="bg-white rounded-lg max-w-md w-full p-6">
             <h3 className="text-xl font-bold mb-4">Request Refund</h3>
             <div className="space-y-4">
@@ -692,6 +921,52 @@ const OrderDetailPage = () => {
                   {processingPayment ? 'Memproses...' : 'Ajukan Refund'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Info Modal */}
+      {infoModal.open && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <h3 className="text-xl font-bold mb-4">{infoModal.title || 'Informasi'}</h3>
+            <p className="text-gray-700 mb-6">{infoModal.message}</p>
+            <div className="flex justify-end">
+              <button
+                onClick={closeInfoModal}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Modal */}
+      {confirmModal.open && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <h3 className="text-xl font-bold mb-4">{confirmModal.title || 'Konfirmasi'}</h3>
+            <p className="text-gray-700 mb-6">{confirmModal.message}</p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={closeConfirmModal}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Batal
+              </button>
+              <button
+                onClick={() => {
+                  if (typeof confirmModal.onConfirm === 'function') {
+                    confirmModal.onConfirm()
+                  }
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Ya, Lanjutkan
+              </button>
             </div>
           </div>
         </div>

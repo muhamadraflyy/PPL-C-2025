@@ -125,9 +125,6 @@ function ProfileDropdown({ name, email, avatarUrl, role, hasFreelancerProfile, o
           {role === "client" && (
             <>
               <div className="my-1 h-px bg-neutral-200" />
-              <button type="button" role="menuitem" onClick={onFavorites} className="w-full px-4 py-2 text-left text-sm hover:bg-neutral-50">
-                Favorit Anda
-              </button>
               <button type="button" role="menuitem" onClick={onBookmarks} className="w-full px-4 py-2 text-left text-sm hover:bg-neutral-50">
                 Disimpan
               </button>
@@ -164,7 +161,23 @@ export default function NavHeader() {
     } catch (e) {
       console.error("Failed to read active role", e);
     }
-  }, []);
+
+    // Check for pending toast message after reload
+    const pendingMessage = sessionStorage.getItem('roleChangeMessage');
+    if (pendingMessage) {
+      try {
+        const { message, type } = JSON.parse(pendingMessage);
+        // Show toast after a short delay to ensure page is fully loaded
+        setTimeout(() => {
+          toast.show(message, type);
+        }, 500);
+        // Clear the message
+        sessionStorage.removeItem('roleChangeMessage');
+      } catch (e) {
+        console.error('Error showing pending toast:', e);
+      }
+    }
+  }, [toast]);
 
   // Cek apakah user memiliki profil freelancer
   useEffect(() => {
@@ -205,13 +218,16 @@ export default function NavHeader() {
 
         const updatedRole = result.data?.role || newRole;
         setUserRole(updatedRole);
-        toast.show(`Role berhasil diubah menjadi ${updatedRole === "client" ? "Klien" : "Freelancer"}`, "success");
+        
+        // Save toast message to sessionStorage to show after reload
+        sessionStorage.setItem('roleChangeMessage', JSON.stringify({
+          message: `Role berhasil diubah menjadi ${updatedRole === "client" ? "Klien" : "Freelancer"}`,
+          type: 'success'
+        }));
+
+        // Force full page reload to ensure all components refresh with new role
         const destination = ROLE_HOME[updatedRole] || "/";
-        if (typeof window !== "undefined") {
-          window.location.assign(destination);
-        } else {
-          navigate(destination, { replace: true });
-        }
+        window.location.href = destination;
       } else {
         toast.show(result.message || "Gagal mengubah role", "error");
       }
@@ -264,6 +280,17 @@ export default function NavHeader() {
             <div className="h-9 sm:h-10 w-20 sm:w-24 animate-pulse rounded-full bg-neutral-200" />
           ) : isLoggedIn ? (
             <div className="flex items-center gap-2 sm:gap-3">
+              {/* Bookmark button - only for client */}
+              {userRole === "client" && (
+                <button
+                  onClick={handleBookmarks}
+                  className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-neutral-700 hover:bg-neutral-100 transition-colors"
+                  title="Lihat Bookmark"
+                >
+                  <i className="far fa-bookmark text-lg" />
+                  <span className="hidden md:inline">Disimpan</span>
+                </button>
+              )}
               {!hasFreelancerProfile && (
                 <Button
                   onClick={handleRegisterFreelancer}

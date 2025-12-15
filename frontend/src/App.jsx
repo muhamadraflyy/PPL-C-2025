@@ -12,16 +12,20 @@ import EmailVerificationPage from "./pages/Public/EmailVerificationPage";
 import ServiceListPage from "./pages/Public/ServiceListPage";
 import SearchPage from "./pages/Public/SearchPage";
 import NotFoundPage from "./pages/Public/NotFoundPage";
-import FreelancerProfilePage from "./pages/Public/FreelancerProfilePage";
+import FreelancerPublicProfile from "./pages/Public/FreelancerPublicProfile";
 import FreelancerDetailPage from "./pages/Public/FreelancerDetailPage";
 import ServiceDetailPage from "./pages/jobs/ServiceDetailPage";
+import StartWorkPage from "./pages/Public/StartWorkPage";
 
 // Client pages
 import DashboardPage from "./pages/Client/DashboardPage";
-import ProfilePage from "./pages/Client/ProfilePage";
-import ProfileEditPage from "./pages/Client/ProfileEditPage";
 import BookmarkPage from "./pages/Client/BookmarkPage";
+
+// Profile routers (auto-detect role)
+import ProfileRouter from "./components/Routers/ProfileRouter";
+import ProfileEditRouter from "./components/Routers/ProfileEditRouter";
 import FavoritePage from "./pages/Client/FavoritePage";
+import HiddenRecommendationsPage from "./pages/Client/HiddenRecommendationsPage";
 import RiwayatPesananPage from "./pages/Client/RiwayatPesananPage";
 import OrderListPage from "./pages/Client/OrderListPage";
 import OrderDetailPage from "./pages/Client/OrderDetailPage";
@@ -34,6 +38,8 @@ import ServiceCreatePage from "./pages/Freelancer/ServiceCreatePage";
 import ServiceEditPage from "./pages/Freelancer/ServiceEditPage";
 import OrdersIncomingPage from "./pages/Freelancer/OrdersIncomingPage";
 import FreelancerEarningsPage from "./pages/Freelancer/FreelancerEarningsPage";
+import WithdrawalPage from "./pages/freelancer/WithdrawalPage";
+import WithdrawalHistoryPage from "./pages/freelancer/WithdrawalHistoryPage";
 
 // Admin pages
 import AdminDashboardPage from "./pages/Admin/DashboardPage";
@@ -43,8 +49,12 @@ import AdminCategoryManagementPage from "./pages/Admin/CategoryManagementPage";
 import AdminSubCategoryManagementPage from "./pages/Admin/SubCategoryManagementPage";
 import TransactionTrendsPage from "./pages/Admin/TransactionTrendsPage";
 import AdminTransactionsPage from "./pages/Admin/TransactionsPage";
+import EscrowManagementPage from "./pages/Admin/EscrowManagementPage";
+import WithdrawalManagementPage from "./pages/Admin/WithdrawalManagementPage";
 import AllNotificationsPage from "./pages/Admin/AllNotificationsPage";
 import FraudReportDetailPage from "./pages/Admin/FraudReportDetailPage";
+import RecommendationMonitoringPage from "./pages/Admin/RecommendationMonitoringPage";
+import ReviewPage from "./pages/Admin/ReviewPage";
 
 // Payment pages
 import PaymentSuccessPage from "./pages/payment/PaymentSuccessPage";
@@ -82,6 +92,9 @@ export default function App() {
         path="/reset-password/new-password"
         element={<NewPasswordPage />}
       />
+
+      {/* Halaman Panduan publik */}
+      <Route path="/cara-jual-pekerjaan" element={<StartWorkPage />} />
 
       {/* List layanan publik */}
       <Route path="/services" element={<ServiceListPage />} />
@@ -168,6 +181,22 @@ export default function App() {
         }
       />
       <Route
+        path="/admin/escrow"
+        element={
+          <ProtectedRoute>
+            <EscrowManagementPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/withdrawals"
+        element={
+          <ProtectedRoute>
+            <WithdrawalManagementPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/admin/notifications"
         element={
           <ProtectedRoute>
@@ -180,6 +209,22 @@ export default function App() {
         element={
           <ProtectedRoute>
             <FraudReportDetailPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/reviews"
+        element={
+          <ProtectedRoute>
+            <ReviewPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/recommendations"
+        element={
+          <ProtectedRoute>
+            <RecommendationMonitoringPage />
           </ProtectedRoute>
         }
       />
@@ -198,6 +243,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <FavoritePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/layanan-disembunyikan"
+        element={
+          <ProtectedRoute>
+            <HiddenRecommendationsPage />
           </ProtectedRoute>
         }
       />
@@ -244,12 +297,12 @@ export default function App() {
         }
       />
 
-      {/* Profile */}
+      {/* Profile - Auto-detect role and show appropriate profile */}
       <Route
         path="/profile"
         element={
           <ProtectedRoute>
-            <ProfilePage />
+            <ProfileRouter />
           </ProtectedRoute>
         }
       />
@@ -257,14 +310,14 @@ export default function App() {
         path="/profile/edit"
         element={
           <ProtectedRoute>
-            <ProfileEditPage />
+            <ProfileEditRouter />
           </ProtectedRoute>
         }
       />
 
       {/* Freelancer public profile */}
       <Route path="/freelancer/:id/detail" element={<FreelancerDetailPage />} />
-      <Route path="/freelancer/:id" element={<FreelancerProfilePage />} />
+      <Route path="/freelancer/:id" element={<FreelancerPublicProfile />} />
 
       {/* Orders (client) */}
       <Route
@@ -332,9 +385,25 @@ export default function App() {
       />
 
       {/* Chat */}
+      <Route path="/chat" element={<MessagesPage />} />
+
+      {/* Withdrawal (Freelancer) */}
       <Route
-        path="/chat"
-        element={<MessagesPage />} />
+        path="/withdrawal/create"
+        element={
+          <ProtectedRoute>
+            <WithdrawalPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/withdrawal/history"
+        element={
+          <ProtectedRoute>
+            <WithdrawalHistoryPage />
+          </ProtectedRoute>
+        }
+      />
 
       {/* 404 */}
       <Route path="*" element={<NotFoundPage />} />

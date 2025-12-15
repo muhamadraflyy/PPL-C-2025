@@ -30,8 +30,10 @@ async countOrders(status = null) {
 
   async sumPlatformFees() {
     try {
+
       const result = await this.sequelize.query(
-        'SELECT SUM(biaya_platform) as total FROM pembayaran WHERE status = "berhasil"',
+        `SELECT SUM(biaya_platform) as total FROM pesanan 
+         WHERE status != 'menunggu_pembayaran'`,
         {
           raw: true,
           type: this.sequelize.QueryTypes.SELECT
@@ -285,14 +287,14 @@ async countOrders(status = null) {
     }
   }
 
-  async getRevenueTrend(startDate, endDate, month = null, year = null) {
+   async getRevenueTrend(startDate, endDate, month = null, year = null) {
     try {
       let query = `
         SELECT 
-          DATE_FORMAT(dibayar_pada, '%Y-%m') as month,
+          DATE_FORMAT(updated_at, '%Y-%m') as month,
           SUM(biaya_platform) as amount
-        FROM pembayaran
-        WHERE status = "berhasil"
+        FROM pesanan
+        WHERE status != 'menunggu_pembayaran'
       `;
       const replacements = [];
 
@@ -302,17 +304,17 @@ async countOrders(status = null) {
         const yearNum = parseInt(year);
         const monthStart = new Date(yearNum, monthNum - 1, 1);
         const monthEnd = new Date(yearNum, monthNum, 0, 23, 59, 59);
-        query += ` AND dibayar_pada >= ? AND dibayar_pada <= ?`;
+        query += ` AND updated_at >= ? AND updated_at <= ?`;
         replacements.push(monthStart, monthEnd);
       } else if (startDate && endDate) {
-        query += ` AND dibayar_pada >= ? AND dibayar_pada <= ?`;
+        query += ` AND updated_at >= ? AND updated_at <= ?`;
         replacements.push(startDate, endDate);
       } else {
         // Default: last 12 months
-        query += ` AND dibayar_pada >= DATE_SUB(NOW(), INTERVAL 12 MONTH)`;
+        query += ` AND updated_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)`;
       }
 
-      query += ` GROUP BY DATE_FORMAT(dibayar_pada, '%Y-%m') ORDER BY month ASC`;
+      query += ` GROUP BY DATE_FORMAT(updated_at, '%Y-%m') ORDER BY month ASC`;
 
       const result = await this.sequelize.query(query, {
         replacements: replacements.length > 0 ? replacements : undefined,
@@ -328,12 +330,12 @@ async countOrders(status = null) {
         
         const dailyResult = await this.sequelize.query(`
           SELECT 
-            DATE_FORMAT(dibayar_pada, '%Y-%m-%d') as date,
+            DATE_FORMAT(updated_at, '%Y-%m-%d') as date,
             SUM(biaya_platform) as amount
-          FROM pembayaran
-          WHERE status = "berhasil"
-            AND dibayar_pada >= ? AND dibayar_pada <= ?
-          GROUP BY DATE_FORMAT(dibayar_pada, '%Y-%m-%d')
+          FROM pesanan
+          WHERE status != 'menunggu_pembayaran'
+            AND updated_at >= ? AND updated_at <= ?
+          GROUP BY DATE_FORMAT(updated_at, '%Y-%m-%d')
           ORDER BY date ASC
         `, {
           replacements: [

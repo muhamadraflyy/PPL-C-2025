@@ -17,7 +17,7 @@ class CompleteOrder {
     this.orderRepository = orderRepository;
   }
 
-  async execute(orderId, userId) {
+  async execute(orderId, userId, lampiranFreelancer = [], catatanFreelancer = null) {
     // Validasi order exist
     const order = await this.orderRepository.findById(orderId);
     if (!order) {
@@ -40,10 +40,39 @@ class CompleteOrder {
       throw error;
     }
 
-    // Update status jadi 'menunggu_review' dan set tanggal selesai
+    const fromStatus = order.status;
+
+    const now = new Date();
+
+    // Hanya simpan URL ke DB (seperti lampiran_client) untuk menjaga struktur simpel
+    const freelancerAttachmentUrls = Array.isArray(lampiranFreelancer)
+      ? lampiranFreelancer
+          .map((att) => (att && typeof att.url === 'string' ? att.url : null))
+          .filter(Boolean)
+      : [];
+
+    // Update status jadi 'menunggu_review', set tanggal kirim & simpan lampiran hasil
     const updatedOrder = await this.orderRepository.update(orderId, {
       status: 'menunggu_review',
-      selesai_pada: new Date()
+      dikirim_pada: now,
+      selesai_pada: now,
+      // Simpan ke kolom JSON lampiran_freelancer di tabel pesanan sebagai array URL sederhana
+      lampiran_freelancer: freelancerAttachmentUrls,
+    });
+
+    // Catat riwayat perubahan status (work completed, waiting review)
+    await this.orderRepository.addStatusHistory({
+      pesanan_id: order.id,
+      from_status: fromStatus,
+      to_status: 'menunggu_review',
+      changed_by_user_id: userId,
+      changed_by_role: 'freelancer',
+      reason: 'Freelancer menandai order selesai dan mengirim hasil ke client',
+      metadata: catatanFreelancer
+        ? {
+            note_for_client: catatanFreelancer,
+          }
+        : null,
     });
 
     return updatedOrder;

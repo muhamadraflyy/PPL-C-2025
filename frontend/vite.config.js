@@ -21,6 +21,7 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       port: 3000, // ubah port default ke 3000
+      strictPort: true, // jangan auto-switch ke port lain, fail kalau port sudah dipakai
       host: true, // allow external access
       allowedHosts: ['ppl.vinmedia.my.id', '.vinmedia.my.id'], // allow cloudflare tunnel domain
       hmr: useSecureWebSocket ? {
@@ -35,7 +36,7 @@ export default defineConfig(({ mode }) => {
       // Proxy API requests to bypass CORS issues in development
       proxy: {
         '/api': {
-          target: 'http://localhost:5002',
+          target: 'http://localhost:5000',
           changeOrigin: true,
           secure: false
         }
