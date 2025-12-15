@@ -823,7 +823,7 @@ class ReportGenerator {
         // ===== FOOTER =====
         const pages = doc.bufferedPageRange();
         for (let i = 0; i < pages.count; i++) {
-          doc.switchToPage(i);
+          doc.switchToPage(pages.start + i);
           doc.fontSize(8).font('Helvetica').text(
             `SkillConnect - Halaman ${i + 1} dari ${pages.count}`,
             0,
