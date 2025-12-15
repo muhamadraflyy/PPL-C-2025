@@ -8,32 +8,43 @@ module.exports = {
     try {
       console.log('🔧 Adding delivery status tracking to pesan table...');
 
-      // Add status column (sent, delivered, read)
-      await queryInterface.addColumn(
-        'pesan',
-        'status',
-        {
-          type: Sequelize.ENUM('sent', 'delivered', 'read'),
-          allowNull: false,
-          defaultValue: 'sent',
-          comment: 'Message delivery status'
-        },
-        { transaction }
-      );
-      console.log('✅ Added status column');
+      // Check if status column exists
+      const tableInfo = await queryInterface.describeTable('pesan');
 
-      // Add terkirim_pada (delivered_at timestamp)
-      await queryInterface.addColumn(
-        'pesan',
-        'terkirim_pada',
-        {
-          type: Sequelize.DATE,
-          allowNull: true,
-          comment: 'Timestamp when message was delivered'
-        },
-        { transaction }
-      );
-      console.log('✅ Added terkirim_pada column');
+      // Add status column (sent, delivered, read) - skip if exists
+      if (!tableInfo.status) {
+        await queryInterface.addColumn(
+          'pesan',
+          'status',
+          {
+            type: Sequelize.ENUM('sent', 'delivered', 'read'),
+            allowNull: false,
+            defaultValue: 'sent',
+            comment: 'Message delivery status'
+          },
+          { transaction }
+        );
+        console.log('✅ Added status column');
+      } else {
+        console.log('ℹ️  status column already exists (skipping)');
+      }
+
+      // Add terkirim_pada (delivered_at timestamp) - skip if exists
+      if (!tableInfo.terkirim_pada) {
+        await queryInterface.addColumn(
+          'pesan',
+          'terkirim_pada',
+          {
+            type: Sequelize.DATE,
+            allowNull: true,
+            comment: 'Timestamp when message was delivered'
+          },
+          { transaction }
+        );
+        console.log('✅ Added terkirim_pada column');
+      } else {
+        console.log('ℹ️  terkirim_pada column already exists (skipping)');
+      }
 
       // Update existing messages to have appropriate status
       await queryInterface.sequelize.query(

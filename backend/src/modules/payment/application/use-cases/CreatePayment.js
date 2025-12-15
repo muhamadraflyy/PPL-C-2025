@@ -122,7 +122,26 @@ class CreatePayment {
       payment_id: paymentRecord.id,
       transaction_id: paymentRecord.transaction_id,
       payment_url: paymentRecord.payment_url,
+      // Breakdown lengkap untuk frontend
+      jumlah: parseFloat(paymentRecord.jumlah),
+      biaya_platform: parseFloat(paymentRecord.biaya_platform),
+      biaya_payment_gateway: parseFloat(paymentRecord.biaya_payment_gateway),
       total_bayar: parseFloat(paymentRecord.total_bayar),
+      // Fee info untuk display
+      breakdown: {
+        harga_layanan: parseFloat(paymentRecord.jumlah),
+        fee_platform: {
+          amount: parseFloat(paymentRecord.biaya_platform),
+          percentage: '5%',
+          label: 'Biaya Platform SkillConnect'
+        },
+        fee_gateway: {
+          amount: parseFloat(paymentRecord.biaya_payment_gateway),
+          percentage: '1%',
+          label: 'Biaya Payment Gateway (Midtrans)'
+        },
+        total: parseFloat(paymentRecord.total_bayar)
+      },
       status: paymentRecord.status,
       expires_at: paymentRecord.kadaluarsa_pada,
       payment_instructions: gatewayResponse.payment_instructions || gatewayResponse.instructions

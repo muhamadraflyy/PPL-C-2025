@@ -20,10 +20,10 @@ function RecommendationCard({ service, onClick, onRemove, onFavoriteToggle }) {
           e.stopPropagation();
           onRemove(service);
         }}
-        className="absolute -top-2 -right-2 z-20 w-8 h-8 rounded-full bg-white border-2 border-neutral-200 flex items-center justify-center hover:bg-red-50 hover:border-red-400 transition-all duration-200 shadow-lg"
-        aria-label="Hapus dari rekomendasi"
+        className="absolute -top-2 -right-2 z-20 w-8 h-8 rounded-full bg-white border-2 border-neutral-200 flex items-center justify-center hover:bg-[#D8E3F3] hover:border-[#4782BE] transition-all duration-200 shadow-lg"
+        aria-label="Sembunyikan dari rekomendasi"
       >
-        <i className="fas fa-times text-neutral-600 hover:text-red-500 text-sm" />
+        <i className="fas fa-eye-slash text-neutral-600 hover:text-[#4782BE] text-sm" />
       </button>
 
       {/* Service Card */}
