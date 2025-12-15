@@ -13,8 +13,8 @@ export function validatePassword(value) {
   return ''
 }
 
-export function validateName(value, label = 'This field') {
-  if (!value) return `${label} is required`
+export function validateName(value, label = 'Field ini') {
+  if (!value) return `${label} wajib diisi`
   return ''
 }
 
