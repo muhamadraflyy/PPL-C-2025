@@ -112,6 +112,61 @@ const normalizeImages = (gambarRaw, thumbnail) => {
 };
 
 // ========================
+// Helpers portfolio (preserve metadata)
+// ========================
+const normalizePortfolioItems = (raw) => {
+  let items = [];
+
+  if (Array.isArray(raw)) {
+    items = raw;
+  } else if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (trimmed) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          items = parsed;
+        } else if (parsed && typeof parsed === "object") {
+          items = Object.values(parsed);
+        } else {
+          items = [trimmed];
+        }
+      } catch {
+        items = [trimmed];
+      }
+    }
+  } else if (raw && typeof raw === "object") {
+    items = Object.values(raw);
+  }
+
+  return (items || [])
+    .map((item) => {
+      if (!item) return null;
+
+      // string path/url
+      if (typeof item === "string") {
+        const u = item.trim();
+        if (!u) return null;
+        return { url: buildMediaUrl(u) };
+      }
+
+      if (typeof item === "object") {
+        const u = extractUrlFromItem(item);
+        if (!u) return null;
+        return {
+          ...item,
+          url: buildMediaUrl(u),
+          judul: item.judul || item.title || item.nama || "",
+          deskripsi: item.deskripsi || item.description || "",
+        };
+      }
+
+      return null;
+    })
+    .filter(Boolean);
+};
+
+// ========================
 // Mapping backend -> UI
 // ========================
 const mapServiceToFrontend = (backendService) => {
@@ -135,6 +190,8 @@ const mapServiceToFrontend = (backendService) => {
 
   const kategori = backendService.kategori || {};
   const freelancer = backendService.freelancer || {};
+  const freelancerProfile =
+    freelancer.profil_freelancer || freelancer.freelancerProfile || {};
 
   const kategoriNama =
     kategori.nama ||
@@ -182,6 +239,12 @@ const mapServiceToFrontend = (backendService) => {
   const freelancerAbout =
     freelancer.deskripsi_lengkap || freelancer.bio || freelancer.about || null;
 
+  // 🎯 portfolio freelancer: ambil dari profil freelancer (file_portfolio) tanpa fallback
+  // Simpan metadata (judul/deskripsi) biar bisa ditampilkan di modal.
+  const freelancerPortfolio = normalizePortfolioItems(
+    freelancerProfile.file_portfolio || freelancer.file_portfolio
+  );
+
   const freelancerProjectCompleted =
     freelancer.total_pekerjaan_selesai ||
     freelancer.total_project_selesai ||
@@ -220,6 +283,7 @@ const mapServiceToFrontend = (backendService) => {
       role: freelancerRole,
       about: freelancerAbout || "Freelancer profesional",
       projectCompleted: freelancerProjectCompleted,
+      portfolio: freelancerPortfolio,
     },
     rating: backendService.rating_rata_rata || 0,
     reviewCount: backendService.jumlah_rating || 0,

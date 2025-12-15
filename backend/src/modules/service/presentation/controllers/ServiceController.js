@@ -225,31 +225,8 @@ class ServiceController {
           .json({ status: "error", message: "Service not found" });
       }
 
-      // 2. Ambil data freelancer dari tabel users
-      let freelancer = null;
-      if (svc.freelancer_id) {
-        try {
-          const [rows] = await repo.sequelize.query(
-            `
-            SELECT *
-            FROM users
-            WHERE id = ?
-            LIMIT 1
-          `,
-            { replacements: [svc.freelancer_id] }
-          );
-          const row = Array.isArray(rows) ? rows[0] : rows;
-          if (row) {
-            freelancer = row;
-          }
-        } catch (e) {
-          console.error(
-            "[ServiceController] Failed to load freelancer for service slug",
-            slug,
-            e.message
-          );
-        }
-      }
+      // 2. Data freelancer sudah di-embed oleh repository (SequelizeServiceRepository.findBySlug)
+      const freelancer = svc.freelancer || null;
 
       // 3. Bentuk payload final (kategori + freelancer dimasukkan)
       const payload = {
