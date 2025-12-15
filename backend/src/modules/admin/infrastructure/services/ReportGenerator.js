@@ -41,7 +41,7 @@ class ReportGenerator {
       if (format === 'csv') {
         return await this.generateCSV(data, reportType);
       } else if (format === 'pdf') {
-        return await this.generatePDF(data, reportType);
+        return await this.generatePDF(data, reportType, filters);
       } else if (format === 'excel') {
         return await this.generateExcel(data, reportType);
       } else {
@@ -287,15 +287,79 @@ class ReportGenerator {
 
   async getOrderReport(filters) {
     try {
-      let query = 'SELECT id, nomor_pesanan, judul, status, harga, created_at FROM pesanan WHERE 1=1';
+      // Query lengkap dengan payment data + fees
+      let query = `
+        SELECT
+          pes.nomor_pesanan as 'No. Order',
+          pes.judul as 'Judul',
+          CONCAT(COALESCE(client.nama_depan, ''), ' ', COALESCE(client.nama_belakang, '')) as 'Klien',
+          CONCAT(COALESCE(freelancer.nama_depan, ''), ' ', COALESCE(freelancer.nama_belakang, '')) as 'Freelancer',
+          COALESCE(p.jumlah, pes.harga, 0) as 'Harga Order',
+          COALESCE(p.biaya_platform, pes.harga * 0.05, 0) as 'Biaya Platform (5%)',
+          COALESCE(p.biaya_payment_gateway, pes.harga * 0.01, 0) as 'Biaya Gateway (1%)',
+          COALESCE(p.total_bayar, pes.harga, 0) as 'Total Bayar',
+          CASE
+            WHEN pes.status = 'menunggu_pembayaran' THEN 'Menunggu Pembayaran'
+            WHEN pes.status = 'dibayar' THEN 'Dibayar'
+            WHEN pes.status = 'dikerjakan' THEN 'Dikerjakan'
+            WHEN pes.status = 'selesai' THEN 'Selesai'
+            WHEN pes.status = 'dibatalkan' THEN 'Dibatalkan'
+            ELSE pes.status
+          END as 'Status',
+          p.transaction_id as 'Transaction ID',
+          CASE
+            WHEN p.metode_pembayaran = 'qris' THEN 'QRIS'
+            WHEN p.metode_pembayaran = 'virtual_account' THEN 'Virtual Account'
+            WHEN p.metode_pembayaran = 'e_wallet' THEN 'E-Wallet'
+            WHEN p.metode_pembayaran = 'transfer_bank' THEN 'Transfer Bank'
+            WHEN p.metode_pembayaran = 'kartu_kredit' THEN 'Kartu Kredit'
+            ELSE p.metode_pembayaran
+          END as 'Metode Pembayaran',
+          CASE
+            WHEN p.status = 'berhasil' THEN 'Berhasil'
+            WHEN p.status = 'menunggu' THEN 'Menunggu'
+            WHEN p.status = 'gagal' THEN 'Gagal'
+            WHEN p.status = 'kadaluarsa' THEN 'Kadaluarsa'
+            ELSE p.status
+          END as 'Status Pembayaran',
+          DATE_FORMAT(pes.created_at, '%d/%m/%Y %H:%i') as 'Tanggal Dibuat',
+          DATE_FORMAT(p.created_at, '%d/%m/%Y %H:%i') as 'Tanggal Pembayaran'
+        FROM pesanan pes
+        LEFT JOIN pembayaran p ON pes.id = p.pesanan_id
+        LEFT JOIN users client ON pes.client_id = client.id
+        LEFT JOIN layanan l ON pes.layanan_id = l.id
+        LEFT JOIN users freelancer ON l.freelancer_id = freelancer.id
+        WHERE 1=1
+      `;
+
       const replacements = [];
 
-      if (filters?.status) {
-        query += ' AND status = ?';
+      // Filter by order status
+      if (filters?.status && filters.status !== 'all') {
+        query += ' AND pes.status = ?';
         replacements.push(filters.status);
       }
 
-      query += ' ORDER BY created_at DESC LIMIT 1000';
+      // Filter by payment status
+      if (filters?.paymentStatus && filters.paymentStatus !== 'all') {
+        query += ' AND p.status = ?';
+        replacements.push(filters.paymentStatus);
+      }
+
+      // Filter by date range
+      if (filters?.startDate && filters?.endDate) {
+        query += ' AND pes.created_at BETWEEN ? AND ?';
+        replacements.push(filters.startDate, filters.endDate);
+      }
+
+      // Filter by search (order number or title)
+      if (filters?.search) {
+        query += ' AND (pes.nomor_pesanan LIKE ? OR pes.judul LIKE ?)';
+        replacements.push(`%${filters.search}%`, `%${filters.search}%`);
+      }
+
+      // Order by latest first, NO LIMIT - export ALL data
+      query += ' ORDER BY pes.created_at DESC';
 
       const data = await this.sequelize.query(query, {
         replacements,
@@ -415,11 +479,15 @@ class ReportGenerator {
     }
   }
 
-  async generatePDF(data, reportType) {
+  async generatePDF(data, reportType, filters = {}) {
     return new Promise((resolve, reject) => {
       try {
-        const doc = new PDFDocument({ margin: 50, size: 'A4' });
-        const filename = `report_${reportType}_${Date.now()}.pdf`;
+        const doc = new PDFDocument({
+          margin: 40,
+          size: 'A4',
+          layout: 'landscape' // Landscape untuk lebih banyak kolom
+        });
+        const filename = `transaksi_${new Date().toISOString().split('T')[0]}.pdf`;
         const filepath = path.join(this.reportsDir, filename);
         const stream = fs.createWriteStream(filepath);
 
@@ -428,31 +496,91 @@ class ReportGenerator {
 
         doc.pipe(stream);
 
-        // Header
-        doc.fontSize(20).font('Helvetica-Bold').text(
-          `Laporan ${reportType === 'users' ? 'Pengguna' : reportType === 'services' ? 'Layanan' : reportType}`,
-          50,
-          50
+        // ===== HEADER SECTION =====
+        // Logo/Brand (opsional - bisa ditambahin logo)
+        doc.fontSize(24).font('Helvetica-Bold').text('SkillConnect', 40, 30);
+        doc.fontSize(10).font('Helvetica').text('Platform Freelance Terpercaya', 40, 58);
+
+        // Report Title
+        const reportTitle = reportType === 'users' ? 'Daftar Pengguna'
+          : reportType === 'services' ? 'Daftar Layanan'
+          : reportType === 'orders' ? 'Daftar Transaksi'
+          : reportType === 'revenue' ? 'Laporan Revenue'
+          : reportType;
+
+        doc.fontSize(18).font('Helvetica-Bold').text(
+          `Laporan ${reportTitle}`,
+          40,
+          90
         );
-        doc.fontSize(10).font('Helvetica').text(
-          `Dibuat pada: ${new Date().toLocaleString('id-ID')}`,
-          50,
-          80
-        );
-        doc.fontSize(10).text(`Total Data: ${data.length}`, 50, 95);
-        
-        // Draw line
-        doc.moveTo(50, 110).lineTo(545, 110).stroke();
+
+        // Date & Summary Info
+        const today = new Date().toLocaleDateString('id-ID', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+        doc.fontSize(9).font('Helvetica').text(`Tanggal: ${today}`, 40, 115);
+        doc.fontSize(9).font('Helvetica-Bold').text(`Total Data: ${data.length} transaksi`, 40, 128);
+
+        // ===== FILTER INFO SECTION =====
+        let filterY = 141;
+        if (filters && Object.keys(filters).length > 0) {
+          const filterTexts = [];
+
+          if (filters.status && filters.status !== 'all') {
+            const statusLabel = filters.status === 'menunggu_pembayaran' ? 'Menunggu Pembayaran'
+              : filters.status === 'dibayar' ? 'Dibayar'
+              : filters.status === 'dikerjakan' ? 'Dikerjakan'
+              : filters.status === 'selesai' ? 'Selesai'
+              : filters.status === 'dibatalkan' ? 'Dibatalkan'
+              : filters.status;
+            filterTexts.push(`Status: ${statusLabel}`);
+          }
+
+          if (filters.paymentStatus && filters.paymentStatus !== 'all') {
+            const paymentLabel = filters.paymentStatus === 'berhasil' ? 'Berhasil'
+              : filters.paymentStatus === 'menunggu' ? 'Menunggu'
+              : filters.paymentStatus === 'gagal' ? 'Gagal'
+              : filters.paymentStatus === 'kadaluarsa' ? 'Kadaluarsa'
+              : filters.paymentStatus;
+            filterTexts.push(`Pembayaran: ${paymentLabel}`);
+          }
+
+          if (filters.startDate && filters.endDate) {
+            const startDate = new Date(filters.startDate).toLocaleDateString('id-ID');
+            const endDate = new Date(filters.endDate).toLocaleDateString('id-ID');
+            filterTexts.push(`Periode: ${startDate} - ${endDate}`);
+          }
+
+          if (filters.search) {
+            filterTexts.push(`Pencarian: "${filters.search}"`);
+          }
+
+          if (filterTexts.length > 0) {
+            doc.fontSize(8).font('Helvetica').fillColor('#666666').text(
+              `Filter: ${filterTexts.join(' | ')}`,
+              40,
+              filterY
+            );
+            filterY += 13;
+            doc.fillColor('#000000'); // Reset color
+          }
+        }
+
+        // Draw separator line
+        doc.moveTo(40, filterY).lineTo(800, filterY).stroke();
 
         if (data && data.length > 0) {
           const columns = Object.keys(data[0]);
           const columnWidths = this.calculateColumnWidths(columns, data, doc);
-          let startY = 130;
+          let startY = 160; // More space after header
           const rowHeight = 20;
-          const pageHeight = 750;
+          const pageHeight = 550; // Landscape height
           let currentY = startY;
-          const tableStartX = 50;
-          const tableEndX = 545;
+          const tableStartX = 40;
+          const tableEndX = 802; // Landscape width - margin
 
           // Draw table with borders for each cell
           const drawTableWithBorders = (startYPos, isHeader = false, rowData = null) => {
@@ -537,6 +665,171 @@ class ReportGenerator {
             drawTableWithBorders(currentY, false, row);
             currentY += rowHeight;
           });
+
+          // ===== SUMMARY SECTION (for orders/transactions report) =====
+          if (reportType === 'orders' && data.length > 0) {
+            try {
+              // Check if we need a new page for summary
+              if (currentY + 150 > pageHeight) {
+                doc.addPage();
+                currentY = 50;
+              }
+
+              currentY += 30; // Add spacing
+
+              // Draw separator line
+              doc.moveTo(tableStartX, currentY).lineTo(tableEndX, currentY).stroke();
+              currentY += 15;
+
+              // Summary Title
+              doc.fontSize(12).font('Helvetica-Bold').text('Ringkasan Laporan', tableStartX, currentY);
+              currentY += 25;
+
+              // Helper function untuk format currency Indonesian style
+              const formatCurrency = (amount) => {
+                try {
+                  const num = parseFloat(amount) || 0;
+                  // Format: Rp 1.000.000 (titik sebagai separator ribuan)
+                  return 'Rp ' + num.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                } catch (e) {
+                  return 'Rp 0';
+                }
+              };
+
+              // Calculate statistics with error handling
+              const totalTransactions = data.length;
+
+              let totalRevenue = 0;
+              let totalPlatformFee = 0;
+              let totalGatewayFee = 0;
+
+              data.forEach(row => {
+                try {
+                  // Use actual fee columns if available, otherwise calculate
+                  const hargaOrder = parseFloat(row['Harga Order'] || row['Harga'] || row['Total Bayar']) || 0;
+                  const platformFee = parseFloat(row['Biaya Platform (5%)']) || (hargaOrder * 0.05);
+                  const gatewayFee = parseFloat(row['Biaya Gateway (1%)']) || (hargaOrder * 0.01);
+
+                  totalRevenue += hargaOrder;
+                  totalPlatformFee += platformFee;
+                  totalGatewayFee += gatewayFee;
+                } catch (e) {
+                  console.error('Error calculating revenue for row:', e);
+                }
+              });
+
+              // Count by status
+              const statusCount = {};
+              data.forEach(row => {
+                try {
+                  const status = row['Status'] || 'Unknown';
+                  statusCount[status] = (statusCount[status] || 0) + 1;
+                } catch (e) {
+                  console.error('Error counting status:', e);
+                }
+              });
+
+              // Count by payment status
+              const paymentStatusCount = {};
+              data.forEach(row => {
+                try {
+                  const paymentStatus = row['Status Pembayaran'] || 'Belum Bayar';
+                  paymentStatusCount[paymentStatus] = (paymentStatusCount[paymentStatus] || 0) + 1;
+                } catch (e) {
+                  console.error('Error counting payment status:', e);
+                }
+              });
+
+              // Display summary
+              doc.fontSize(10).font('Helvetica');
+
+              // Total Transactions
+              doc.text(`Total Transaksi: ${totalTransactions}`, tableStartX, currentY);
+              currentY += 18;
+
+              // Total Revenue
+              doc.text(`Total Revenue: ${formatCurrency(totalRevenue)}`, tableStartX, currentY);
+              currentY += 15;
+
+              // Platform Fee (Biaya Operasional Website - 5%)
+              doc.fontSize(9).fillColor('#666666').text(
+                `  Biaya Operasional Website (5%): ${formatCurrency(totalPlatformFee)}`,
+                tableStartX,
+                currentY
+              );
+              currentY += 15;
+
+              // Gateway Fee (Biaya Midtrans - 1%)
+              doc.text(
+                `  Biaya Payment Gateway Midtrans (1%): ${formatCurrency(totalGatewayFee)}`,
+                tableStartX,
+                currentY
+              );
+              currentY += 15;
+
+              // Net Revenue
+              const netRevenue = totalRevenue - totalPlatformFee - totalGatewayFee;
+              doc.fontSize(10).fillColor('#000000').font('Helvetica-Bold').text(
+                `Net Revenue (setelah biaya): ${formatCurrency(netRevenue)}`,
+                tableStartX,
+                currentY
+              );
+              currentY += 20;
+
+              // Status Breakdown
+              doc.font('Helvetica-Bold').text('Breakdown Status Order:', tableStartX, currentY);
+              currentY += 15;
+              doc.font('Helvetica').fontSize(9);
+              Object.entries(statusCount).forEach(([status, count]) => {
+                try {
+                  const percentage = ((count/totalTransactions)*100).toFixed(1);
+                  doc.text(`  • ${status}: ${count} transaksi (${percentage}%)`, tableStartX, currentY);
+                  currentY += 14;
+                } catch (e) {
+                  console.error('Error displaying status:', e);
+                }
+              });
+
+              currentY += 5;
+
+              // Payment Status Breakdown
+              doc.fontSize(10).font('Helvetica-Bold').text('Breakdown Status Pembayaran:', tableStartX, currentY);
+              currentY += 15;
+              doc.font('Helvetica').fontSize(9);
+              Object.entries(paymentStatusCount).forEach(([status, count]) => {
+                try {
+                  const percentage = ((count/totalTransactions)*100).toFixed(1);
+                  doc.text(`  • ${status}: ${count} transaksi (${percentage}%)`, tableStartX, currentY);
+                  currentY += 14;
+                } catch (e) {
+                  console.error('Error displaying payment status:', e);
+                }
+              });
+
+              doc.fillColor('#000000'); // Reset color
+            } catch (summaryError) {
+              console.error('Error generating summary section:', summaryError);
+              // Continue without summary if error occurs
+              doc.fontSize(10).font('Helvetica').fillColor('#FF0000').text(
+                'Error: Tidak dapat membuat ringkasan',
+                tableStartX,
+                currentY
+              );
+              doc.fillColor('#000000');
+            }
+          }
+        }
+
+        // ===== FOOTER =====
+        const pages = doc.bufferedPageRange();
+        for (let i = 0; i < pages.count; i++) {
+          doc.switchToPage(i);
+          doc.fontSize(8).font('Helvetica').text(
+            `SkillConnect - Halaman ${i + 1} dari ${pages.count}`,
+            0,
+            doc.page.height - 30,
+            { align: 'center' }
+          );
         }
 
         doc.end();
@@ -556,9 +849,10 @@ class ReportGenerator {
   }
 
   calculateColumnWidths(columns, data, doc) {
-    const totalWidth = 495; // 545 - 50 (margins)
-    const minWidth = 60;
-    const maxWidth = 150;
+    // Landscape A4: 842pt width, minus margins (40 * 2)
+    const totalWidth = 762; // 842 - 80 (margins)
+    const minWidth = 70;
+    const maxWidth = 180;
     
     // Calculate width for each column based on content
     const widths = columns.map(col => {
