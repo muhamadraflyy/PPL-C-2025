@@ -44,10 +44,10 @@ class CreatePayment {
     // 2. Generate transaction ID
     const transaction_id = this.generateTransactionId();
 
-    // 3. Calculate fees
-    const biaya_platform = jumlah * 0.05; // 5% platform fee
-    const biaya_payment_gateway = jumlah * 0.01; // 1% gateway fee
-    const total_bayar = parseFloat(jumlah) + biaya_platform + biaya_payment_gateway;
+    // 3. Calculate fees (rounded to avoid decimals in Rupiah)
+    const biaya_platform = Math.round(jumlah * 0.05); // 5% platform fee
+    const biaya_payment_gateway = Math.round(jumlah * 0.01); // 1% gateway fee
+    const total_bayar = Math.round(parseFloat(jumlah) + biaya_platform + biaya_payment_gateway);
 
     // 4. Create payment entity
     const payment = new Payment({

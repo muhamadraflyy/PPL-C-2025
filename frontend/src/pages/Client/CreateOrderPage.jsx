@@ -109,8 +109,8 @@ const CreateOrderPage = () => {
 
       if (response.success && response.data) {
         const order = response.data
-        // Redirect ke halaman pembayaran
-        navigate(`/payment/${order.id}?amount=${order.total_bayar}&description=${encodeURIComponent(order.judul)}`)
+        // Redirect ke halaman pembayaran dengan harga dasar (backend akan hitung fee lagi)
+        navigate(`/payment/${order.id}?amount=${order.harga}&description=${encodeURIComponent(order.judul)}`)
       } else {
         setError(response.message || 'Gagal membuat order')
         setLoading(false)
@@ -302,10 +302,19 @@ const CreateOrderPage = () => {
                 <div className="flex justify-between text-sm">
                   <span className="text-neutral-600 flex items-center gap-2">
                     <i className="fas fa-percentage text-[#4782BE] text-xs"></i>
-                    Biaya platform (6%)
+                    Biaya platform (5%)
                   </span>
                   <span className="font-semibold text-neutral-900">
-                    {formatRupiah(Number(service?.harga || 0) * 0.06)}
+                    {formatRupiah(Math.round(Number(service?.harga || 0) * 0.05))}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-neutral-600 flex items-center gap-2">
+                    <i className="fas fa-credit-card text-[#4782BE] text-xs"></i>
+                    Biaya payment gateway (1%)
+                  </span>
+                  <span className="font-semibold text-neutral-900">
+                    {formatRupiah(Math.round(Number(service?.harga || 0) * 0.01))}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
@@ -332,7 +341,7 @@ const CreateOrderPage = () => {
                 <div className="flex justify-between mb-6">
                   <span className="font-bold text-neutral-900 text-lg">Total Pembayaran</span>
                   <span className="text-2xl font-bold bg-gradient-to-r from-[#4782BE] to-[#1D375B] bg-clip-text text-transparent">
-                    {formatRupiah(Number(service?.harga || 0) + Number(service?.harga || 0) * 0.06)}
+                    {formatRupiah(Math.round(Number(service?.harga || 0) * 1.06))}
                   </span>
                 </div>
 

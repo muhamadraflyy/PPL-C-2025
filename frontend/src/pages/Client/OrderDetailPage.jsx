@@ -749,7 +749,7 @@ const OrderDetailPage = () => {
                   Silakan lakukan pembayaran untuk memproses pesanan Anda.
                 </p>
                 <button
-                  onClick={() => navigate(`/payment/${order.id}?amount=${order.total_bayar}&description=${encodeURIComponent(order.judul)}`)}
+                  onClick={() => navigate(`/payment/${order.id}?amount=${order.harga}&description=${encodeURIComponent(order.judul)}`)}
                   className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
                 >
                   Bayar Sekarang
