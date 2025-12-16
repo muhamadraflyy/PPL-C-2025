@@ -52,7 +52,13 @@ export default function OrderCard({
   status, 
   onOrder,
   onContact,
-  onReview 
+  onReview,
+  // Bookmark props
+  serviceId,
+  isBookmarked = false,
+  onBookmarkClick,
+  isClient = false,
+  isBookmarkLoading = false,
 }) {
   const safeRating = Number.isFinite(Number(rating)) ? Number(rating) : 0;
   const safeReviews = Number.isFinite(Number(reviewCount)) ? Number(reviewCount) : 0;
@@ -62,9 +68,33 @@ export default function OrderCard({
   const isCompleted = status?.toLowerCase() === 'selesai';
 
   return (
-    <aside className="rounded-2xl border border-neutral-200 bg-white p-4 sm:p-5 shadow-sm">
+    <aside className="rounded-2xl border border-neutral-200 bg-white p-4 sm:p-5 shadow-sm relative">
+      {/* Bookmark Button - Pojok Kanan Atas */}
+      {isClient && serviceId && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onBookmarkClick) onBookmarkClick(e);
+          }}
+          disabled={isBookmarkLoading}
+          className="absolute right-4 top-4 z-10 rounded-full bg-white p-2.5 shadow-md hover:bg-neutral-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed border border-neutral-200"
+          aria-label={isBookmarked ? "Hapus dari bookmark" : "Tambah ke bookmark"}
+        >
+          {isBookmarkLoading ? (
+            <i className="fas fa-spinner fa-spin text-neutral-600 text-lg"></i>
+          ) : (
+            <i
+              className={`${isBookmarked ? "fas" : "far"} fa-bookmark ${
+                isBookmarked ? "text-[#4782BE]" : "text-neutral-600"
+              } text-lg`}
+            />
+          )}
+        </button>
+      )}
+
       {/* Header harga */}
-      <div className="mb-3">
+      <div className="mb-3 pr-12">
         <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Harga</p>
         <p className="mt-1 text-2xl font-semibold text-[#2563EB]">
           Rp. {Number(price || 0).toLocaleString("id-ID")}
