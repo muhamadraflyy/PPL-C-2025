@@ -6,15 +6,15 @@
 const express = require('express');
 const router = express.Router();
 const PlatformConfigController = require('../controllers/PlatformConfigController');
-const { authenticate } = require('../../../auth/middleware/authMiddleware');
-const { authorize } = require('../../../auth/middleware/roleMiddleware');
+const authMiddleware = require('../../../../shared/middleware/authMiddleware');
+const adminMiddleware = require('../../../../shared/middleware/adminMiddleware');
 
 // Public endpoint - Get payment fees
 router.get('/fees', PlatformConfigController.getPaymentFees);
 
 // Admin only routes
-router.use(authenticate);
-router.use(authorize('admin'));
+router.use(authMiddleware);
+router.use(adminMiddleware);
 
 // Get all configurations
 router.get('/', PlatformConfigController.getAllConfigs);
