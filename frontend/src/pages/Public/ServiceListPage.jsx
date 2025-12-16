@@ -102,6 +102,14 @@ const mapServiceToFrontend = (backendService) => {
     backendService.favoriteCount ??
     0;
 
+  // Extract freelancer avatar
+  const freelancer = backendService.freelancer || {};
+  const freelancerAvatarRaw =
+    freelancer.avatar ||
+    backendService.freelancer_avatar ||
+    backendService.avatar ||
+    null;
+
   return {
     id: backendService.id,
     slug: backendService.slug,
@@ -109,6 +117,7 @@ const mapServiceToFrontend = (backendService) => {
     category: categoryName,
     categoryId,
     freelancer: freelancerNameFromList || "Freelancer",
+    freelancerAvatar: freelancerAvatarRaw,
     rating,
     reviews,
     price,
