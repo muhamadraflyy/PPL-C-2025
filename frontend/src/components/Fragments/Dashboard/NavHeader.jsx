@@ -13,7 +13,7 @@ const ROLE_HOME = {
   freelancer: "/dashboard",
 };
 
-function ProfileDropdown({ name, email, avatarUrl, role, hasFreelancerProfile, onProfile, onDashboard, onBookmarks, onOrders, onSwitchRole, onRegisterFreelancer, onLogout }) {
+function ProfileDropdown({ name, email, avatarUrl, role, hasFreelancerProfile, onProfile, onDashboard, onFavorites, onBookmarks, onOrders, onSwitchRole, onRegisterFreelancer, onLogout }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -126,9 +126,15 @@ function ProfileDropdown({ name, email, avatarUrl, role, hasFreelancerProfile, o
             <>
               <div className="my-1 h-px bg-neutral-200" />
               <button type="button" role="menuitem" onClick={onBookmarks} className="w-full px-4 py-2.5 text-left text-sm hover:bg-neutral-50 transition-colors">
+                <i className="far fa-bookmark mr-2 text-gray-500"></i>
                 Disimpan
               </button>
+              <button type="button" role="menuitem" onClick={onFavorites} className="w-full px-4 py-2.5 text-left text-sm hover:bg-neutral-50 transition-colors">
+                <i className="far fa-heart mr-2 text-gray-500"></i>
+                Favorit
+              </button>
               <button type="button" role="menuitem" onClick={onOrders} className="w-full px-4 py-2.5 text-left text-sm hover:bg-neutral-50 transition-colors">
+                <i className="far fa-clock mr-2 text-gray-500"></i>
                 <span className="truncate">Riwayat Pesanan</span>
               </button>
             </>
@@ -201,7 +207,7 @@ export default function NavHeader() {
   const handleRegisterFreelancer = () => navigate("/register/freelancer");
   const handleProfile = () => navigate("/profile");
   const handleDashboard = () => navigate("/dashboard");
-
+  const handleFavorites = () => navigate("/favorit");
   const handleBookmarks = () => navigate("/bookmarks");
   const handleOrders = () => navigate("/orders");
   const handleSwitchRole = async (newRole) => {
@@ -313,6 +319,7 @@ export default function NavHeader() {
                 hasFreelancerProfile={hasFreelancerProfile}
                 onProfile={handleProfile}
                 onDashboard={handleDashboard}
+                onFavorites={handleFavorites}
                 onBookmarks={handleBookmarks}
                 onOrders={handleOrders}
                 onSwitchRole={handleSwitchRole}
