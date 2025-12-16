@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
-import { toast } from '../../components/Elements/Common/Toast';
+import { useToast } from '../../components/Fragments/Common/ToastProvider';
+import { Sidebar } from '../../components/Fragments/Admin/Sidebar';
+import { Header } from '../../components/Fragments/Admin/Header';
 
 const PlatformSettingsPage = () => {
+  const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [configs, setConfigs] = useState([]);
@@ -89,10 +92,15 @@ const PlatformSettingsPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-center py-12">
-            <i className="fas fa-spinner fa-spin text-4xl text-blue-500"></i>
+      <div className="flex h-screen bg-[#DBE2EF]">
+        <Sidebar activeMenu="platform-settings" />
+        <div className="flex-1 overflow-auto">
+          <Header />
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <div className="w-16 h-16 border-4 border-[#4782BE] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-gray-600">Memuat konfigurasi...</p>
+            </div>
           </div>
         </div>
       </div>
@@ -100,8 +108,12 @@ const PlatformSettingsPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-4xl mx-auto">
+    <div className="flex h-screen bg-[#DBE2EF]">
+      <Sidebar activeMenu="platform-settings" />
+      <div className="flex-1 overflow-auto">
+        <Header />
+        <div className="p-6">
+          <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
@@ -259,7 +271,9 @@ const PlatformSettingsPage = () => {
             </div>
           </div>
         </div>
+        </div>
       </div>
+    </div>
     </div>
   );
 };
