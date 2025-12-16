@@ -537,7 +537,7 @@ export default function ServiceCardItem({
             </div>
 
             {/* Title */}
-            <h3 className="font-bold text-xl text-neutral-900 mb-3 line-clamp-2 h-14 leading-tight group-hover:text-[#4782BE] transition-colors">
+            <h3 className="font-bold text-xl text-neutral-900 mb-3 leading-tight group-hover:text-[#4782BE] transition-colors whitespace-nowrap overflow-hidden text-ellipsis h-7">
               {service.title}
             </h3>
 

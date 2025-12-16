@@ -6,6 +6,38 @@ import Footer from '../../components/Fragments/Common/Footer'
 import ServiceCardItem from '../../components/Fragments/Service/ServiceCardItem'
 import { bookmarkService } from '../../services/bookmarkService'
 
+// ========================
+// Helper URL media (thumbnail dari backend)
+// ========================
+const buildMediaUrl = (raw) => {
+  // fallback ke asset FE
+  const fallback = "/asset/layanan/Layanan.png";
+
+  if (!raw) return fallback;
+
+  const url = String(raw).trim();
+  if (!url) return fallback;
+
+  // Sudah absolute URL
+  if (/^https?:\/\//i.test(url)) return url;
+
+  // Asset lokal FE
+  if (url.startsWith("/asset/") || url.startsWith("/assets/")) {
+    return url;
+  }
+
+  // Base URL backend
+  const apiBase = import.meta.env.VITE_API_BASE_URL || "";
+  const backendBase =
+    apiBase.replace(/\/api\/?$/, "") || "http://localhost:5000";
+
+  // Hapus leading slash & prefix public/ kalau ada
+  const cleanPath = url.replace(/^\/+/, "").replace(/^public\//, "");
+
+  // Hasil akhir: http://localhost:5000/public/layanan/xxx.jpg
+  return `${backendBase}/public/${cleanPath}`;
+};
+
 const BookmarkPage = () => {
   const navigate = useNavigate()
   const [bookmarkedServices, setBookmarkedServices] = useState([])
