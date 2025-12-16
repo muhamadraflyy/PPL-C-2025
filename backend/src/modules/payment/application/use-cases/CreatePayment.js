@@ -5,6 +5,7 @@
 
 const Payment = require('../../domain/entities/Payment');
 const PaymentModel = require('../../infrastructure/models/PaymentModel');
+const PlatformConfigModel = require('../../infrastructure/models/PlatformConfigModel');
 const MockPaymentGatewayService = require('../../infrastructure/services/MockPaymentGatewayService');
 const MidtransService = require('../../infrastructure/services/MidtransService');
 const { v4: uuidv4 } = require('uuid');
@@ -44,12 +45,22 @@ class CreatePayment {
     // 2. Generate transaction ID
     const transaction_id = this.generateTransactionId();
 
-    // 3. Calculate fees (rounded to avoid decimals in Rupiah)
-    const biaya_platform = Math.round(jumlah * 0.05); // 5% platform fee
-    const biaya_payment_gateway = Math.round(jumlah * 0.01); // 1% gateway fee
+    // 3. Get fee percentages from database
+    let platformFeePercentage = 5.0; // Default fallback
+    let gatewayFeePercentage = 2.5; // Fixed/locked at 2.5%
+
+    try {
+      platformFeePercentage = await PlatformConfigModel.getConfigValue('platform_fee_percentage');
+    } catch (error) {
+      console.warn('[PAYMENT] Failed to get platform_fee_percentage from config, using default:', error.message);
+    }
+
+    // 4. Calculate fees (rounded to avoid decimals in Rupiah)
+    const biaya_platform = Math.round(jumlah * (platformFeePercentage / 100));
+    const biaya_payment_gateway = Math.round(jumlah * (gatewayFeePercentage / 100));
     const total_bayar = Math.round(parseFloat(jumlah) + biaya_platform + biaya_payment_gateway);
 
-    // 4. Create payment entity
+    // 5. Create payment entity
     const payment = new Payment({
       id: uuidv4(),
       pesanan_id,
@@ -71,7 +82,7 @@ class CreatePayment {
     // Validate payment
     payment.validate();
 
-    // 5. Create transaction via Payment Gateway (Mock or Midtrans)
+    // 6. Create transaction via Payment Gateway (Mock or Midtrans)
     const gatewayResponse = await this.paymentGateway.createTransaction({
       transaction_id,
       gross_amount: total_bayar,
@@ -94,7 +105,7 @@ class CreatePayment {
     payment.payment_url = gatewayResponse.payment_url;
     payment.external_id = gatewayResponse.external_id;
 
-    // 6. Save payment to database
+    // 7. Save payment to database
     const paymentRecord = await PaymentModel.create({
       id: payment.id,
       pesanan_id: payment.pesanan_id,
@@ -132,13 +143,13 @@ class CreatePayment {
         harga_layanan: parseFloat(paymentRecord.jumlah),
         fee_platform: {
           amount: parseFloat(paymentRecord.biaya_platform),
-          percentage: '5%',
-          label: 'Biaya Platform SkillConnect'
+          percentage: `${platformFeePercentage}%`,
+          label: 'Biaya Operasional Platform'
         },
         fee_gateway: {
           amount: parseFloat(paymentRecord.biaya_payment_gateway),
-          percentage: '1%',
-          label: 'Biaya Payment Gateway (Midtrans)'
+          percentage: `${gatewayFeePercentage}%`,
+          label: 'Biaya Payment Gateway'
         },
         total: parseFloat(paymentRecord.total_bayar)
       },

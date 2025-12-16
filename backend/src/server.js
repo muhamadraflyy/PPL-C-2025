@@ -340,7 +340,9 @@ app.use("/api/favorites", favoriteRoutes);
 
 // ===== Modul 4: Payment Gateway =====
 const paymentRoutes = require("./modules/payment/presentation/routes/paymentRoutes");
+const platformConfigRoutes = require("./modules/payment/presentation/routes/platformConfigRoutes");
 app.use("/api/payments", paymentRoutes);
+app.use("/api/platform-config", platformConfigRoutes);
 
 // ===== Modul 5: Review & Rating System (Dalam Pengembangan) =====
 const ReviewController = require("./modules/review/presentation/controllers/ReviewController");
