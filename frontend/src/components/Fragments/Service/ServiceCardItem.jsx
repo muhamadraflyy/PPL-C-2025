@@ -425,7 +425,58 @@ export default function ServiceCardItem({
     }
   };
 
-  const thumbnailSrc = service.thumbnail || "/asset/layanan/Layanan.png";
+  // Construct full URL for thumbnail - comprehensive fallback support
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return null;
+    // If already a full URL, return as is
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return imagePath;
+    }
+
+    const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/api$/, '') || 'http://localhost:5000';
+
+    // If path starts with /uploads/, prepend /public
+    if (imagePath.startsWith('/uploads/')) {
+      return `${baseUrl}/public${imagePath}`;
+    }
+
+    // If path already starts with /public/, just prepend base URL
+    if (imagePath.startsWith('/public/')) {
+      return `${baseUrl}${imagePath}`;
+    }
+
+    // If path starts with /, prepend base URL
+    if (imagePath.startsWith('/')) {
+      return `${baseUrl}${imagePath}`;
+    }
+
+    // For relative paths like "layanan/xxx.jpg", try /public/layanan/ first
+    // (many old files are stored directly in /public/layanan/)
+    return `${baseUrl}/public/${imagePath}`;
+  };
+
+  // Comprehensive fallback URLs for images with different path formats
+  const getImageFallbacks = (imagePath) => {
+    if (!imagePath || imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return [];
+    }
+    const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/api$/, '') || 'http://localhost:5000';
+    const cleanPath = imagePath.replace(/^\/+/, ''); // Remove leading slashes
+
+    // Try all possible path combinations
+    return [
+      `${baseUrl}/public/${cleanPath}`,              // Most common for old files
+      `${baseUrl}/public/uploads/${cleanPath}`,      // Most common for new files
+      `${baseUrl}/uploads/${cleanPath}`,             // Alternative structure
+      `${baseUrl}/${cleanPath}`,                     // Direct path
+    ];
+  };
+
+  const thumbnailSrc = getImageUrl(service.thumbnail) || "/asset/layanan/Layanan.png";
+  const thumbnailFallbacks = getImageFallbacks(service.thumbnail);
+
+  const freelancerAvatarSrc = getImageUrl(service.freelancerAvatar) || "/asset/default-avatar.png";
+  const avatarFallbacks = getImageFallbacks(service.freelancerAvatar);
 
   const handleCardClick = (e) => {
     // Jangan trigger onClick jika user klik favorite/bookmark button
@@ -456,6 +507,17 @@ export default function ServiceCardItem({
               src={thumbnailSrc}
               alt={service.title}
               className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+              onError={(e) => {
+                // Try fallback URLs in order
+                const currentSrc = e.target.src;
+                const nextFallback = thumbnailFallbacks.find(url => url !== currentSrc && !e.target.dataset[url]);
+                if (nextFallback) {
+                  e.target.dataset[nextFallback] = 'tried';
+                  e.target.src = nextFallback;
+                } else {
+                  e.target.src = "/asset/layanan/Layanan.png";
+                }
+              }}
             />
             {/* Category Badge */}
             <div className="absolute top-3 left-3">
@@ -482,11 +544,19 @@ export default function ServiceCardItem({
             {/* Freelancer Info */}
             <div className="flex items-center gap-2 mb-4 h-7 flex-shrink-0">
               <img
-                src={service.freelancerAvatar || "/asset/default-avatar.png"}
+                src={freelancerAvatarSrc}
                 alt={service.freelancer}
                 className="w-7 h-7 rounded-full object-cover border-2 border-neutral-200"
                 onError={(e) => {
-                  e.target.src = "/asset/default-avatar.png";
+                  // Try fallback URLs in order
+                  const currentSrc = e.target.src;
+                  const nextFallback = avatarFallbacks.find(url => url !== currentSrc && !e.target.dataset[url]);
+                  if (nextFallback) {
+                    e.target.dataset[nextFallback] = 'tried';
+                    e.target.src = nextFallback;
+                  } else {
+                    e.target.src = "/asset/default-avatar.png";
+                  }
                 }}
               />
               <span className="text-sm font-medium text-neutral-700 truncate">

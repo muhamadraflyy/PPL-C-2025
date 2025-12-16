@@ -274,12 +274,32 @@ export default function PaymentGatewayPage() {
                   </span>
                 </div>
 
-                <div className="border-t pt-3">
-                  <div className="flex justify-between">
-                    <span className="font-semibold text-gray-900">Total Pembayaran</span>
-                    <span className="font-bold text-xl text-[#4782BE]">
+                <div className="border-t pt-3 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Harga layanan</span>
+                    <span className="font-medium text-gray-900">
                       Rp {orderData.amount.toLocaleString('id-ID')}
                     </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Biaya platform (5%)</span>
+                    <span className="font-medium text-gray-900">
+                      Rp {Math.round(orderData.amount * 0.05).toLocaleString('id-ID')}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Biaya gateway (1%)</span>
+                    <span className="font-medium text-gray-900">
+                      Rp {Math.round(orderData.amount * 0.01).toLocaleString('id-ID')}
+                    </span>
+                  </div>
+                  <div className="border-t pt-2">
+                    <div className="flex justify-between">
+                      <span className="font-semibold text-gray-900">Total Pembayaran</span>
+                      <span className="font-bold text-xl text-[#4782BE]">
+                        Rp {Math.round(orderData.amount * 1.06).toLocaleString('id-ID')}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>

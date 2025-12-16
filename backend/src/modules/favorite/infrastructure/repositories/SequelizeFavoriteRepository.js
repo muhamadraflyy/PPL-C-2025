@@ -32,7 +32,8 @@ class SequelizeFavoriteRepository {
           l.jumlah_rating,
           l.jumlah_favorit,
           k.nama AS nama_kategori,
-          CONCAT(u.nama_depan, ' ', u.nama_belakang) AS freelancer_name
+          CONCAT(u.nama_depan, ' ', u.nama_belakang) AS freelancer_name,
+          u.avatar AS freelancer_avatar
         FROM favorit f
         LEFT JOIN layanan l ON l.id = f.layanan_id
         LEFT JOIN kategori k ON k.id = l.kategori_id
