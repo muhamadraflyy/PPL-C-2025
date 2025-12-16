@@ -44,6 +44,7 @@ export default function FavoritePage() {
           reviews: parseInt(fav.jumlah_rating) || 0,
           price: parseInt(fav.harga) || 0,
           thumbnail: fav.thumbnail,
+          freelancerAvatar: fav.freelancer_avatar || fav.avatar,
           favoriteCount: parseInt(fav.jumlah_favorit) || 0,
           isFavorite: true,
         }));

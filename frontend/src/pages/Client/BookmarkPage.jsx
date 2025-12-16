@@ -39,6 +39,7 @@ const BookmarkPage = () => {
           price: parseInt(bookmark.harga) || 0,
           favoriteCount: parseInt(bookmark.jumlah_favorit) || 0,
           thumbnail: bookmark.thumbnail,
+          freelancerAvatar: bookmark.freelancer_avatar || bookmark.avatar,
           isBookmarked: true,
           isSaved: true
         })).filter(s => s.id) // Filter out invalid entries
