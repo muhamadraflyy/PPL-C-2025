@@ -13,7 +13,7 @@ const OrderForm = ({ service, onSubmit, onCancel }) => {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [touched, setTouched] = useState({})
 
-  // Construct full URL for thumbnail - try multiple fallback paths
+  // Construct full URL for thumbnail - comprehensive fallback support
   const getImageUrl = (imagePath) => {
     if (!imagePath) return null;
     // If already a full URL, return as is
@@ -38,12 +38,12 @@ const OrderForm = ({ service, onSubmit, onCancel }) => {
       return `${baseUrl}${imagePath}`;
     }
 
-    // Otherwise, assume it's a relative path like "layanan/xxx.jpg"
-    // Try /public/uploads/ first (most common for new uploads)
-    return `${baseUrl}/public/uploads/${imagePath}`;
+    // For relative paths like "layanan/xxx.jpg", try /public/layanan/ first
+    // (many old files are stored directly in /public/layanan/)
+    return `${baseUrl}/public/${imagePath}`;
   };
 
-  // Fallback URLs for images with different path formats
+  // Comprehensive fallback URLs for images with different path formats
   const getImageFallbacks = (imagePath) => {
     if (!imagePath || imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
       return [];
@@ -51,9 +51,10 @@ const OrderForm = ({ service, onSubmit, onCancel }) => {
     const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/api$/, '') || 'http://localhost:5000';
     const cleanPath = imagePath.replace(/^\/+/, ''); // Remove leading slashes
 
+    // Try all possible path combinations
     return [
-      `${baseUrl}/public/uploads/${cleanPath}`,
-      `${baseUrl}/public/${cleanPath}`,
+      `${baseUrl}/public/${cleanPath}`,              // Most common for old files
+      `${baseUrl}/public/uploads/${cleanPath}`,      // Most common for new files
       `${baseUrl}/uploads/${cleanPath}`,
       `${baseUrl}/${cleanPath}`,
     ];
