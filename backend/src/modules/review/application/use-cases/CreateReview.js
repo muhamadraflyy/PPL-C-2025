@@ -23,20 +23,21 @@ class CreateReview {
   }
 
   async execute(userId, reviewData) {
-    const { pesanan_id, rating, judul, komentar, gambar = [] } = reviewData;
+    //const { pesanan_id, rating, judul, komentar, gambar = [] } = reviewData;
+    const { pesanan_id, rating, komentar } = reviewData;
 
     // --- [1] Validasi pesanan ada ---
     const order = await this.orderRepository.findById(pesanan_id);
     if (!order) throw new Error('Pesanan tidak ditemukan');
 
-    // --- [2] Pastikan status pesanan selesai ---
-    if (!['selesai', 'completed'].includes(order.status)) {
-      throw new Error('Pesanan belum selesai, tidak bisa memberi ulasan');
-    }
-
-    // --- [3] Pastikan user adalah pembeli (client) ---
+    // --- [2] Pastikan user adalah pembeli (client) ---
     if (order.client_id?.toString() !== userId.toString()) {
       throw new Error('Anda bukan pembeli dari pesanan ini');
+    }
+
+    // --- [3] Pastikan status pesanan selesai ---
+    if (!['selesai', 'completed'].includes(order.status)) {
+      throw new Error('Pesanan belum selesai, tidak bisa memberi ulasan');
     }
 
     // --- [4] Pastikan belum pernah review pesanan ini ---
@@ -48,8 +49,12 @@ class CreateReview {
       throw new Error('Rating harus antara 1 dan 5');
     }
 
+    if (!komentar || komentar.trim().length < 5) {
+      throw new Error('Komentar ulasan minimal 5 karakter');
+    }
+
     // --- [6] Moderasi teks ---
-    const moderatedTitle = this.moderationService.moderate(judul);
+    //const moderatedTitle = this.moderationService.moderate(judul);
     const moderatedComment = this.moderationService.moderate(komentar);
 
     // --- [7] Simpan review ---
@@ -59,9 +64,9 @@ class CreateReview {
       pemberi_ulasan_id: userId,
       penerima_ulasan_id: order.freelancer_id,
       rating,
-      judul: moderatedTitle,
+      //judul: moderatedTitle,
       komentar: moderatedComment,
-      gambar,
+      //gambar,
       created_at: new Date(),
       updated_at: new Date(),
     });
