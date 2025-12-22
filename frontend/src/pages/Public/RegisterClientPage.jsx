@@ -63,8 +63,8 @@ export default function RegisterClientPage() {
   const submit = async (e) => {
     e.preventDefault();
     const newErrors = {
-      firstName: validateName(form.firstName, "First name"),
-      lastName: validateName(form.lastName, "Last name"),
+      firstName: validateName(form.firstName, "Nama depan"),
+      lastName: validateName(form.lastName, "Nama belakang"),
       email: validateEmail(form.email),
       password: validatePassword(form.password),
     };

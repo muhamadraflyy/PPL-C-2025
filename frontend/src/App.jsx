@@ -55,6 +55,7 @@ import AllNotificationsPage from "./pages/Admin/AllNotificationsPage";
 import FraudReportDetailPage from "./pages/Admin/FraudReportDetailPage";
 import RecommendationMonitoringPage from "./pages/Admin/RecommendationMonitoringPage";
 import ReviewPage from "./pages/Admin/ReviewPage";
+import PlatformSettingsPage from "./pages/Admin/PlatformSettingsPage";
 
 // Payment pages
 import PaymentSuccessPage from "./pages/payment/PaymentSuccessPage";
@@ -225,6 +226,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <RecommendationMonitoringPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/platform-settings"
+        element={
+          <ProtectedRoute>
+            <PlatformSettingsPage />
           </ProtectedRoute>
         }
       />

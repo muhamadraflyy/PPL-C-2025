@@ -18,12 +18,34 @@ class UpdateReview {
       throw new Error('Tidak punya izin untuk mengubah ulasan ini');
     }
 
-    const updated = await this.reviewRepository.update(reviewId, updateData);
+    const { komentar, rating } = updateData;
 
-    // Moderation check (misal untuk deteksi kata kasar)
-    if (this.moderationService && typeof this.moderationService.checkContent === 'function') {
-      await this.moderationService.checkContent(updated);
+    if (rating < 1 || rating > 5) {
+      throw new Error('Rating harus antara 1 sampai 5');
     }
+
+    if (!komentar || komentar.trim().length < 5) {
+      throw new Error('Komentar ulasan minimal 5 karakter');
+    }
+
+    let moderatedKomentar = komentar;
+    if (
+      komentar &&
+      this.moderationService &&
+      typeof this.moderationService.moderate === 'function'
+    ) {
+      moderatedKomentar = await this.moderationService.moderate(komentar);
+    }
+
+    const payload = {
+      ...updateData,
+    };
+
+    if (moderatedKomentar !== undefined) {
+      payload.komentar = moderatedKomentar;
+    }
+    
+    const updated = await this.reviewRepository.update(reviewId, payload);
 
     return {
       success: true,

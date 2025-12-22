@@ -267,90 +267,51 @@ export default function AdminTransactionsPage() {
     }
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     try {
-      const doc = new jsPDF();
+      toast.show('Memproses export PDF...', 'info');
 
-      // Title
-      doc.setFontSize(18);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Laporan Daftar Transaksi', 14, 22);
-
-      // Subtitle with date
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Tanggal: ${new Date().toLocaleDateString('id-ID', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric'
-      })}`, 14, 30);
-
-      let startY = 36;
-      if (statusFilter !== 'all') {
-        const statusLabel = getStatusBadge(statusFilter).label;
-        doc.text(`Filter Status: ${statusLabel}`, 14, 36);
-        startY = 42;
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast.show('Session expired, please login again', 'error');
+        return;
       }
 
-      // Prepare table data
-      const tableData = filteredTransactions.map((t, idx) => [
-        idx + 1,
-        t.order_number || t.pesanan_id?.slice(0, 8) || '-',
-        t.order_title || '-',
-        t.client?.full_name || 'N/A',
-        t.freelancer?.full_name || 'N/A',
-        `Rp ${Number(t.total || 0).toLocaleString('id-ID')}`,
-        getStatusBadge(t.status).label
-      ]);
-
-      // Add table
-      autoTable(doc, {
-        startY: startY,
-        head: [['No', 'No. Order', 'Judul', 'Klien', 'Freelancer', 'Harga', 'Status']],
-        body: tableData,
-        theme: 'striped',
-        headStyles: {
-          fillColor: [71, 130, 190],
-          textColor: 255,
-          fontStyle: 'bold',
-          fontSize: 9
+      // Call backend export endpoint
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/admin/reports/export`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
-        bodyStyles: {
-          fontSize: 8
-        },
-        columnStyles: {
-          0: { cellWidth: 10 },
-          1: { cellWidth: 25 },
-          2: { cellWidth: 40 },
-          3: { cellWidth: 30 },
-          4: { cellWidth: 30 },
-          5: { cellWidth: 25 },
-          6: { cellWidth: 25 }
-        },
-        margin: { left: 14, right: 14 }
+        body: JSON.stringify({
+          reportType: 'revenue',
+          format: 'pdf',
+          filters: {
+            status: statusFilter !== 'all' ? statusFilter : null,
+            search: searchQuery || null
+          }
+        })
       });
 
-      // Footer
-      const pageCount = doc.internal.getNumberOfPages();
-      for (let i = 1; i <= pageCount; i++) {
-        doc.setPage(i);
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'normal');
-        doc.text(
-          `SkillConnect - Halaman ${i} dari ${pageCount}`,
-          doc.internal.pageSize.width / 2,
-          doc.internal.pageSize.height - 10,
-          { align: 'center' }
-        );
+      if (!response.ok) {
+        throw new Error('Failed to generate PDF');
       }
 
-      // Save PDF
-      const fileName = `transaksi_${new Date().toISOString().split('T')[0]}.pdf`;
-      doc.save(fileName);
+      // Download the PDF file
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `transaksi_${new Date().toISOString().split('T')[0]}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
 
-      toast.show('PDF berhasil diunduh', 'success');
+      toast.show('PDF berhasil diunduh (semua data)', 'success');
     } catch (err) {
-      console.error('Error generating PDF:', err);
+      console.error('Error exporting PDF:', err);
       toast.show('Gagal membuat PDF', 'error');
     }
   };

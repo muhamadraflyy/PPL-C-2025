@@ -13,6 +13,56 @@ const OrderForm = ({ service, onSubmit, onCancel }) => {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [touched, setTouched] = useState({})
 
+  // Construct full URL for thumbnail - comprehensive fallback support
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return null;
+    // If already a full URL, return as is
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return imagePath;
+    }
+
+    const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/api$/, '') || 'http://localhost:5000';
+
+    // If path starts with /uploads/, prepend /public
+    if (imagePath.startsWith('/uploads/')) {
+      return `${baseUrl}/public${imagePath}`;
+    }
+
+    // If path already starts with /public/, just prepend base URL
+    if (imagePath.startsWith('/public/')) {
+      return `${baseUrl}${imagePath}`;
+    }
+
+    // If path starts with /, prepend base URL
+    if (imagePath.startsWith('/')) {
+      return `${baseUrl}${imagePath}`;
+    }
+
+    // For relative paths like "layanan/xxx.jpg", try /public/layanan/ first
+    // (many old files are stored directly in /public/layanan/)
+    return `${baseUrl}/public/${imagePath}`;
+  };
+
+  // Comprehensive fallback URLs for images with different path formats
+  const getImageFallbacks = (imagePath) => {
+    if (!imagePath || imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return [];
+    }
+    const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/api$/, '') || 'http://localhost:5000';
+    const cleanPath = imagePath.replace(/^\/+/, ''); // Remove leading slashes
+
+    // Try all possible path combinations
+    return [
+      `${baseUrl}/public/${cleanPath}`,              // Most common for old files
+      `${baseUrl}/public/uploads/${cleanPath}`,      // Most common for new files
+      `${baseUrl}/uploads/${cleanPath}`,
+      `${baseUrl}/${cleanPath}`,
+    ];
+  };
+
+  const thumbnailSrc = getImageUrl(service.thumbnail) || "/asset/layanan/Layanan.png";
+  const thumbnailFallbacks = getImageFallbacks(service.thumbnail);
+
   // Validation logic
   const isFormValid = useMemo(() => {
     // Check if requirements field is filled and has minimum length
@@ -144,9 +194,20 @@ const OrderForm = ({ service, onSubmit, onCancel }) => {
         <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
           <div className="flex items-center space-x-4">
             <img
-              src={service.thumbnail}
+              src={thumbnailSrc}
               alt={service.title}
               className="w-16 h-16 rounded-lg object-cover"
+              onError={(e) => {
+                // Try fallback URLs in order
+                const currentSrc = e.target.src;
+                const nextFallback = thumbnailFallbacks.find(url => url !== currentSrc && !e.target.dataset[url]);
+                if (nextFallback) {
+                  e.target.dataset[nextFallback] = 'tried';
+                  e.target.src = nextFallback;
+                } else {
+                  e.target.src = "/asset/layanan/Layanan.png";
+                }
+              }}
             />
             <div className="flex-1">
               <h4 className="font-semibold text-text">{service.title}</h4>

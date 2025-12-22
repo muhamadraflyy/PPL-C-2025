@@ -28,27 +28,27 @@ function ProfileDropdown({ name, email, avatarUrl, role, hasFreelancerProfile, o
   }, []);
 
   return (
-    <div ref={ref} className="relative">
-      <button type="button" onClick={() => setOpen((v) => !v)} className="flex items-center gap-3 rounded-2xl px-2 py-1 hover:bg-neutral-100" aria-haspopup="menu" aria-expanded={open}>
+    <div ref={ref} className="relative z-10">
+      <button type="button" onClick={() => setOpen((v) => !v)} className="flex items-center gap-2 sm:gap-3 rounded-2xl px-1.5 sm:px-2 py-1 hover:bg-neutral-100" aria-haspopup="menu" aria-expanded={open}>
         <Avatar src={avatarUrl} alt={name} size="sm" />
-        <div className="hidden md:flex flex-col items-start leading-tight text-left">
-          <span className="text-sm font-semibold text-neutral-900">{name}</span>
-          <span className="text-[11px] text-neutral-500">{email}</span>
+        <div className="hidden md:flex flex-col items-start leading-tight text-left min-w-0">
+          <span className="text-sm font-semibold text-neutral-900 truncate max-w-[120px]">{name}</span>
+          <span className="text-[11px] text-neutral-500 truncate max-w-[120px]">{email}</span>
         </div>
-        <svg className={`h-4 w-4 text-neutral-600 transition ${open ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <svg className={`h-4 w-4 text-neutral-600 transition flex-shrink-0 ${open ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
         </svg>
       </button>
 
       {open && (
-        <div role="menu" className="absolute right-0 z-20 mt-2 w-56 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-lg">
+        <div role="menu" className="absolute right-0 z-50 mt-2 w-80 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xl min-w-[280px]">
           {/* Header dengan Role Badge */}
           <div className="px-4 py-3 border-b border-neutral-200 bg-neutral-50">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-semibold text-neutral-500 uppercase">Role Aktif</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${
                 role === "freelancer" 
                   ? "bg-[#E8F4FD] text-[#1D375B]" 
                   : "bg-green-100 text-green-700"
@@ -58,10 +58,10 @@ function ProfileDropdown({ name, email, avatarUrl, role, hasFreelancerProfile, o
             </div>
           </div>
 
-          <button type="button" role="menuitem" onClick={onProfile} className="w-full px-4 py-2 text-left text-sm hover:bg-neutral-50">
+          <button type="button" role="menuitem" onClick={onProfile} className="w-full px-4 py-2.5 text-left text-sm hover:bg-neutral-50 transition-colors">
             Profile
           </button>
-          <button type="button" role="menuitem" onClick={onDashboard} className="w-full px-4 py-2 text-left text-sm hover:bg-neutral-50">
+          <button type="button" role="menuitem" onClick={onDashboard} className="w-full px-4 py-2.5 text-left text-sm hover:bg-neutral-50 transition-colors">
             Dashboard
           </button>
           
@@ -75,15 +75,15 @@ function ProfileDropdown({ name, email, avatarUrl, role, hasFreelancerProfile, o
                   type="button"
                   role="menuitem"
                   onClick={() => onSwitchRole("client")}
-                  className={`w-full px-3 py-2 text-left text-sm rounded-md transition-colors flex items-center justify-between ${
+                  className={`w-full px-3 py-2.5 text-left text-sm rounded-md transition-colors flex items-center justify-between ${
                     role === "client" 
                       ? "bg-[#E8F4FD] text-[#1D375B] font-medium border border-[#9DBBDD]" 
                       : "hover:bg-neutral-50 border border-transparent"
                   }`}
                 >
-                  <span>Sebagai Klien</span>
+                  <span className="truncate">Sebagai Klien</span>
                   {role === "client" && (
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="w-4 h-4 flex-shrink-0 ml-2" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                     </svg>
                   )}
@@ -92,15 +92,15 @@ function ProfileDropdown({ name, email, avatarUrl, role, hasFreelancerProfile, o
                   type="button"
                   role="menuitem"
                   onClick={() => onSwitchRole("freelancer")}
-                  className={`w-full px-3 py-2 text-left text-sm rounded-md transition-colors flex items-center justify-between mt-1.5 ${
+                  className={`w-full px-3 py-2.5 text-left text-sm rounded-md transition-colors flex items-center justify-between mt-1.5 ${
                     role === "freelancer" 
                       ? "bg-[#E8F4FD] text-[#1D375B] font-medium border border-[#9DBBDD]" 
                       : "hover:bg-neutral-50 border border-transparent"
                   }`}
                 >
-                  <span>Sebagai Freelancer</span>
+                  <span className="truncate">Sebagai Freelancer</span>
                   {role === "freelancer" && (
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="w-4 h-4 flex-shrink-0 ml-2" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                     </svg>
                   )}
@@ -117,25 +117,31 @@ function ProfileDropdown({ name, email, avatarUrl, role, hasFreelancerProfile, o
                 type="button"
                 role="menuitem"
                 onClick={onRegisterFreelancer}
-                className="w-full px-4 py-2 text-left text-sm text-[#1D375B] hover:bg-[#E8F4FD] font-medium"
+                className="w-full px-4 py-2.5 text-left text-sm text-[#1D375B] hover:bg-[#E8F4FD] font-medium transition-colors"
               >
-                Daftar sebagai Freelancer →
+                <span className="truncate">Daftar sebagai Freelancer →</span>
               </button>
             </>
           )}
           {role === "client" && (
             <>
               <div className="my-1 h-px bg-neutral-200" />
-              <button type="button" role="menuitem" onClick={onBookmarks} className="w-full px-4 py-2 text-left text-sm hover:bg-neutral-50">
+              <button type="button" role="menuitem" onClick={onBookmarks} className="w-full px-4 py-2.5 text-left text-sm hover:bg-neutral-50 transition-colors">
+                <i className="far fa-bookmark mr-2 text-gray-500"></i>
                 Disimpan
               </button>
-              <button type="button" role="menuitem" onClick={onOrders} className="w-full px-4 py-2 text-left text-sm hover:bg-neutral-50">
-                Riwayat Pesanan
+              <button type="button" role="menuitem" onClick={onFavorites} className="w-full px-4 py-2.5 text-left text-sm hover:bg-neutral-50 transition-colors">
+                <i className="far fa-heart mr-2 text-gray-500"></i>
+                Favorit
+              </button>
+              <button type="button" role="menuitem" onClick={onOrders} className="w-full px-4 py-2.5 text-left text-sm hover:bg-neutral-50 transition-colors">
+                <i className="far fa-clock mr-2 text-gray-500"></i>
+                <span className="truncate">Riwayat Pesanan</span>
               </button>
             </>
           )}
           <div className="my-1 h-px bg-neutral-200" />
-          <button type="button" role="menuitem" onClick={onLogout} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50">
+          <button type="button" role="menuitem" onClick={onLogout} className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 transition-colors">
             Logout
           </button>
         </div>
@@ -236,12 +242,7 @@ export default function NavHeader() {
       toast.show("Gagal mengubah role", "error");
     }
   };
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    setIsLoggedIn(false);
-    navigate("/login", { replace: true });
-  };
+
 
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
@@ -262,41 +263,51 @@ export default function NavHeader() {
 
   return (
     <>
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-2 sm:gap-3 px-2 sm:px-4">
-        {/* Logo */}
-        <div className="flex items-center flex-shrink-0">
-          <a href="/" className="flex items-center" aria-label="Ke beranda">
-            <img src="/assets/logo.png" alt="SkillConnect Logo" className="h-10 sm:h-12 w-auto object-contain" />
-          </a>
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-2 sm:px-4">
+        {/* Left side - Logo and Mobile Search */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Logo */}
+          <div className="flex items-center flex-shrink-0">
+            <a href="/" className="flex items-center" aria-label="Ke beranda">
+              <img src="/assets/logo.png" alt="SkillConnect Logo" className="h-10 sm:h-12 w-auto object-contain" />
+            </a>
+          </div>
+
+          {/* Mobile search toggle - di sebelah kiri */}
+          <button type="button" onClick={() => setMobileSearchOpen((v) => !v)} className="flex sm:hidden rounded-full p-1.5 hover:bg-neutral-100 flex-shrink-0" aria-label="Buka pencarian">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="flex-shrink-0">
+              <path d="M21 21l-4.35-4.35m1.35-5.65a7 7 0 11-14 0 7 7 0 0114 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </button>
         </div>
 
-        {/* Search Bar */}
-        <div className="hidden sm:flex flex-1 justify-center px-2 md:px-4 min-w-0">
+        {/* Center - Search Bar (Desktop only) */}
+        <div className="hidden sm:flex flex-1 justify-center px-4 max-w-2xl">
           <SearchBar />
         </div>
 
-        {/* Right side - Login/Register buttons or Profile dropdown */}
-        <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 flex-shrink-0">
+        {/* Right side - Profile and buttons (always at the right edge) */}
+        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
           {loading ? (
             <div className="h-9 sm:h-10 w-20 sm:w-24 animate-pulse rounded-full bg-neutral-200" />
           ) : isLoggedIn ? (
-            <div className="flex items-center gap-2 sm:gap-3">
+            <>
               {/* Bookmark button - only for client */}
               {userRole === "client" && (
                 <button
                   onClick={handleBookmarks}
-                  className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-neutral-700 hover:bg-neutral-100 transition-colors"
+                  className="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-neutral-700 hover:bg-neutral-100 transition-colors"
                   title="Lihat Bookmark"
                 >
                   <i className="far fa-bookmark text-lg" />
-                  <span className="hidden md:inline">Disimpan</span>
+                  <span className="hidden lg:inline">Disimpan</span>
                 </button>
               )}
               {!hasFreelancerProfile && (
                 <Button
                   onClick={handleRegisterFreelancer}
                   variant="outline"
-                  className="text-xs sm:text-sm md:text-base px-3 sm:px-4 md:px-5 py-1.5 sm:py-2 md:py-2.5 whitespace-nowrap shadow-md hover:shadow-lg transition-all bg-[#E8F4FD] border-[#9DBBDD] text-[#1D375B] hover:bg-[#D8E3F3] hover:border-[#4782BE]"
+                  className="hidden sm:flex text-xs sm:text-sm md:text-base px-3 sm:px-4 md:px-5 py-1.5 sm:py-2 md:py-2.5 whitespace-nowrap shadow-md hover:shadow-lg transition-all bg-[#E8F4FD] border-[#9DBBDD] text-[#1D375B] hover:bg-[#D8E3F3] hover:border-[#4782BE]"
                 >
                   Daftar Freelancer
                 </Button>
@@ -330,9 +341,9 @@ export default function NavHeader() {
                 onRegisterFreelancer={handleRegisterFreelancer}
                 onLogout={() => setShowLogoutModal(true)}
               />
-            </div>
+            </>
           ) : (
-            <div className="flex items-center gap-3 sm:gap-4 md:gap-5">
+            <>
               <button onClick={handleLogin} className="text-sm sm:text-base text-neutral-900 hover:text-neutral-700 underline font-medium whitespace-nowrap transition-colors">
                 Masuk
               </button>
@@ -343,21 +354,14 @@ export default function NavHeader() {
               >
                 Daftar
               </Button>
-            </div>
+            </>
           )}
-
-          {/* Mobile search toggle */}
-          <button type="button" onClick={() => setMobileSearchOpen((v) => !v)} className="sm:hidden rounded-full p-1.5 sm:p-2 hover:bg-neutral-100 flex-shrink-0" aria-label="Buka pencarian">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="flex-shrink-0">
-              <path d="M21 21l-4.35-4.35m1.35-5.65a7 7 0 11-14 0 7 7 0 0114 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-          </button>
         </div>
       </div>
 
       {/* Mobile search slide-down */}
       {mobileSearchOpen && (
-        <div className="block border-t border-neutral-200 px-3 pb-3 pt-2 sm:hidden">
+        <div className="sm:hidden border-t border-neutral-200 px-3 pb-3 pt-2">
           <SearchBar />
         </div>
       )}

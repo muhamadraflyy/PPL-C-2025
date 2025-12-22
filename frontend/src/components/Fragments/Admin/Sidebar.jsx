@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  LogOut, 
-  UserPen, 
-  Wrench, 
-  ArrowLeftRight, 
-  Eye, 
-  Star, 
+import {
+  LayoutDashboard,
+  LogOut,
+  UserPen,
+  Wrench,
+  ArrowLeftRight,
+  Eye,
+  Star,
   FileText,
   TrendingUp,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Settings
 } from 'lucide-react'; 
 import Logo from '../../Elements/Navigation/Logo';
 import { NavItem } from '../Dashboard/NavItem';
@@ -62,15 +63,16 @@ export const Sidebar = ({ activeMenu = 'dashboard' }) => {
   };
 
   const menuItems = [
-    { id: 'dashboard', icon: <LayoutDashboard size={18} />, label: 'Operasional', path: '/admin/dashboardadmin'}, 
-    { id: 'users', icon: <UserPen size={18} />, label: 'Manajemen Pengguna', path: '/admin/users'}, 
+    { id: 'dashboard', icon: <LayoutDashboard size={18} />, label: 'Operasional', path: '/admin/dashboardadmin'},
+    { id: 'users', icon: <UserPen size={18} />, label: 'Manajemen Pengguna', path: '/admin/users'},
     // services will be rendered as a dropdown below
-    { id: 'services-group', icon: <Wrench size={18} />, label: 'Manajemen Layanan', path: '/admin/services', hasDropdown: true}, 
-    { id: 'transactions', icon: <ArrowLeftRight size={18} />, label: 'Daftar Transaksi', path: '/admin/transactions'}, 
-    { id: 'transaction-trends', icon: <TrendingUp size={18} />, label: 'Tren Transaksi', path: '/admin/transaction-trends'}, 
-    { id: 'reviews', icon: <Eye size={18} />, label: 'Review', path: '/admin/reviews'}, 
-    { id: 'recommendations', icon: <Star size={18} />, label: 'Rekomendasi', path: '/admin/recommendations'}, 
-    { id: 'reports', icon: <FileText size={18} />, label: 'Tinjauan Laporan', path: '/admin/reports'}, 
+    { id: 'services-group', icon: <Wrench size={18} />, label: 'Manajemen Layanan', path: '/admin/services', hasDropdown: true},
+    { id: 'transactions', icon: <ArrowLeftRight size={18} />, label: 'Daftar Transaksi', path: '/admin/transactions'},
+    { id: 'transaction-trends', icon: <TrendingUp size={18} />, label: 'Tren Transaksi', path: '/admin/transaction-trends'},
+    { id: 'reviews', icon: <Eye size={18} />, label: 'Review', path: '/admin/reviews'},
+    { id: 'recommendations', icon: <Star size={18} />, label: 'Rekomendasi', path: '/admin/recommendations'},
+    { id: 'platform-settings', icon: <Settings size={18} />, label: 'Pengaturan Platform', path: '/admin/platform-settings'},
+    { id: 'reports', icon: <FileText size={18} />, label: 'Tinjauan Laporan', path: '/admin/reports'},
   ];
 
   return (

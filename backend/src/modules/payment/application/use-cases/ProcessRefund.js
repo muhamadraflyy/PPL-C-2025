@@ -22,19 +22,14 @@ class ProcessRefund {
       }
 
       if (action === 'approve') {
-        // Approve refund
+        // Approve refund - set to 'completed'
         await refund.update({
-          status: 'disetujui',
-          disetujui_pada: new Date(),
-          catatan_admin: catatan_admin || 'Refund disetujui'
+          status: 'completed',
+          diproses_pada: new Date(),
+          selesai_pada: new Date()
         });
 
-        // Update payment status
-        const payment = await PaymentModel.findByPk(refund.pembayaran_id);
-        await payment.update({
-          status: 'refunded'
-        });
-
+        // Note: Payment status stays 'berhasil' - refund table tracks the refund
         // Release escrow if exists
         const escrow = await EscrowModel.findOne({
           where: { pembayaran_id: refund.pembayaran_id }
@@ -53,11 +48,10 @@ class ProcessRefund {
         };
 
       } else if (action === 'reject') {
-        // Reject refund
+        // Reject refund - set to 'failed'
         await refund.update({
-          status: 'ditolak',
-          ditolak_pada: new Date(),
-          catatan_admin: catatan_admin || 'Refund ditolak'
+          status: 'failed',
+          diproses_pada: new Date()
         });
 
         // Restore escrow status if exists
@@ -65,9 +59,9 @@ class ProcessRefund {
           where: { pembayaran_id: refund.pembayaran_id }
         });
 
-        if (escrow && escrow.status === 'refund_pending') {
+        if (escrow && escrow.status === 'disputed') {
           await escrow.update({
-            status: 'ditahan'
+            status: 'held'
           });
         }
 
