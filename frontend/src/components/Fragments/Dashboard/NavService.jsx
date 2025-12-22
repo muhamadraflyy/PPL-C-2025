@@ -77,11 +77,7 @@ export default function NavService() {
     { label: "Daftar sebagai Freelancer", path: "/register/freelancer" },
     { label: "Cara Mulai Jual Pekerjaan", path: "/cara-jual-pekerjaan" },
     { label: "Pembayaran", path: "/pembayaran" },
-    { label: "Jaminan Pekerjaan", path: "/jaminan-pekerjaan" },
-    { label: "Blog Informasi", path: "/blog" },
     { label: "FAQ", path: "/faq" },
-    { label: "Atur Penggunaan Data Personal", path: "/privasi-data" },
-    { label: "Produk", path: "/produk" },
   ];
 
   const tentangItems = [

@@ -9,7 +9,7 @@ import { authService } from "../../../services/authService";
 import { useToast } from "../Common/ToastProvider";
 
 const ROLE_HOME = {
-  client: "/dashboard",
+  client: "/orders",
   freelancer: "/dashboard",
 };
 
@@ -61,7 +61,7 @@ function ProfileDropdown({ name, email, avatarUrl, role, hasFreelancerProfile, o
             Profile
           </button>
           <button type="button" role="menuitem" onClick={onDashboard} className="w-full px-4 py-2.5 text-left text-sm hover:bg-neutral-50 transition-colors">
-            Dashboard
+            {role === "client" ? "Pesanan Saya" : "Dashboard"}
           </button>
           
           {/* Section Ganti Role */}
@@ -206,7 +206,7 @@ export default function NavHeader() {
   const handleRegister = () => navigate("/register/client");
   const handleRegisterFreelancer = () => navigate("/register/freelancer");
   const handleProfile = () => navigate("/profile");
-  const handleDashboard = () => navigate("/dashboard");
+  const handleDashboard = () => navigate(userRole === "client" ? "/orders" : "/dashboard");
   const handleFavorites = () => navigate("/favorit");
   const handleBookmarks = () => navigate("/bookmarks");
   const handleOrders = () => navigate("/orders");

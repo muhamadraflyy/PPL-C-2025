@@ -18,7 +18,7 @@ const OrderList = ({ orders = [], onOrderClick, onReviewClick, loading }) => {
   ]
 
   return (
-    <div>
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
       {/* Filter tabs */}
       <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
         {filterOptions.map(option => (

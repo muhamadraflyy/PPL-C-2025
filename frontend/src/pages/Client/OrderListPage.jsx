@@ -51,7 +51,7 @@ const OrderListPage = () => {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Navbar />
-      <div className="container mx-auto px-4 py-8 flex-1">
+      <div className="max-w-7xl mx-auto w-full px-4 py-8 flex-1">
         {/* Header */}
         <div className="mb-8">
           <div className="mb-4">

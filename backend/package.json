@@ -18,7 +18,8 @@
     "clean:uploads": "node scripts/clean-uploads.js",
     "migrate:fresh": "node scripts/clean-uploads.js && sequelize db:drop --config config/config.js && sequelize db:create --config config/config.js && sequelize db:migrate --config config/config.js --migrations-path src/shared/database/migrations",
     "seed": "node src/shared/database/seeders/seed.js",
-    "seed:fresh": "npm run migrate:fresh && npm run seed"
+    "seed:fresh": "npm run migrate:fresh && npm run seed",
+    "db:fresh": "node src/shared/database/fresh.js"
   },
   "keywords": [
     "marketplace",
