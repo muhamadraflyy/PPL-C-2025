@@ -3,9 +3,10 @@
  * Business logic untuk mengelola favorit user (add, remove, get)
  */
 class ManageFavoritesUseCase {
-    constructor(favoriteRepository, recommendationRepository) {
+    constructor(favoriteRepository, recommendationRepository, cacheService) {
         this.favoriteRepository = favoriteRepository;
         this.recommendationRepository = recommendationRepository;
+        this.cacheService = cacheService;
     }
 
     /**
@@ -23,7 +24,6 @@ class ManageFavoritesUseCase {
             console.log('userId:', userId);
             console.log('serviceId:', serviceId);
 
-            // Validate inputs
             if (!userId || !serviceId) {
                 console.error('Missing required fields');
                 return {
@@ -32,7 +32,6 @@ class ManageFavoritesUseCase {
                 };
             }
 
-            // Check if already favorited
             console.log('\nChecking if already favorited...');
             const isFavorite = await this.favoriteRepository.isFavorite(userId, serviceId);
 
@@ -45,12 +44,10 @@ class ManageFavoritesUseCase {
             }
             console.log('Not favorited yet');
 
-            // Add to favorites
             console.log('\nAdding to favorites table...');
             const favorite = await this.favoriteRepository.addFavorite(userId, serviceId, notes);
             console.log('Added to favorites:', favorite.id);
 
-            // Track interaction - ini akan mempengaruhi rekomendasi
             console.log('\nTracking interaction...');
             await this.recommendationRepository.trackInteraction(
                 userId,
@@ -61,6 +58,10 @@ class ManageFavoritesUseCase {
             );
             console.log('Interaction tracked');
 
+            console.log('\nClearing recommendation cache...');
+            await this.cacheService.clearCache(userId);
+            console.log('Cache cleared. Will regenerate on next request.');
+
             console.log('\n' + '='.repeat(80));
             console.log('COMPLETE');
             console.log('='.repeat(80) + '\n');
@@ -68,7 +69,8 @@ class ManageFavoritesUseCase {
             return {
                 success: true,
                 data: favorite.toJSON(),
-                message: 'Service added to favorites successfully'
+                message: 'Service added to favorites successfully. Recommendations will be updated.',
+                cacheCleared: true
             };
         } catch (error) {
             console.error('\n' + '='.repeat(80));
@@ -97,7 +99,6 @@ class ManageFavoritesUseCase {
             console.log('userId:', userId);
             console.log('serviceId:', serviceId);
 
-            // Validate inputs
             if (!userId || !serviceId) {
                 console.error('Missing required fields');
                 return {
@@ -106,7 +107,6 @@ class ManageFavoritesUseCase {
                 };
             }
 
-            // Remove from favorites
             console.log('\nRemoving from favorites table...');
             const removed = await this.favoriteRepository.removeFavorite(userId, serviceId);
 
@@ -119,7 +119,6 @@ class ManageFavoritesUseCase {
             }
             console.log('Removed from favorites');
 
-            // Track negative interaction (optional - untuk algorithm learning)
             console.log('\nTracking interaction...');
             await this.recommendationRepository.trackInteraction(
                 userId,
@@ -130,13 +129,18 @@ class ManageFavoritesUseCase {
             );
             console.log('Interaction tracked');
 
+            console.log('\nClearing recommendation cache...');
+            await this.cacheService.clearCache(userId);
+            console.log('Cache cleared. Will regenerate on next request.');
+
             console.log('\n' + '='.repeat(80));
-            console.log('UC-03 COMPLETE');
+            console.log('COMPLETE');
             console.log('='.repeat(80) + '\n');
 
             return {
                 success: true,
-                message: 'Service removed from favorites successfully'
+                message: 'Service removed from favorites successfully. Recommendations will be updated.',
+                cacheCleared: true
             };
         } catch (error) {
             console.error('\n' + '='.repeat(80));
@@ -163,7 +167,6 @@ class ManageFavoritesUseCase {
             console.log('='.repeat(80));
             console.log('userId:', userId);
 
-            // Validate input
             if (!userId) {
                 console.error('Missing userId');
                 return {
