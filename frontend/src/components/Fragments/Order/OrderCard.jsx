@@ -58,6 +58,8 @@ export default function OrderCard({
   onBookmarkClick,
   isClient = false,
   isBookmarkLoading = false,
+  // Label tombol utama (default: "Pesan Sekarang")
+  primaryLabel = 'Pesan Sekarang',
 }) {
   const safeRating = Number.isFinite(Number(rating)) ? Number(rating) : 0;
   const safeReviews = Number.isFinite(Number(reviewCount)) ? Number(reviewCount) : 0;
@@ -140,7 +142,7 @@ export default function OrderCard({
               onClick={onOrder}
               className="w-full px-4 py-2.5 text-sm font-semibold shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F172A]/60 focus-visible:ring-offset-2"
             >
-              Lihat Pesanan
+              {primaryLabel}
             </Button>
 
             <Button
