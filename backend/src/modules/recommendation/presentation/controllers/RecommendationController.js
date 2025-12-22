@@ -8,6 +8,7 @@ const GetPopularServicesUseCase = require('../../application/use-cases/GetPopula
 const TrackInteractionUseCase = require('../../application/use-cases/TrackInteractionUseCase');
 const ManageHiddenServicesUseCase = require('../../application/use-cases/ManageHiddenServicesUseCase');
 const GetAdminDashboardUseCase = require('../../application/use-cases/GetAdminDashboardUseCase');
+const RecommendationCacheService = require('../../domain/services/RecommendationCacheService');
 
 const {
   GetRecommendationsDTO,
@@ -28,15 +29,21 @@ class RecommendationController {
     // Initialize dependencies
     console.log('[RecommendationController] Initializing with sequelize:', !!sequelize);
     this.sequelize = sequelize;
+
+    // Initialize repositories
     this.recommendationRepository = new RecommendationRepositoryImpl(sequelize);
     this.hiddenServiceRepository = new HiddenServiceRepositoryImpl(sequelize);
     this.adminDashboardRepository = new AdminDashboardRepositoryImpl(sequelize);
+
+    // Initialize services
     this.recommendationService = new RecommendationService();
+    this.cacheService = new RecommendationCacheService(sequelize);
 
     // Initialize use cases
     this.getRecommendationsUseCase = new GetRecommendationsUseCase(
       this.recommendationRepository,
-      this.recommendationService
+      this.recommendationService,
+      this.cacheService
     );
 
     this.getSimilarServicesUseCase = new GetSimilarServicesUseCase(
@@ -50,12 +57,14 @@ class RecommendationController {
     );
 
     this.trackInteractionUseCase = new TrackInteractionUseCase(
-      this.recommendationRepository
+      this.recommendationRepository,
+      this.cacheService
     );
 
     this.manageHiddenServicesUseCase = new ManageHiddenServicesUseCase(
       this.hiddenServiceRepository,
-      this.recommendationRepository
+      this.recommendationRepository,
+      this.cacheService
     );
 
     this.getAdminDashboardUseCase = new GetAdminDashboardUseCase(
@@ -232,55 +241,165 @@ class RecommendationController {
   }
 
   /**
-   * POST /api/recommendations/track
-   * Track user interaction
+   * POST /api/recommendations/interactions
+   * Menyimpan interaksi view/click ke database
    */
   async trackInteraction(req, res) {
     try {
-      let { userId, activityType, serviceId, keyword } = req.body;
+      console.log('\n' + '='.repeat(80));
+      console.log('API: POST /api/recommendations/interactions/:serviceId');
+      console.log('='.repeat(80));
 
-      // VALIDASI: Jika serviceId adalah 'string' atau bukan UUID, set ke null
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const userId = req.user?.userId;
+      let { serviceId } = req.params;
+      const { interactionType } = req.body; // 'view' atau 'click'
 
-      if (!serviceId || serviceId === 'string' || !uuidRegex.test(serviceId)) {
-        serviceId = null;
+      console.log('Request from user:', userId);
+      console.log('Service ID:', serviceId);
+      console.log('Interaction Type:', interactionType || 'view (default)');
+
+      // VALIDASI userId
+      if (!userId) {
+        console.error('No userId');
+        return res.status(401).json({
+          success: false,
+          message: 'User authentication required'
+        });
       }
 
-      await this.trackInteractionUseCase.execute({
-        userId,
-        activityType,
-        serviceId,
-        keyword
+      // VALIDASI serviceId
+      if (!serviceId) {
+        console.error('No serviceId');
+        return res.status(400).json({
+          success: false,
+          message: 'Service ID is required'
+        });
+      }
+
+      // Trim whitespace
+      serviceId = serviceId.trim();
+
+      // VALIDASI format UUID
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(serviceId)) {
+        console.error('Invalid UUID format');
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid service ID format. Must be a valid UUID.'
+        });
+      }
+
+      // VALIDASI interactionType (default = 'view')
+      const type = interactionType || 'view';
+      const validTypes = ['view', 'click'];
+
+      if (!validTypes.includes(type)) {
+        console.error('Invalid interaction type');
+        return res.status(400).json({
+          success: false,
+          message: "Interaction type must be 'view' or 'click'"
+        });
+      }
+
+      // VALIDASI: Cek apakah layanan exists
+      console.log('\nValidating service existence...');
+      const [service] = await this.sequelize.query(`
+            SELECT id, judul, status, jumlah_dilihat 
+            FROM layanan 
+            WHERE id = :serviceId 
+            LIMIT 1
+        `, {
+        replacements: { serviceId },
+        type: this.sequelize.QueryTypes.SELECT
       });
 
-      res.status(200).json({
+      if (!service) {
+        console.error('Service not found in database');
+        return res.status(404).json({
+          success: false,
+          message: 'Service not found'
+        });
+      }
+
+      if (service.status !== 'aktif') {
+        console.error('Service is not active');
+        return res.status(400).json({
+          success: false,
+          message: 'Service is not active'
+        });
+      }
+
+      console.log('Service exists:', service.judul);
+      console.log('Current view count:', service.jumlah_dilihat);
+
+      // Call use case
+      console.log('\nCalling TrackInteractionUseCase.saveInteraction()...');
+      const result = await this.trackInteractionUseCase.saveInteraction(
+        userId,
+        serviceId,
+        type,
+        req.body.metadata || {}
+      );
+
+      if (!result.success) {
+        console.error('Use case returned error:', result.error);
+        return res.status(400).json({
+          success: false,
+          message: result.error
+        });
+      }
+
+      console.log('\nSuccess!');
+      console.log('New view count:', result.data.newViewCount);
+      console.log('='.repeat(80) + '\n');
+
+      return res.status(200).json({
         success: true,
-        message: 'Interaction tracked successfully'
+        message: result.message,
+        data: result.data
       });
+
     } catch (error) {
-      console.error('TrackInteractionController Error:', error);
-      res.status(400).json({
+      console.error('\n' + '='.repeat(80));
+      console.error('CONTROLLER ERROR');
+      console.error('Error:', error.message);
+      console.error('Stack:', error.stack);
+      console.error('='.repeat(80) + '\n');
+
+      return res.status(500).json({
         success: false,
-        error: error.message
+        message: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'An error occurred'
       });
     }
   }
 
   /**
-   * GET /api/recommendations/interactions
-   * Get user interaction history
+   * GET /api/recommendations/track
+   * Menampilkan layanan yang user lihat + berapa kali
    */
   async getInteractionHistory(req, res) {
     try {
-      const userId = req.user?.userId || req.query.userId;
-      const serviceId = req.query.serviceId || null;
-      const limit = parseInt(req.query.limit) || 50;
+      console.log('\n' + '='.repeat(80));
+      console.log('API: GET /api/recommendations/track');
+      console.log('='.repeat(80));
 
-      const result = await this.trackInteractionUseCase.getInteractionHistory(
-        userId,
-        serviceId,
-        limit
-      );
+      const userId = req.user?.userId || req.query.userId;
+
+      console.log('Request from user:', userId);
+
+      // VALIDASI userId
+      if (!userId) {
+        console.error('No userId');
+        return res.status(401).json({
+          success: false,
+          message: 'User authentication required'
+        });
+      }
+
+      // Call use case
+      console.log('\nCalling TrackInteractionUseCase.getViewHistory()...');
+      const result = await this.trackInteractionUseCase.getViewHistory(userId);
 
       if (!result.success) {
         return res.status(400).json({
@@ -289,18 +408,26 @@ class RecommendationController {
         });
       }
 
+      console.log('\nSuccess! Found', result.data.length, 'services');
+      console.log('='.repeat(80) + '\n');
+
       return res.status(200).json({
         success: true,
-        message: 'Interaction history retrieved successfully',
+        message: 'View history retrieved successfully',
         data: result.data,
         metadata: result.metadata
       });
+
     } catch (error) {
-      console.error('RecommendationController.getInteractionHistory Error:', error);
+      console.error('\n' + '='.repeat(80));
+      console.error('CONTROLLER ERROR');
+      console.error('Error:', error.message);
+      console.error('='.repeat(80) + '\n');
+
       return res.status(500).json({
         success: false,
         message: 'Internal server error',
-        error: error.message
+        error: process.env.NODE_ENV === 'development' ? error.message : 'An error occurred'
       });
     }
   }

@@ -20,7 +20,7 @@ class HiddenServiceRepositoryImpl extends IHiddenServiceRepository {
             // Insert into aktivitas_user with tipe_aktivitas = 'hide_layanan'
             await this.sequelize.query(`
                 INSERT INTO aktivitas_user (id, user_id, layanan_id, tipe_aktivitas, created_at)
-                VALUES (:id, :userId, :serviceId, 'hide_layanan', NOW())
+                VALUES (:id, :userId, :serviceId, 'hide', NOW())
             `, {
                 replacements: {
                     id,
@@ -58,7 +58,7 @@ class HiddenServiceRepositoryImpl extends IHiddenServiceRepository {
                 SELECT id FROM aktivitas_user
                 WHERE user_id = :userId 
                 AND layanan_id = :serviceId 
-                AND tipe_aktivitas = 'hide_layanan'
+                AND tipe_aktivitas = 'hide'
                 LIMIT 1
             `, {
                 replacements: { userId, serviceId },
@@ -75,7 +75,7 @@ class HiddenServiceRepositoryImpl extends IHiddenServiceRepository {
                 DELETE FROM aktivitas_user
                 WHERE user_id = :userId 
                 AND layanan_id = :serviceId 
-                AND tipe_aktivitas = 'hide_layanan'
+                AND tipe_aktivitas = 'hide'
             `, {
                 replacements: { userId, serviceId },
                 type: this.sequelize.QueryTypes.DELETE
@@ -105,7 +105,7 @@ class HiddenServiceRepositoryImpl extends IHiddenServiceRepository {
                 LEFT JOIN kategori k ON l.kategori_id = k.id
                 WHERE au.user_id = :userId 
                 AND au.layanan_id = :serviceId
-                AND au.tipe_aktivitas = 'hide_layanan'
+                AND au.tipe_aktivitas = 'hide'
                 LIMIT 1
             `, {
                 replacements: { userId, serviceId },
@@ -151,7 +151,7 @@ class HiddenServiceRepositoryImpl extends IHiddenServiceRepository {
                 LEFT JOIN layanan l ON au.layanan_id = l.id
                 LEFT JOIN kategori k ON l.kategori_id = k.id
                 WHERE au.user_id = :userId 
-                AND au.tipe_aktivitas = 'hide_layanan'
+                AND au.tipe_aktivitas = 'hide'
                 ORDER BY au.created_at DESC
             `, {
                 replacements: { userId },
@@ -184,7 +184,7 @@ class HiddenServiceRepositoryImpl extends IHiddenServiceRepository {
                 FROM aktivitas_user
                 WHERE user_id = :userId 
                 AND layanan_id = :serviceId 
-                AND tipe_aktivitas = 'hide_layanan'
+                AND tipe_aktivitas = 'hide'
             `, {
                 replacements: { userId, serviceId },
                 type: this.sequelize.QueryTypes.SELECT
@@ -203,7 +203,7 @@ class HiddenServiceRepositoryImpl extends IHiddenServiceRepository {
                 SELECT DISTINCT layanan_id 
                 FROM aktivitas_user 
                 WHERE user_id = :userId 
-                AND tipe_aktivitas = 'hide_layanan'
+                AND tipe_aktivitas = 'hide'
                 AND layanan_id IS NOT NULL
             `, {
                 replacements: { userId },
@@ -223,7 +223,7 @@ class HiddenServiceRepositoryImpl extends IHiddenServiceRepository {
                 SELECT COUNT(DISTINCT layanan_id) as count
                 FROM aktivitas_user
                 WHERE user_id = :userId 
-                AND tipe_aktivitas = 'hide_layanan'
+                AND tipe_aktivitas = 'hide'
                 AND layanan_id IS NOT NULL
             `, {
                 replacements: { userId },

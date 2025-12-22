@@ -1,6 +1,7 @@
 const FavoriteRepositoryImpl = require('../../infrastructure/repositories/FavoriteRepositoryImpl');
 const RecommendationRepositoryImpl = require('../../infrastructure/repositories/RecommendationRepositoryImpl');
 const ManageFavoritesUseCase = require('../../application/use-cases/ManageFavoritesUseCase');
+const RecommendationCacheService = require('../../domain/services/RecommendationCacheService');
 
 const {
     AddFavoriteDTO,
@@ -16,13 +17,19 @@ class FavoriteController {
     constructor(sequelize) {
         // Initialize dependencies
         this.sequelize = sequelize;
+
+        // Initialize repositories
         this.favoriteRepository = new FavoriteRepositoryImpl(sequelize);
         this.recommendationRepository = new RecommendationRepositoryImpl(sequelize);
+
+        // Initialize cache service
+        this.cacheService = new RecommendationCacheService(sequelize);
 
         // Initialize use case
         this.manageFavoritesUseCase = new ManageFavoritesUseCase(
             this.favoriteRepository,
-            this.recommendationRepository
+            this.recommendationRepository,
+            this.cacheService
         );
     }
 
