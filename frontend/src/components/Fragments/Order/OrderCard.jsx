@@ -31,9 +31,8 @@ function StarRating({ value = 0, max = 5 }) {
         return (
           <Star
             key={starIndex}
-            className={`h-4 w-4 ${
-              filled || isHalf ? "fill-[#FBBF24] text-[#FBBF24]" : "text-neutral-300"
-            }`}
+            className={`h-4 w-4 ${filled || isHalf ? "fill-[#FBBF24] text-[#FBBF24]" : "text-neutral-300"
+              }`}
           />
         );
       })}
@@ -49,7 +48,7 @@ export default function OrderCard({
   completed = 0,
   waktu_pengerjaan,
   batas_revisi,
-  status, 
+  status,
   onOrder,
   onContact,
   onReview,
@@ -85,9 +84,8 @@ export default function OrderCard({
             <i className="fas fa-spinner fa-spin text-neutral-600 text-lg"></i>
           ) : (
             <i
-              className={`${isBookmarked ? "fas" : "far"} fa-bookmark ${
-                isBookmarked ? "text-[#4782BE]" : "text-neutral-600"
-              } text-lg`}
+              className={`${isBookmarked ? "fas" : "far"} fa-bookmark ${isBookmarked ? "text-[#4782BE]" : "text-neutral-600"
+                } text-lg`}
             />
           )}
         </button>
@@ -124,35 +122,35 @@ export default function OrderCard({
       {/* [5] Tombol Aksi (Kondisional) */}
       <div className="mt-5 flex flex-col gap-2">
         {isCompleted ? (
-            // TOMBOL HIJAU: BERIKAN ULASAN
-            <button
-                onClick={(e) => {
-                    e.stopPropagation(); 
-                    if(onReview) onReview();
-                }}
-                className="w-full rounded-xl bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 text-sm font-semibold shadow transition-colors flex items-center justify-center gap-2"
-            >
-                <Star className="h-4 w-4 fill-current" />
-                Berikan Ulasan
-            </button>
+          // TOMBOL HIJAU: BERIKAN ULASAN
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onReview) onReview();
+            }}
+            className="w-full rounded-xl bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 text-sm font-semibold shadow transition-colors flex items-center justify-center gap-2"
+          >
+            <Star className="h-4 w-4 fill-current" />
+            Berikan Ulasan
+          </button>
         ) : (
-            <>
-                <Button
-                  variant="order"
-                  onClick={onOrder}
-                  className="w-full px-4 py-2.5 text-sm font-semibold shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F172A]/60 focus-visible:ring-offset-2"
-                >
-                  Pesan Sekarang
-                </Button>
+          <>
+            <Button
+              variant="order"
+              onClick={onOrder}
+              className="w-full px-4 py-2.5 text-sm font-semibold shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F172A]/60 focus-visible:ring-offset-2"
+            >
+              Lihat Pesanan
+            </Button>
 
-                <Button
-                  variant="outline"
-                  onClick={onContact}
-                  className="w-full rounded-xl border-none bg-[#F3F4F6] px-4 py-2.5 text-sm font-semibold text-[#111827] hover:bg-[#E5E7EB]"
-                >
-                  Hubungi Freelancer
-                </Button>
-            </>
+            <Button
+              variant="outline"
+              onClick={onContact}
+              className="w-full rounded-xl border-none bg-[#F3F4F6] px-4 py-2.5 text-sm font-semibold text-[#111827] hover:bg-[#E5E7EB]"
+            >
+              Hubungi Freelancer
+            </Button>
+          </>
         )}
       </div>
     </aside>
