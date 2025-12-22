@@ -291,17 +291,6 @@ export default function NavHeader() {
             <div className="h-9 sm:h-10 w-20 sm:w-24 animate-pulse rounded-full bg-neutral-200" />
           ) : isLoggedIn ? (
             <>
-              {/* Bookmark button - only for client */}
-              {userRole === "client" && (
-                <button
-                  onClick={handleBookmarks}
-                  className="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-neutral-700 hover:bg-neutral-100 transition-colors"
-                  title="Lihat Bookmark"
-                >
-                  <i className="far fa-bookmark text-lg" />
-                  <span className="hidden lg:inline">Disimpan</span>
-                </button>
-              )}
               {!hasFreelancerProfile && (
                 <Button
                   onClick={handleRegisterFreelancer}
