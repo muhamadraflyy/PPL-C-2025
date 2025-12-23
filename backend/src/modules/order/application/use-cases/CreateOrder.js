@@ -64,10 +64,10 @@ class CreateOrder {
     // Generate nomor pesanan
     const nomorPesanan = this.generateOrderNumber();
 
-    // Hitung biaya platform (5%) dan gateway fee (1%) - SAMA dengan Payment
-    const biayaPlatform = harga * 0.05; // 5% platform fee
-    const biayaGateway = harga * 0.01; // 1% payment gateway fee (Midtrans)
-    const totalBayar = parseFloat(harga) + biayaPlatform + biayaGateway;
+    // Hitung biaya platform (5%) dan gateway fee (1%) - SAMA dengan Payment (rounded)
+    const biayaPlatform = Math.round(harga * 0.05); // 5% platform fee
+    const biayaGateway = Math.round(harga * 0.01); // 1% payment gateway fee (Midtrans)
+    const totalBayar = Math.round(parseFloat(harga) + biayaPlatform + biayaGateway);
 
     // Hitung tenggat waktu
     const tenggat = new Date();

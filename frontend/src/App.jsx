@@ -16,6 +16,11 @@ import FreelancerPublicProfile from "./pages/Public/FreelancerPublicProfile";
 import FreelancerDetailPage from "./pages/Public/FreelancerDetailPage";
 import ServiceDetailPage from "./pages/jobs/ServiceDetailPage";
 import StartWorkPage from "./pages/Public/StartWorkPage";
+import PaymentPage from "./pages/Public/PaymentPage";
+import FAQPage from "./pages/Public/FAQPage";
+import AboutWorkPage from "./pages/Public/AboutWorkPage";
+import TermsPage from "./pages/Public/TermsPage";
+import PrivacyPage from "./pages/Public/PrivacyPage";
 
 // Client pages
 import DashboardPage from "./pages/Client/DashboardPage";
@@ -53,6 +58,7 @@ import AllNotificationsPage from "./pages/Admin/AllNotificationsPage";
 import FraudReportDetailPage from "./pages/Admin/FraudReportDetailPage";
 import RecommendationMonitoringPage from "./pages/Admin/RecommendationMonitoringPage";
 import ReviewPage from "./pages/Admin/ReviewPage";
+import PlatformSettingsPage from "./pages/Admin/PlatformSettingsPage";
 
 // Payment pages
 import PaymentSuccessPage from "./pages/payment/PaymentSuccessPage";
@@ -93,6 +99,11 @@ export default function App() {
 
       {/* Halaman Panduan publik */}
       <Route path="/cara-jual-pekerjaan" element={<StartWorkPage />} />
+      <Route path="/pembayaran" element={<PaymentPage />} />
+      <Route path="/faq" element={<FAQPage />} />
+      <Route path="/tentang/bekerja" element={<AboutWorkPage />} />
+      <Route path="/syarat-ketentuan" element={<TermsPage />} />
+      <Route path="/kebijakan-privasi" element={<PrivacyPage />} />
 
       {/* List layanan publik */}
       <Route path="/services" element={<ServiceListPage />} />
@@ -223,6 +234,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <RecommendationMonitoringPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/platform-settings"
+        element={
+          <ProtectedRoute>
+            <PlatformSettingsPage />
           </ProtectedRoute>
         }
       />

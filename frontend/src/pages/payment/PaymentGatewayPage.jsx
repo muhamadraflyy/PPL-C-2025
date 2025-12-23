@@ -16,6 +16,8 @@ export default function PaymentGatewayPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [orderData, setOrderData] = useState(null)
+  const [platformFeePercentage, setPlatformFeePercentage] = useState(5.0)
+  const [gatewayFeePercentage, setGatewayFeePercentage] = useState(2.5)
 
   // Payment methods
   const paymentMethods = [
@@ -96,6 +98,27 @@ export default function PaymentGatewayPage() {
       description: description
     })
   }, [searchParams, orderId])
+
+  // Fetch platform fees from API
+  useEffect(() => {
+    const fetchFees = async () => {
+      try {
+        const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api'
+        const response = await fetch(`${apiBaseUrl}/platform-config/fees`)
+        const data = await response.json()
+
+        if (data.success) {
+          setPlatformFeePercentage(data.data.platform_fee_percentage || 5.0)
+          setGatewayFeePercentage(data.data.payment_gateway_fee_percentage || 2.5)
+        }
+      } catch (error) {
+        console.error('Error fetching platform fees:', error)
+        // Keep default values on error
+      }
+    }
+
+    fetchFees()
+  }, [])
 
   const handlePayment = async () => {
     if (!selectedMethod) {
@@ -274,12 +297,36 @@ export default function PaymentGatewayPage() {
                   </span>
                 </div>
 
-                <div className="border-t pt-3">
-                  <div className="flex justify-between">
-                    <span className="font-semibold text-gray-900">Total Pembayaran</span>
-                    <span className="font-bold text-xl text-[#4782BE]">
+                <div className="border-t pt-3 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Harga layanan</span>
+                    <span className="font-medium text-gray-900">
                       Rp {orderData.amount.toLocaleString('id-ID')}
                     </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Biaya platform ({platformFeePercentage}%)</span>
+                    <span className="font-medium text-gray-900">
+                      Rp {Math.round(orderData.amount * (platformFeePercentage / 100)).toLocaleString('id-ID')}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Biaya gateway ({gatewayFeePercentage}%)</span>
+                    <span className="font-medium text-gray-900">
+                      Rp {Math.round(orderData.amount * (gatewayFeePercentage / 100)).toLocaleString('id-ID')}
+                    </span>
+                  </div>
+                  <div className="border-t pt-2">
+                    <div className="flex justify-between">
+                      <span className="font-semibold text-gray-900">Total Pembayaran</span>
+                      <span className="font-bold text-xl text-[#4782BE]">
+                        Rp {Math.round(
+                          orderData.amount +
+                          orderData.amount * (platformFeePercentage / 100) +
+                          orderData.amount * (gatewayFeePercentage / 100)
+                        ).toLocaleString('id-ID')}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>

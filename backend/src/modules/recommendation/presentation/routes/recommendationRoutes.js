@@ -329,91 +329,160 @@ module.exports = (recommendationController, favoriteController) => {
     (req, res) => recommendationController.getPopularServices(req, res)
   );
 
+  // /**
+  //  * @swagger
+  //  * /api/recommendations/similar/{serviceId}:
+  //  *   get:
+  //  *     tags: [Recommendations]
+  //  *     summary: Ambil layanan serupa
+  //  *     description: Mengambil layanan yang mirip berdasarkan kategori dan karakteristik
+  //  *     parameters:
+  //  *       - in: path
+  //  *         name: serviceId
+  //  *         required: true
+  //  *         schema:
+  //  *           type: string
+  //  *         description: ID layanan untuk mencari layanan serupa
+  //  *       - in: query
+  //  *         name: limit
+  //  *         schema:
+  //  *           type: integer
+  //  *           default: 5
+  //  *           minimum: 1
+  //  *           maximum: 20
+  //  *         description: Jumlah layanan serupa
+  //  *     responses:
+  //  *       200:
+  //  *         description: Daftar layanan serupa berhasil diambil
+  //  *         content:
+  //  *           application/json:
+  //  *             schema:
+  //  *               type: object
+  //  *               properties:
+  //  *                 success:
+  //  *                   type: boolean
+  //  *                 message:
+  //  *                   type: string
+  //  *                 data:
+  //  *                   type: array
+  //  *                   items:
+  //  *                     $ref: '#/components/schemas/Recommendation'
+  //  *       404:
+  //  *         description: Layanan tidak ditemukan
+  //  *       500:
+  //  *         description: Terjadi kesalahan server
+  //  */
+  // router.get(
+  //   '/similar/:serviceId',
+  //   getSimilarServicesValidation,
+  //   (req, res) => recommendationController.getSimilarServices(req, res)
+  // );
+
   /**
    * @swagger
-   * /api/recommendations/similar/{serviceId}:
+   * /api/recommendations/track:
    *   get:
    *     tags: [Recommendations]
-   *     summary: Ambil layanan serupa
-   *     description: Mengambil layanan yang mirip berdasarkan kategori dan karakteristik
+   *     summary: Menampilkan layanan yang user lihat + berapa kali
+   *     description: |
+   *       Menampilkan history view user.
+   *       
+   *       **Response includes:**
+   *       - List layanan yang pernah dilihat
+   *       - Jumlah berapa kali user lihat setiap layanan
+   *       - Kapan terakhir kali dilihat
+   *       - Layanan yang paling sering dilihat
+   *       
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: View history berhasil diambil
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 message:
+   *                   type: string
+   *                   example: "View history retrieved successfully"
+   *                 data:
+   *                   type: array
+   *                   items:
+   *                     type: object
+   *                     properties:
+   *                       layananId:
+   *                         type: string
+   *                         format: uuid
+   *                       namaLayanan:
+   *                         type: string
+   *                       jumlahDilihat:
+   *                         type: integer
+   *                         description: "Berapa kali user lihat layanan ini"
+   *                       terakhirDilihat:
+   *                         type: string
+   *                         format: date-time
+   *                 metadata:
+   *                   type: object
+   *                   properties:
+   *                     total:
+   *                       type: integer
+   *                     mostViewed:
+   *                       type: object
+   *       401:
+   *         description: Unauthorized
+   */
+  router.get(
+    '/track',
+    authMiddleware,
+    (req, res) => recommendationController.getInteractionHistory(req, res)
+  );
+
+  /**
+   * @swagger
+   * /api/recommendations/interactions/{serviceId}:
+   *   post:
+   *     tags: [Recommendations]
+   *     summary: Menyimpan interaksi view/click ke database
+   *     description: |
+   *       Endpoint ini menyimpan data ketika user melihat atau klik layanan.
+   *       
+   *       **Apa yang dilakukan:**
+   *       1. Simpan ke tabel `aktivitas_user` (history log)
+   *       2. Increment counter `jumlah_dilihat` di tabel `layanan`
+   *       
+   *     security:
+   *       - bearerAuth: []
    *     parameters:
    *       - in: path
    *         name: serviceId
    *         required: true
    *         schema:
    *           type: string
-   *         description: ID layanan untuk mencari layanan serupa
-   *       - in: query
-   *         name: limit
-   *         schema:
-   *           type: integer
-   *           default: 5
-   *           minimum: 1
-   *           maximum: 20
-   *         description: Jumlah layanan serupa
-   *     responses:
-   *       200:
-   *         description: Daftar layanan serupa berhasil diambil
-   *         content:
-   *           application/json:
-   *             schema:
-   *               type: object
-   *               properties:
-   *                 success:
-   *                   type: boolean
-   *                 message:
-   *                   type: string
-   *                 data:
-   *                   type: array
-   *                   items:
-   *                     $ref: '#/components/schemas/Recommendation'
-   *       404:
-   *         description: Layanan tidak ditemukan
-   *       500:
-   *         description: Terjadi kesalahan server
-   */
-  router.get(
-    '/similar/:serviceId',
-    getSimilarServicesValidation,
-    (req, res) => recommendationController.getSimilarServices(req, res)
-  );
-
-  /**
-   * @swagger
-   * /api/recommendations/track:
-   *   post:
-   *     tags: [Recommendations]
-   *     summary: Track interaksi user dengan layanan
-   *     description: Mencatat interaksi user (order) untuk meningkatkan akurasi rekomendasi
-   *     security:
-   *       - bearerAuth: []
+   *           format: uuid
+   *         description: ID layanan yang dilihat
    *     requestBody:
-   *       required: true
    *       content:
    *         application/json:
    *           schema:
    *             type: object
-   *             required:
-   *               - serviceId
-   *               - interactionType
    *             properties:
-   *               serviceId:
-   *                 type: string
-   *                 description: ID layanan yang di-interaksi
    *               interactionType:
    *                 type: string
-   *                 enum: [view, click, like, unlike, order, rating, hide]
+   *                 enum: [view, click]
+   *                 default: view
    *                 description: Tipe interaksi
-   *               value:
-   *                 type: number
-   *                 default: 1
-   *                 description: Nilai interaksi (untuk rating, dll)
+   *                 example: "view"
    *               metadata:
    *                 type: object
-   *                 description: Data tambahan
+   *                 description: Data tambahan (optional)
+   *                 example: { "source": "homepage", "device": "mobile" }
    *     responses:
-   *       201:
-   *         description: Interaksi berhasil dicatat
+   *       200:
+   *         description: Interaksi berhasil disimpan
    *         content:
    *           application/json:
    *             schema:
@@ -421,60 +490,37 @@ module.exports = (recommendationController, favoriteController) => {
    *               properties:
    *                 success:
    *                   type: boolean
+   *                   example: true
    *                 message:
    *                   type: string
+   *                   example: "Interaction saved successfully"
    *                 data:
    *                   type: object
+   *                   properties:
+   *                     id:
+   *                       type: string
+   *                     userId:
+   *                       type: string
+   *                     serviceId:
+   *                       type: string
+   *                     interactionType:
+   *                       type: string
+   *                       example: "view"
+   *                     newViewCount:
+   *                       type: integer
+   *                       example: 151
    *       400:
-   *         description: Validation error
+   *         description: Bad Request
    *       401:
    *         description: Unauthorized
-   *       500:
-   *         description: Internal server error
+   *       404:
+   *         description: Service not found
    */
   router.post(
-    '/track',
+    '/interactions/:serviceId',
     authMiddleware,
-    trackInteractionValidation,
     (req, res) => recommendationController.trackInteraction(req, res)
-  );
-
-  /**
-   * @swagger
-   * /api/recommendations/interactions:
-   *   get:
-   *     tags: [Recommendations]
-   *     summary: Ambil histori interaksi user
-   *     description: Mengambil riwayat interaksi user dengan layanan untuk analisis
-   *     security:
-   *       - bearerAuth: []
-   *     parameters:
-   *       - in: query
-   *         name: serviceId
-   *         schema:
-   *           type: string
-   *         description: Filter berdasarkan service ID (optional)
-   *       - in: query
-   *         name: limit
-   *         schema:
-   *           type: integer
-   *           default: 50
-   *           minimum: 1
-   *           maximum: 100
-   *         description: Jumlah interaksi yang dikembalikan
-   *     responses:
-   *       200:
-   *         description: Histori interaksi berhasil diambil
-   *       401:
-   *         description: Unauthorized
-   *       500:
-   *         description: Internal server error
-   */
-  router.get(
-    '/interactions',
-    authMiddleware,
-    getInteractionHistoryValidation,
-    (req, res) => recommendationController.getInteractionHistory(req, res)
+    // 👆 Pakai method trackInteraction (nama lama)
   );
 
   // ==================== FAVORITES ENDPOINTS ====================

@@ -7,9 +7,10 @@
  * UC-06: Menghapus Layanan dari Daftar Tersembunyi
  */
 class ManageHiddenServicesUseCase {
-    constructor(hiddenServiceRepository, recommendationRepository) {
+    constructor(hiddenServiceRepository, recommendationRepository, cacheService) {
         this.hiddenServiceRepository = hiddenServiceRepository;
         this.recommendationRepository = recommendationRepository;
+        this.cacheService = cacheService;
     }
 
     /**
@@ -64,6 +65,10 @@ class ManageHiddenServicesUseCase {
             );
             console.log('Interaction tracked');
 
+            console.log('\nClearing recommendation cache...');
+            await this.cacheService.clearCache(userId);
+            console.log('Cache cleared. Will regenerate on next request.');
+
             console.log('\n' + '='.repeat(80));
             console.log('COMPLETE');
             console.log('='.repeat(80) + '\n');
@@ -71,7 +76,8 @@ class ManageHiddenServicesUseCase {
             return {
                 success: true,
                 data: hidden.toJSON(),
-                message: 'Service hidden from recommendations successfully'
+                message: 'Service hidden from recommendations successfully',
+                cacheCleared: true
             };
         } catch (error) {
             console.error('\n' + '='.repeat(80));
@@ -146,7 +152,7 @@ class ManageHiddenServicesUseCase {
     async unhideService(userId, serviceId) {
         try {
             console.log('\n' + '='.repeat(80));
-            console.log('UC-06: UNHIDE SERVICE - START');
+            console.log('UNHIDE SERVICE - START');
             console.log('='.repeat(80));
             console.log('userId:', userId);
             console.log('serviceId:', serviceId);
@@ -186,18 +192,23 @@ class ManageHiddenServicesUseCase {
             }
             console.log('Service unhidden successfully');
 
+            console.log('\nClearing recommendation cache...');
+            await this.cacheService.clearCache(userId);
+            console.log('Cache cleared. Will regenerate on next request.');
+
             console.log('\n' + '='.repeat(80));
-            console.log('UC-06 COMPLETE');
+            console.log('COMPLETE');
             console.log('='.repeat(80) + '\n');
 
             return {
                 success: true,
                 data: hiddenServiceData.toJSON(),
-                message: 'Service unhidden successfully. It will appear in recommendations again.'
+                message: 'Service unhidden successfully. It will appear in recommendations again.',
+                cacheCleared: true
             };
         } catch (error) {
             console.error('\n' + '='.repeat(80));
-            console.error('UC-06 ERROR');
+            console.error('ERROR');
             console.error('Error:', error.message);
             console.error('='.repeat(80) + '\n');
 

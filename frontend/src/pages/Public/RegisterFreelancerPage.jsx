@@ -48,9 +48,28 @@ export default function RegisterFreelancerPage() {
   }, [navigate, toast]);
 
   const onChange = (e) => {
-    setForm((s) => ({ ...s, [e.target.name]: e.target.value }));
-    if (errors[e.target.name]) {
-      setErrors((prev) => ({ ...prev, [e.target.name]: null }));
+    const { name, value } = e.target;
+    
+    // Validasi khusus untuk nomor telepon - hanya angka yang diizinkan
+    if (name === 'no_telepon') {
+      // Hanya izinkan angka (0-9)
+      const numericValue = value.replace(/[^0-9]/g, '');
+      setForm((s) => ({ ...s, [name]: numericValue }));
+      
+      // Validasi realtime untuk nomor telepon
+      if (value !== numericValue && value !== '') {
+        setErrors((prev) => ({ 
+          ...prev, 
+          [name]: "Nomor telepon hanya boleh berisi angka" 
+        }));
+      } else if (errors[name]) {
+        setErrors((prev) => ({ ...prev, [name]: null }));
+      }
+    } else {
+      setForm((s) => ({ ...s, [name]: value }));
+      if (errors[name]) {
+        setErrors((prev) => ({ ...prev, [name]: null }));
+      }
     }
   };
 
@@ -59,7 +78,7 @@ export default function RegisterFreelancerPage() {
       const newErrors = {
         nama_lengkap: validateName(form.nama_lengkap, "Nama lengkap"),
         gelar: form.gelar.trim() ? null : "Gelar wajib diisi",
-        no_telepon: form.no_telepon.trim() ? null : "Nomor telepon wajib diisi",
+        no_telepon: validatePhoneNumber(form.no_telepon),
       };
       
       setErrors(newErrors);
@@ -68,6 +87,32 @@ export default function RegisterFreelancerPage() {
       setErrors({});
       setStep(2);
     }
+  };
+
+  const handleBackStep = () => {
+    if (step === 2) {
+      setErrors({}); // Clear any errors when going back
+      setStep(1);
+    }
+  };
+
+  // Fungsi validasi nomor telepon
+  const validatePhoneNumber = (phone) => {
+    if (!phone.trim()) {
+      return "Nomor telepon wajib diisi";
+    }
+    
+    // Cek apakah hanya berisi angka
+    if (!/^[0-9]+$/.test(phone)) {
+      return "Nomor telepon hanya boleh berisi angka";
+    }
+    
+    // Cek panjang minimal (opsional - sesuaikan dengan kebutuhan)
+    if (phone.length < 10) {
+      return "Nomor telepon minimal 10 digit";
+    }
+    
+    return null;
   };
 
   const handleSubmit = async (e) => {
@@ -171,7 +216,18 @@ export default function RegisterFreelancerPage() {
                       name="no_telepon"
                       value={form.no_telepon}
                       onChange={onChange}
-                      className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs sm:text-sm"
+                      onBlur={(e) => {
+                        const phoneError = validatePhoneNumber(e.target.value);
+                        if (phoneError) {
+                          setErrors((prev) => ({ ...prev, no_telepon: phoneError }));
+                        }
+                      }}
+                      placeholder="Contoh: 08123456789"
+                      className={`w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent text-xs sm:text-sm ${
+                        errors.no_telepon 
+                          ? 'border-red-300 focus:ring-red-500' 
+                          : 'border-gray-300 focus:ring-blue-500'
+                      }`}
                     />
                     {errors.no_telepon && (
                       <p className="text-red-500 text-xs sm:text-sm mt-1 sm:mt-2">{errors.no_telepon}</p>
@@ -180,8 +236,9 @@ export default function RegisterFreelancerPage() {
 
                   <Button
                     type="button"
+                    variant="neutral"
                     onClick={handleNextStep}
-                    className="w-full bg-gray-400 hover:bg-gray-500 text-white py-2.5 sm:py-3 rounded-full font-medium transition-colors text-xs sm:text-sm"
+                    className="w-full"
                   >
                     Simpan dan Lanjut
                   </Button>
@@ -215,13 +272,25 @@ export default function RegisterFreelancerPage() {
                     )}
                   </div>
 
-                  <Button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full bg-gray-400 hover:bg-gray-500 text-white py-2.5 sm:py-3 rounded-full font-medium transition-colors text-xs sm:text-sm"
-                  >
-                    {loading ? "Memproses..." : "Simpan dan Lanjut"}
-                  </Button>
+                  <div className="space-y-3 sm:space-y-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleBackStep}
+                      className="w-full"
+                    >
+                      Kembali
+                    </Button>
+                    
+                    <Button
+                      type="submit"
+                      variant="neutral"
+                      disabled={loading}
+                      className="w-full"
+                    >
+                      {loading ? "Memproses..." : "Simpan dan Lanjut"}
+                    </Button>
+                  </div>
                 </form>
               </div>
             )}

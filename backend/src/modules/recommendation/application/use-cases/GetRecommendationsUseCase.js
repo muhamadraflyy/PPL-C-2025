@@ -10,9 +10,10 @@
  * 5. Support filter kategori
  */
 class GetRecommendationsUseCase {
-    constructor(recommendationRepository, recommendationService) {
+    constructor(recommendationRepository, recommendationService, cacheService) {
         this.recommendationRepository = recommendationRepository;
         this.recommendationService = recommendationService;
+        this.cacheService = cacheService;
         this.RECOMMENDATION_LIMIT = 10; // Tampilkan 10 layanan
     }
 
@@ -25,10 +26,10 @@ class GetRecommendationsUseCase {
     async execute(userId, kategoriId = null) {
         try {
             console.log('\n' + '='.repeat(80));
-            console.log('UC-01: GET RECOMMENDATIONS - START');
+            console.log('GET RECOMMENDATIONS - START');
             console.log('='.repeat(80));
             console.log('userId:', userId);
-            console.log('kategoriId filter:', kategoriId || 'ALL (no filter)');
+            console.log('kategoriId filter:', kategoriId || 'ALL');
 
             if (!userId) {
                 return {
@@ -37,130 +38,67 @@ class GetRecommendationsUseCase {
                 };
             }
 
-            // STEP 1: Analisis favorit user (dari tabel 'favorit')
-            console.log('\nMenganalisis favorit user...');
-            const userFavorites = await this._getUserFavorites(userId);
-            console.log('User favorites:', userFavorites.length);
-            if (userFavorites.length > 0) {
-                console.log('  Sample:', userFavorites.slice(0, 2).map(f => f.layanan_id));
-            }
+            // STEP 1: Check cache (only if no kategori filter)
+            if (!kategoriId) {
+                console.log('\nChecking cache...');
+                const cachedRecommendations = await this.cacheService.getCachedRecommendations(userId);
 
-            // STEP 2: Analisis transaksi user (dari tabel 'pesanan')
-            console.log('\nMenganalisis transaksi user...');
-            const userOrders = await this._getUserOrders(userId);
-            console.log('User orders:', userOrders.length);
-            if (userOrders.length > 0) {
-                console.log('  Sample:', userOrders.slice(0, 2).map(o => o.layanan_id));
-            }
+                if (cachedRecommendations && cachedRecommendations.length > 0) {
+                    console.log('Cache HIT! Returning cached recommendations:', cachedRecommendations.length);
 
-            // STEP 3: Gabungkan layanan dari favorit & orders
-            const userServiceIds = [
-                ...userFavorites.map(f => f.layanan_id),
-                ...userOrders.map(o => o.layanan_id)
-            ];
-            const uniqueUserServiceIds = [...new Set(userServiceIds)];
-            console.log('\nUnique services interacted:', uniqueUserServiceIds.length);
+                    const availableCategories = await this._getAvailableCategories();
 
-            // STEP 4: Ambil hidden services untuk exclude
-            console.log('\nMendapatkan layanan tersembunyi...');
-            const hiddenServiceIds = await this._getHiddenServices(userId);
-            console.log('Hidden services:', hiddenServiceIds.length);
-            if (hiddenServiceIds.length > 0) {
-                console.log('  Hidden IDs:', hiddenServiceIds);
-            }
+                    console.log('\n' + '='.repeat(80));
+                    console.log('COMPLETE (FROM CACHE)');
+                    console.log('='.repeat(80) + '\n');
 
-            // STEP 5: FALLBACK jika user belum pernah like/order
-            if (uniqueUserServiceIds.length === 0) {
-                console.warn('\nUser belum punya favorit/order');
-                console.log('Gunakan POPULAR SERVICES sebagai fallback');
-                return this._getPopularServicesAsFallback(userId, hiddenServiceIds, kategoriId);
-            }
-
-            // STEP 6: Ambil kategori dari layanan yang user sudah interaksi
-            console.log('\nMenganalisis kategori preferensi user...');
-            const userCategories = await this._getCategoriesFromServices(uniqueUserServiceIds);
-            console.log('User interested categories:', userCategories.length);
-            if (userCategories.length > 0) {
-                console.log('  Category IDs:', userCategories);
-            }
-
-            if (userCategories.length === 0) {
-                console.warn('\nTidak ada kategori ditemukan');
-                console.log('Gunakan POPULAR SERVICES sebagai fallback');
-                return this._getPopularServicesAsFallback(userId, hiddenServiceIds, kategoriId);
-            }
-
-            // STEP 7: Cari layanan serupa (exclude yang sudah interaksi + hidden)
-            console.log('\nMenerapkan algoritma rekomendasi...');
-            const excludeServiceIds = [...uniqueUserServiceIds, ...hiddenServiceIds];
-            console.log('Excluding services:', excludeServiceIds.length);
-            console.log('Already interacted:', uniqueUserServiceIds.length);
-            console.log('Hidden by user:', hiddenServiceIds.length);
-
-            const recommendations = await this._findSimilarServices(
-                userId,
-                userCategories,
-                excludeServiceIds,
-                kategoriId
-            );
-
-            console.log('\n✓ Found', recommendations.length, 'candidate services');
-
-            // STEP 8: Limit hasil menjadi 10
-            const finalRecommendations = recommendations.slice(0, this.RECOMMENDATION_LIMIT);
-
-            // STEP 9: Format output
-            const formattedData = finalRecommendations.map(rec => ({
-                id: rec.id,
-                serviceId: rec.serviceId,
-                serviceName: rec.metadata.serviceName,
-                kategoriId: rec.metadata.kategoriId,
-                kategoriNama: rec.metadata.kategoriNama,
-                harga: rec.metadata.harga,
-                batasRevisi: rec.metadata.batasRevisi,
-                waktuPengerjaan: rec.metadata.waktuPengerjaan,
-                score: rec.score,
-                reason: rec.reason,
-                source: rec.source,
-                stats: {
-                    views: rec.metadata.views,
-                    favorites: rec.metadata.favorites,
-                    orders: rec.metadata.orders,
-                    rating: rec.metadata.rating
+                    return {
+                        success: true,
+                        data: cachedRecommendations,
+                        metadata: {
+                            total: cachedRecommendations.length,
+                            cached: true,
+                            cachedAt: cachedRecommendations[0].cachedAt,
+                            expiresAt: cachedRecommendations[0].expiresAt,
+                            filters: {
+                                kategoriId: 'all',
+                                availableCategories
+                            },
+                            timestamp: new Date().toISOString(),
+                            userId
+                        }
+                    };
                 }
-            }));
 
-            // STEP 10: Ambil available categories untuk filter
-            const availableCategories = await this._getAvailableCategories();
+                console.log('Cache MISS. Generating fresh recommendations...');
+            } else {
+                console.log('\nKategori filter detected. Skipping cache, generating fresh...');
+            }
+
+            // STEP 2: Generate fresh recommendations
+            const freshRecommendations = await this._generateRecommendations(userId, kategoriId);
+
+            // STEP 3: Save to cache (only if no kategori filter)
+            if (!kategoriId && freshRecommendations.data.length > 0) {
+                console.log('\nSaving to cache...');
+                const saved = await this.cacheService.saveCachedRecommendations(
+                    userId,
+                    freshRecommendations.data
+                );
+
+                if (saved) {
+                    console.log('Cache saved successfully');
+                } else {
+                    console.warn('Failed to save cache');
+                }
+            }
 
             console.log('\n' + '='.repeat(80));
-            console.log('COMPLETE');
-            console.log('Final recommendations:', formattedData.length);
+            console.log('COMPLETE (FRESH)');
             console.log('='.repeat(80) + '\n');
 
-            return {
-                success: true,
-                data: formattedData,
-                metadata: {
-                    total: formattedData.length,
-                    basedOn: {
-                        favorites: userFavorites.length,
-                        orders: userOrders.length,
-                        categories: userCategories.length
-                    },
-                    excluded: {
-                        alreadyInteracted: uniqueUserServiceIds.length,
-                        hidden: hiddenServiceIds.length,
-                        total: excludeServiceIds.length
-                    },
-                    filters: {
-                        kategoriId: kategoriId || 'all',
-                        availableCategories
-                    },
-                    timestamp: new Date().toISOString(),
-                    userId
-                }
-            };
+            return freshRecommendations;
+
         } catch (error) {
             console.error('\n' + '='.repeat(80));
             console.error('CRITICAL ERROR');
@@ -174,6 +112,189 @@ class GetRecommendationsUseCase {
                 stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
             };
         }
+    }
+
+    /**
+     * Generate fresh recommendations
+     * @private
+     */
+    async _generateRecommendations(userId, kategoriId = null) {
+        // STEP 1: Analisis favorit user
+        console.log('\nAnalyzing user favorites...');
+        const userFavorites = await this._getUserFavorites(userId);
+        console.log('User favorites:', userFavorites.length);
+
+        // STEP 2: Analisis transaksi user
+        console.log('\nAnalyzing user orders...');
+        const userOrders = await this._getUserOrders(userId);
+        console.log('User orders:', userOrders.length);
+
+        // STEP 3: Analisis views user
+        console.log('\nAnalyzing user views...');
+        const userViews = await this._getUserViews(userId);
+        console.log('User views:', userViews.length);
+
+        // STEP 4: Gabungkan layanan
+        const userServiceIds = [
+            ...userFavorites.map(f => f.layanan_id),
+            ...userOrders.map(o => o.layanan_id),
+            ...userViews.map(v => v.layanan_id)
+        ];
+        const uniqueUserServiceIds = [...new Set(userServiceIds)];
+        console.log('\nUnique services interacted:', uniqueUserServiceIds.length);
+
+        // STEP 5: Get hidden services
+        console.log('\nGetting hidden services...');
+        const hiddenServiceIds = await this._getHiddenServices(userId);
+        console.log('Hidden services:', hiddenServiceIds.length);
+
+        // STEP 6: FALLBACK if no interaction
+        if (uniqueUserServiceIds.length === 0) {
+            console.warn('\nUser has no interaction. Using POPULAR SERVICES');
+            return this._getPopularServicesAsFallback(userId, hiddenServiceIds, kategoriId);
+        }
+
+        // STEP 7: Get categories from interactions
+        console.log('\nAnalyzing user category preferences...');
+        const userCategories = await this._getCategoriesFromServices(uniqueUserServiceIds);
+        console.log('User interested categories:', userCategories.length);
+
+        if (userCategories.length === 0) {
+            console.warn('\nNo categories found. Using POPULAR SERVICES');
+            return this._getPopularServicesAsFallback(userId, hiddenServiceIds, kategoriId);
+        }
+
+        // STEP 8: Generate recommendations from ALL sources
+        const excludeServiceIds = [...uniqueUserServiceIds, ...hiddenServiceIds];
+        console.log('\nExcluding services:', excludeServiceIds.length);
+
+        const allCandidates = [];
+
+        // Multiply limit untuk ensure cukup kandidat
+        const CANDIDATE_MULTIPLIER = 5;
+
+        // From Favorites
+        if (userFavorites.length > 0) {
+            console.log('\nGenerating from Favorites...');
+            const fromFavorites = await this._findSimilarServicesFromSource(
+                userId,
+                userFavorites.map(f => f.layanan_id),
+                excludeServiceIds,
+                kategoriId,
+                'Berdasarkan layanan yang Anda sukai',
+                'favorites',
+                this.RECOMMENDATION_LIMIT * CANDIDATE_MULTIPLIER
+            );
+            console.log('Candidates from favorites:', fromFavorites.length);
+            allCandidates.push(...fromFavorites);
+        }
+
+        // From Orders
+        if (userOrders.length > 0) {
+            console.log('\nGenerating from Orders...');
+            const fromOrders = await this._findSimilarServicesFromSource(
+                userId,
+                userOrders.map(o => o.layanan_id),
+                excludeServiceIds,
+                kategoriId,
+                'Berdasarkan layanan yang sudah Anda order',
+                'orders',
+                this.RECOMMENDATION_LIMIT * CANDIDATE_MULTIPLIER
+            );
+            console.log('Candidates from orders:', fromOrders.length);
+            allCandidates.push(...fromOrders);
+        }
+
+        // From Views
+        if (userViews.length > 0) {
+            console.log('\nGenerating from Views...');
+            const fromViews = await this._findSimilarServicesFromSource(
+                userId,
+                userViews.map(v => v.layanan_id),
+                excludeServiceIds,
+                kategoriId,
+                'Berdasarkan layanan yang sering Anda lihat',
+                'views',
+                this.RECOMMENDATION_LIMIT * CANDIDATE_MULTIPLIER
+            );
+            console.log('Candidates from views:', fromViews.length);
+            allCandidates.push(...fromViews);
+        }
+
+        // From Popular (untuk ensure cukup kandidat)
+        console.log('\nAdding popular services...');
+        const popularServices = await this._getPopularServicesForMix(
+            excludeServiceIds,
+            kategoriId,
+            this.RECOMMENDATION_LIMIT * CANDIDATE_MULTIPLIER
+        );
+        console.log('Popular candidates:', popularServices.length);
+        allCandidates.push(...popularServices);
+
+        // STEP 9: Remove duplicates and sort by score
+        console.log('\nRemoving duplicates and sorting...');
+        const uniqueCandidates = this._removeDuplicates(allCandidates);
+        console.log('Unique candidates after dedup:', uniqueCandidates.length);
+
+        const sortedCandidates = uniqueCandidates.sort((a, b) => b.score - a.score);
+
+        // STEP 10: Take top 10
+        const finalRecommendations = sortedCandidates.slice(0, this.RECOMMENDATION_LIMIT);
+
+        console.log('\nFinal recommendations:', finalRecommendations.length);
+        console.log('Sources breakdown:');
+        const breakdown = this._getSourceBreakdown(finalRecommendations);
+        console.log(breakdown);
+
+        // Format output
+        const formattedData = finalRecommendations.map(rec => ({
+            id: rec.id,
+            serviceId: rec.serviceId,
+            serviceName: rec.metadata.serviceName,
+            kategoriId: rec.metadata.kategoriId,
+            kategoriNama: rec.metadata.kategoriNama,
+            harga: rec.metadata.harga,
+            batasRevisi: rec.metadata.batasRevisi,
+            waktuPengerjaan: rec.metadata.waktuPengerjaan,
+            score: rec.score,
+            reason: rec.reason,
+            source: rec.source,
+            stats: {
+                views: rec.metadata.views,
+                favorites: rec.metadata.favorites,
+                orders: rec.metadata.orders,
+                rating: rec.metadata.rating
+            }
+        }));
+
+        const availableCategories = await this._getAvailableCategories();
+
+        return {
+            success: true,
+            data: formattedData,
+            metadata: {
+                total: formattedData.length,
+                cached: false,
+                basedOn: {
+                    favorites: userFavorites.length,
+                    orders: userOrders.length,
+                    views: userViews.length,
+                    categories: userCategories.length
+                },
+                excluded: {
+                    alreadyInteracted: uniqueUserServiceIds.length,
+                    hidden: hiddenServiceIds.length,
+                    total: excludeServiceIds.length
+                },
+                filters: {
+                    kategoriId: kategoriId || 'all',
+                    availableCategories
+                },
+                sourcesBreakdown: breakdown,
+                timestamp: new Date().toISOString(),
+                userId
+            }
+        };
     }
 
     // ============================================================
@@ -213,6 +334,23 @@ class GetRecommendationsUseCase {
         return results;
     }
 
+    async _getUserViews(userId) {
+        const results = await this.recommendationRepository.sequelize.query(`
+            SELECT layanan_id, COUNT(*) as view_count, MAX(created_at) as last_viewed
+            FROM aktivitas_user
+            WHERE user_id = :userId
+            AND tipe_aktivitas = 'lihat_layanan'
+            AND layanan_id IS NOT NULL
+            GROUP BY layanan_id
+            HAVING COUNT(*) >= 3
+            ORDER BY view_count DESC, last_viewed DESC
+        `, {
+            replacements: { userId },
+            type: this.recommendationRepository.sequelize.QueryTypes.SELECT
+        });
+        return results;
+    }
+
     /**
      * Get categories from services
      */
@@ -240,7 +378,7 @@ class GetRecommendationsUseCase {
             SELECT DISTINCT layanan_id 
             FROM aktivitas_user 
             WHERE user_id = :userId 
-            AND tipe_aktivitas = 'hide_layanan'
+            AND tipe_aktivitas = 'hide'
             AND layanan_id IS NOT NULL
         `, {
             replacements: { userId },
@@ -253,62 +391,64 @@ class GetRecommendationsUseCase {
      * Find similar services dengan FILTER KATEGORI
      * Algorithm: Content-based filtering berdasarkan kategori
      */
-    async _findSimilarServices(userId, categories, excludeServiceIds, kategoriId = null) {
-        if (categories.length === 0) return [];
+    async _findSimilarServicesFromSource(userId, sourceServiceIds, excludeServiceIds, kategoriId, reason, source, customLimit = null) {
+        if (sourceServiceIds.length === 0) return [];
 
         const Recommendation = require('../../domain/entities/Recommendation');
 
+        const categories = await this._getCategoriesFromServices(sourceServiceIds);
+        if (categories.length === 0) return [];
+
         let excludeCondition = '';
         let categoryFilterCondition = '';
+        const queryLimit = customLimit || (this.RECOMMENDATION_LIMIT * 3);
+
         let replacements = {
             categories,
-            limit: this.RECOMMENDATION_LIMIT * 2
+            limit: queryLimit
         };
 
-        // Exclude services
         if (excludeServiceIds.length > 0) {
             excludeCondition = 'AND l.id NOT IN (:excludeServiceIds)';
             replacements.excludeServiceIds = excludeServiceIds;
         }
 
-        // Filter kategori (JIKA USER PILIH KATEGORI TERTENTU)
         if (kategoriId) {
             categoryFilterCondition = 'AND l.kategori_id = :kategoriId';
             replacements.kategoriId = kategoriId;
-            replacements.categories = [kategoriId]; // Override
         }
 
         const query = `
-            SELECT 
-                l.id as layanan_id,
-                l.judul as nama_layanan,
-                l.kategori_id,
-                k.nama as kategori_nama,
-                l.harga,
-                l.batas_revisi,
-                l.waktu_pengerjaan,
-                COUNT(DISTINCT CASE WHEN au.tipe_aktivitas = 'lihat_layanan' THEN au.id END) as views,
-                COUNT(DISTINCT f.id) as favorites,
-                COUNT(DISTINCT CASE WHEN p.status = 'selesai' THEN p.id END) as orders,
-                COALESCE(AVG(u.rating), 0) as avg_rating,
-                CASE 
-                    WHEN l.kategori_id IN (:categories) THEN 100
-                    ELSE 50
-                END as category_match_score
-            FROM layanan l
-            LEFT JOIN kategori k ON l.kategori_id = k.id
-            LEFT JOIN aktivitas_user au ON l.id = au.layanan_id 
-            LEFT JOIN favorit f ON l.id = f.layanan_id
-            LEFT JOIN pesanan p ON l.id = p.layanan_id
-            LEFT JOIN ulasan u ON l.id = u.layanan_id
-            WHERE l.status = 'aktif'
-            AND l.kategori_id IN (:categories)
-            ${excludeCondition}
-            ${categoryFilterCondition}
-            GROUP BY l.id, l.judul, l.kategori_id, k.nama, l.harga, l.batas_revisi, l.waktu_pengerjaan
-            ORDER BY category_match_score DESC, orders DESC, favorites DESC, avg_rating DESC, views DESC
-            LIMIT :limit
-        `;
+        SELECT 
+            l.id as layanan_id,
+            l.judul as nama_layanan,
+            l.kategori_id,
+            k.nama as kategori_nama,
+            l.harga,
+            l.batas_revisi,
+            l.waktu_pengerjaan,
+            COUNT(DISTINCT CASE WHEN au.tipe_aktivitas = 'lihat_layanan' THEN au.id END) as views,
+            COUNT(DISTINCT f.id) as favorites,
+            COUNT(DISTINCT CASE WHEN p.status = 'selesai' THEN p.id END) as orders,
+            COALESCE(AVG(u.rating), 0) as avg_rating,
+            CASE 
+                WHEN l.kategori_id IN (:categories) THEN 100
+                ELSE 50
+            END as category_match_score
+        FROM layanan l
+        LEFT JOIN kategori k ON l.kategori_id = k.id
+        LEFT JOIN aktivitas_user au ON l.id = au.layanan_id 
+        LEFT JOIN favorit f ON l.id = f.layanan_id
+        LEFT JOIN pesanan p ON l.id = p.layanan_id
+        LEFT JOIN ulasan u ON l.id = u.layanan_id
+        WHERE l.status = 'aktif'
+        AND l.kategori_id IN (:categories)
+        ${excludeCondition}
+        ${categoryFilterCondition}
+        GROUP BY l.id, l.judul, l.kategori_id, k.nama, l.harga, l.batas_revisi, l.waktu_pengerjaan
+        ORDER BY category_match_score DESC, orders DESC, favorites DESC, avg_rating DESC, views DESC
+        LIMIT :limit
+    `;
 
         const results = await this.recommendationRepository.sequelize.query(query, {
             replacements,
@@ -336,8 +476,93 @@ class GetRecommendationsUseCase {
                 userId,
                 serviceId: layanan.layanan_id,
                 score: Math.round(totalScore),
-                reason: 'Berdasarkan layanan yang Anda sukai',
-                source: 'favorites_and_orders',
+                reason: reason,
+                source: source,
+                metadata: {
+                    serviceName: layanan.nama_layanan,
+                    kategoriId: layanan.kategori_id,
+                    kategoriNama: layanan.kategori_nama,
+                    harga: parseFloat(layanan.harga) || 0,
+                    batasRevisi: parseInt(layanan.batas_revisi) || 0,
+                    waktuPengerjaan: parseInt(layanan.waktu_pengerjaan) || 0,
+                    views,
+                    favorites,
+                    orders,
+                    rating: avgRating
+                }
+            });
+        });
+    }
+
+    async _getPopularServicesForMix(excludeServiceIds, kategoriId, limit) {
+        const Recommendation = require('../../domain/entities/Recommendation');
+
+        let excludeCondition = '';
+        let categoryFilterCondition = '';
+        let replacements = { limit };
+
+        if (excludeServiceIds.length > 0) {
+            excludeCondition = 'AND l.id NOT IN (:excludeServiceIds)';
+            replacements.excludeServiceIds = excludeServiceIds;
+        }
+
+        if (kategoriId) {
+            categoryFilterCondition = 'AND l.kategori_id = :kategoriId';
+            replacements.kategoriId = kategoriId;
+        }
+
+        const query = `
+            SELECT 
+                l.id as layanan_id,
+                l.judul as nama_layanan,
+                l.kategori_id,
+                k.nama as kategori_nama,
+                l.harga,
+                l.batas_revisi,
+                l.waktu_pengerjaan,
+                COUNT(DISTINCT CASE WHEN au.tipe_aktivitas = 'lihat_layanan' THEN au.id END) as views,
+                COUNT(DISTINCT f.id) as favorites,
+                COUNT(DISTINCT CASE WHEN p.status = 'selesai' THEN p.id END) as orders,
+                COALESCE(AVG(u.rating), 0) as avg_rating
+            FROM layanan l
+            LEFT JOIN kategori k ON l.kategori_id = k.id
+            LEFT JOIN aktivitas_user au ON l.id = au.layanan_id
+            LEFT JOIN favorit f ON l.id = f.layanan_id
+            LEFT JOIN pesanan p ON l.id = p.layanan_id
+            LEFT JOIN ulasan u ON l.id = u.layanan_id
+            WHERE l.status = 'aktif'
+            ${excludeCondition}
+            ${categoryFilterCondition}
+            GROUP BY l.id, l.judul, l.kategori_id, k.nama, l.harga, l.batas_revisi, l.waktu_pengerjaan
+            ORDER BY orders DESC, favorites DESC, views DESC
+            LIMIT :limit
+        `;
+
+        const results = await this.recommendationRepository.sequelize.query(query, {
+            replacements,
+            type: this.recommendationRepository.sequelize.QueryTypes.SELECT
+        });
+
+        return results.map((layanan, index) => {
+            const views = parseInt(layanan.views) || 0;
+            const favorites = parseInt(layanan.favorites) || 0;
+            const orders = parseInt(layanan.orders) || 0;
+            const avgRating = parseFloat(layanan.avg_rating) || 0;
+
+            const popularityScore = (
+                views * 0.2 +
+                favorites * 0.3 +
+                orders * 0.4 +
+                avgRating * 2
+            );
+
+            return new Recommendation({
+                id: `pop-${Date.now()}-${index}-${layanan.layanan_id}`,
+                userId: null,
+                serviceId: layanan.layanan_id,
+                score: Math.round(popularityScore),
+                reason: 'Layanan populer',
+                source: 'popular',
                 metadata: {
                     serviceName: layanan.nama_layanan,
                     kategoriId: layanan.kategori_id,
@@ -483,6 +708,26 @@ class GetRecommendationsUseCase {
             id: r.id,
             nama: r.nama
         }));
+    }
+
+    _removeDuplicates(recommendations) {
+        const seen = new Set();
+        return recommendations.filter(rec => {
+            if (seen.has(rec.serviceId)) {
+                return false;
+            }
+            seen.add(rec.serviceId);
+            return true;
+        });
+    }
+
+    _getSourceBreakdown(recommendations) {
+        const breakdown = {};
+        recommendations.forEach(rec => {
+            const source = rec.source || 'unknown';
+            breakdown[source] = (breakdown[source] || 0) + 1;
+        });
+        return breakdown;
     }
 }
 

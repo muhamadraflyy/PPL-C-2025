@@ -48,12 +48,8 @@ class RequestRefund {
         pembayaran_id,
         user_id,
         alasan,
-        jumlah: refundAmount,
-        status: 'pending',
-        diajukan_pada: new Date(),
-        disetujui_pada: null,
-        ditolak_pada: null,
-        catatan_admin: null
+        jumlah_refund: refundAmount,
+        status: 'pending'
       });
 
       // If there's escrow, update status
