@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import OrderCard from './OrderCard'
 
-const OrderList = ({ orders = [], onOrderClick, onReviewClick, loading }) => {
+const OrderList = ({ orders = [], onOrderClick, onReviewClick, loading, primaryActionLabel = 'Pesan Sekarang' }) => {
   const [filter, setFilter] = useState('all')
 
   const filteredOrders = filter === 'all'
@@ -122,6 +122,7 @@ const OrderList = ({ orders = [], onOrderClick, onReviewClick, loading }) => {
                   onOrder={() => onOrderClick && onOrderClick(order.id)}
                   onContact={() => onOrderClick && onOrderClick(order.id)}
                   onReview={() => onReviewClick && onReviewClick(order)} // Kirim fungsi ulasan
+                  primaryLabel={primaryActionLabel}
                 />
               </div>
             );
