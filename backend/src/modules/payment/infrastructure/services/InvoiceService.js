@@ -26,7 +26,9 @@ class InvoiceService {
   async generateInvoice(paymentData, orderData = {}, userData = {}) {
     return new Promise((resolve, reject) => {
       try {
-        const fileName = `INV-${paymentData.nomor_invoice || paymentData.id}.pdf`;
+        // Replace slashes in invoice number to prevent directory creation
+        const invoiceNumber = (paymentData.nomor_invoice || paymentData.id).replace(/\//g, '-');
+        const fileName = `INV-${invoiceNumber}.pdf`;
         const filePath = path.join(this.invoiceDir, fileName);
 
         // Create PDF document
@@ -218,7 +220,9 @@ class InvoiceService {
    * Get invoice path by payment ID
    */
   getInvoicePath(paymentId, invoiceNumber) {
-    const fileName = `INV-${invoiceNumber || paymentId}.pdf`;
+    // Replace slashes in invoice number to prevent directory issues
+    const sanitizedInvoiceNumber = (invoiceNumber || paymentId).replace(/\//g, '-');
+    const fileName = `INV-${sanitizedInvoiceNumber}.pdf`;
     return path.join(this.invoiceDir, fileName);
   }
 

@@ -47,8 +47,17 @@ class SequelizeOrderRepository {
   async findById(id) {
     // Lazy-require Payment model and set association once
     const PaymentModel = this.sequelize.models.pembayaran || require('../../../payment/infrastructure/models/PaymentModel');
+    const RefundModel = this.sequelize.models.refund || require('../../../payment/infrastructure/models/RefundModel');
+    const EscrowModel = this.sequelize.models.escrow || require('../../../payment/infrastructure/models/EscrowModel');
+
     if (!this.OrderModel.associations.pembayaran) {
       this.OrderModel.hasMany(PaymentModel, { foreignKey: 'pesanan_id', as: 'pembayaran' });
+    }
+    if (!PaymentModel.associations.refund) {
+      PaymentModel.hasMany(RefundModel, { foreignKey: 'pembayaran_id', as: 'refund' });
+    }
+    if (!this.OrderModel.associations.escrow) {
+      this.OrderModel.hasMany(EscrowModel, { foreignKey: 'pesanan_id', as: 'escrow' });
     }
 
     const result = await this.OrderModel.findByPk(id, {
@@ -78,6 +87,12 @@ class SequelizeOrderRepository {
             'jumlah', 'biaya_platform', 'total_bayar', 'status',
             'dibayar_pada', 'kadaluarsa_pada', 'created_at'
           ]
+        },
+        {
+          model: EscrowModel,
+          as: 'escrow',
+          attributes: ['id', 'pembayaran_id', 'status', 'jumlah_ditahan', 'biaya_platform', 'dirilis_pada', 'created_at'],
+          required: false
         }
       ]
     });
@@ -92,6 +107,18 @@ class SequelizeOrderRepository {
       if (successfulPayment) {
         plainResult.payment_id = successfulPayment.id;
         plainResult.pembayaran_id = successfulPayment.id;
+      }
+    }
+
+    // Add flat escrow_id and escrow_status from the escrow
+    if (plainResult.escrow && plainResult.escrow.length > 0) {
+      // Get the most recent escrow (could be held or released)
+      const activeEscrow = plainResult.escrow[plainResult.escrow.length - 1];
+      if (activeEscrow) {
+        plainResult.escrow_id = activeEscrow.id;
+        plainResult.escrow_status = activeEscrow.status;
+        plainResult.escrow_amount = activeEscrow.jumlah_ditahan;
+        plainResult.escrow_released_at = activeEscrow.dirilis_pada;
       }
     }
 
@@ -137,6 +164,54 @@ class SequelizeOrderRepository {
       this.OrderModel.hasMany(PaymentModel, { foreignKey: 'pesanan_id', as: 'pembayaran' });
     }
 
+    // Add Review (ulasan) association to check if order has been reviewed
+    let ReviewModel;
+    try {
+      ReviewModel = this.sequelize.models.ulasan;
+      if (!ReviewModel) {
+        // Fallback: require the model directly
+        const reviewModelFactory = require('../../../review/infrastructure/models/ReviewModel');
+        ReviewModel = typeof reviewModelFactory === 'function' ? reviewModelFactory(this.sequelize) : reviewModelFactory;
+      }
+      if (ReviewModel && !this.OrderModel.associations.ulasan) {
+        this.OrderModel.hasOne(ReviewModel, { foreignKey: 'pesanan_id', as: 'ulasan' });
+      }
+    } catch (err) {
+      // Review module might not be available, skip the association
+      console.warn('[OrderRepository] Review model not available:', err.message);
+      ReviewModel = null;
+    }
+
+    // Build include array
+    const includeArray = [
+      {
+        model: FreelancerModel,
+        as: 'freelancer',
+        attributes: ['id', 'nama_depan', 'nama_belakang', 'avatar']
+      },
+      {
+        model: this.LayananModel,
+        as: 'layanan',
+        attributes: ['id', 'judul', 'thumbnail', 'harga']
+      },
+      {
+        model: PaymentModel,
+        as: 'pembayaran',
+        attributes: ['id', 'status'],
+        required: false
+      }
+    ];
+
+    // Add review association if available
+    if (ReviewModel) {
+      includeArray.push({
+        model: ReviewModel,
+        as: 'ulasan',
+        attributes: ['id', 'rating', 'created_at'],
+        required: false
+      });
+    }
+
     const result = await this.OrderModel.findAndCountAll({
       where,
       order: [[sortBy, sortOrder]],
@@ -147,27 +222,10 @@ class SequelizeOrderRepository {
         'waktu_pengerjaan', 'tenggat_waktu', 'created_at', 'updated_at',
         'client_id', 'freelancer_id', 'layanan_id'
       ],
-      include: [
-        {
-          model: FreelancerModel,
-          as: 'freelancer',
-          attributes: ['id', 'nama_depan', 'nama_belakang', 'avatar']
-        },
-        {
-          model: this.LayananModel,
-          as: 'layanan',
-          attributes: ['id', 'judul', 'thumbnail', 'harga']
-        },
-        {
-          model: PaymentModel,
-          as: 'pembayaran',
-          attributes: ['id', 'status'],
-          required: false
-        }
-      ]
+      include: includeArray
     });
 
-    // Add flat payment_id to each order
+    // Add flat payment_id and hasReview to each order
     const rows = result.rows.map(row => {
       const plain = row.get({ plain: true });
       if (plain.pembayaran && plain.pembayaran.length > 0) {
@@ -177,8 +235,12 @@ class SequelizeOrderRepository {
           plain.pembayaran_id = successfulPayment.id;
         }
       }
-      // Remove pembayaran array from list view to reduce payload
+      // Add hasReview flag based on ulasan association
+      plain.hasReview = !!(plain.ulasan && plain.ulasan.id);
+
+      // Remove pembayaran and ulasan arrays from list view to reduce payload
       delete plain.pembayaran;
+      delete plain.ulasan;
       return plain;
     });
 

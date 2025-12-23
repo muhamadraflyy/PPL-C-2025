@@ -691,6 +691,68 @@ async function seedDatabase() {
     console.log('✓ Preferensi User seeded');
 
     // =============================
+    // FAVORIT & BOOKMARK
+    // =============================
+    console.log('→ Seeding favorit & bookmark...');
+    await queryInterface.bulkInsert('favorit', [
+      // Client1 favorites (public likes)
+      {
+        id: uuidv4(),
+        user_id: clientId1,
+        layanan_id: layananId1,
+        type: 'favorite',
+        created_at: new Date()
+      },
+      // Client1 bookmarks (private saves)
+      {
+        id: uuidv4(),
+        user_id: clientId1,
+        layanan_id: layananId2,
+        type: 'bookmark',
+        created_at: new Date()
+      },
+      {
+        id: uuidv4(),
+        user_id: clientId1,
+        layanan_id: layananId3,
+        type: 'bookmark',
+        created_at: new Date()
+      },
+      // Client2 favorites
+      {
+        id: uuidv4(),
+        user_id: clientId2,
+        layanan_id: layananId2,
+        type: 'favorite',
+        created_at: new Date()
+      },
+      // Client2 bookmarks
+      {
+        id: uuidv4(),
+        user_id: clientId2,
+        layanan_id: layananId1,
+        type: 'bookmark',
+        created_at: new Date()
+      }
+    ]);
+    console.log('✓ Favorit & Bookmark seeded');
+
+    // =============================
+    // UPDATE JUMLAH FAVORIT COUNTER
+    // =============================
+    console.log('→ Updating jumlah_favorit counters...');
+    // Update layanan favorite counts based on favorit table (only type='favorite', not bookmark)
+    await sequelize.query(`
+      UPDATE layanan l
+      SET jumlah_favorit = (
+        SELECT COUNT(*)
+        FROM favorit f
+        WHERE f.layanan_id = l.id AND f.type = 'favorite'
+      )
+    `);
+    console.log('✓ Jumlah Favorit counters updated');
+
+    // =============================
     // DONE
     // =============================
     console.log('\n✅ Database seeded successfully!');

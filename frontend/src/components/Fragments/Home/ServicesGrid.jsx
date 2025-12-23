@@ -38,12 +38,13 @@ export default function ServicesGrid({ onServiceClick, onCategoryClick, activeFi
             .map(service => ({
               id: service.id,
               slug: service.slug,
-              title: service.nama_layanan || service.title,
+              title: service.nama_layanan || service.judul || service.title,
               category: category.nama_kategori || category.title,
               freelancer: service.freelancer_name || service.freelancer || "Unknown",
-              rating: parseFloat(service.rating) || 0,
-              reviews: parseInt(service.jumlah_ulasan || service.reviews) || 0,
-              price: parseInt(service.harga) || 0,
+              rating: parseFloat(service.rating_rata_rata || service.rating) || 0,
+              reviews: parseInt(service.jumlah_rating || service.jumlah_ulasan || service.reviews) || 0,
+              price: parseInt(service.harga || service.price) || 0,
+              favoriteCount: parseInt(service.jumlah_favorit || service.favorite_count || service.favoriteCount) || 0,
             }));
 
           return {

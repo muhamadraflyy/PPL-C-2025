@@ -7,6 +7,7 @@ const express = require('express');
 const router = express.Router();
 const PaymentController = require('../controllers/PaymentController');
 const authMiddleware = require('../../../../shared/middleware/authMiddleware');
+const uploadBuktiTransfer = require('../middleware/uploadBuktiTransfer');
 
 // Initialize controller
 const paymentController = new PaymentController();
@@ -1008,4 +1009,147 @@ router.get(
   authMiddleware,
   paymentController.getPaymentById.bind(paymentController)
 );
+
+// ==========================================
+// ADMIN WITHDRAWAL MANAGEMENT ROUTES
+// ==========================================
+
+/**
+ * @swagger
+ * /api/admin/payments/withdrawals:
+ *   get:
+ *     tags: [Admin - Withdrawals]
+ *     summary: Get all withdrawals (Admin)
+ *     description: Get all withdrawal requests with filtering for admin management
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [all, pending, processing, completed, failed]
+ *         description: Filter by withdrawal status
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *       - in: query
+ *         name: offset
+ *         schema:
+ *           type: integer
+ *           default: 0
+ *     responses:
+ *       200:
+ *         description: Withdrawal list
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       403:
+ *         description: Forbidden - Admin only
+ *       500:
+ *         $ref: '#/components/responses/ServerError'
+ */
+router.get(
+  '/admin/withdrawals',
+  authMiddleware,
+  paymentController.adminGetWithdrawals.bind(paymentController)
+);
+
+/**
+ * @swagger
+ * /api/admin/payments/withdrawals/{id}/approve:
+ *   post:
+ *     tags: [Admin - Withdrawals]
+ *     summary: Approve withdrawal (Admin)
+ *     description: Admin approves withdrawal and provides transfer proof
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Withdrawal ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - bukti_transfer
+ *             properties:
+ *               bukti_transfer:
+ *                 type: string
+ *                 description: URL bukti transfer (uploaded)
+ *               catatan:
+ *                 type: string
+ *                 description: Admin notes (optional)
+ *     responses:
+ *       200:
+ *         description: Withdrawal approved successfully
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       403:
+ *         description: Forbidden - Admin only
+ *       500:
+ *         $ref: '#/components/responses/ServerError'
+ */
+router.post(
+  '/admin/withdrawals/:id/approve',
+  authMiddleware,
+  uploadBuktiTransfer,
+  paymentController.adminApproveWithdrawal.bind(paymentController)
+);
+
+/**
+ * @swagger
+ * /api/admin/payments/withdrawals/{id}/reject:
+ *   post:
+ *     tags: [Admin - Withdrawals]
+ *     summary: Reject withdrawal (Admin)
+ *     description: Admin rejects withdrawal request with reason
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Withdrawal ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - reason
+ *             properties:
+ *               reason:
+ *                 type: string
+ *                 description: Reason for rejection
+ *     responses:
+ *       200:
+ *         description: Withdrawal rejected successfully
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       403:
+ *         description: Forbidden - Admin only
+ *       500:
+ *         $ref: '#/components/responses/ServerError'
+ */
+router.post(
+  '/admin/withdrawals/:id/reject',
+  authMiddleware,
+  paymentController.adminRejectWithdrawal.bind(paymentController)
+);
+
 module.exports = router;

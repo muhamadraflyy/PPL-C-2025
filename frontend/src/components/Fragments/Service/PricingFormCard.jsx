@@ -3,6 +3,7 @@ import Label from "../../Elements/Text/Label";
 import Input from "../../Elements/Inputs/Input";
 import SelectBox from "../../Elements/Inputs/SelectBox";
 import Button from "../../Elements/Buttons/Button";
+import useSubCategories from "../../../hooks/useSubCategories"; // [MODIFIED] Import Hook Baru
 
 export default function PricingFormCard({
   values,
@@ -14,6 +15,9 @@ export default function PricingFormCard({
   loadingCategories = false,
   error = "",
 }) {
+  // [MODIFIED] Panggil hook sub category
+  const { subCategories, loadingSub } = useSubCategories(values.kategori_id);
+
   // ===== Helpers angka =====
   function handleIntFieldChange(e, field) {
     const raw = e.target.value || "";
@@ -84,6 +88,7 @@ export default function PricingFormCard({
             onChange={(e) =>
               onChange({
                 kategori_id: e.target.value,
+                sub_kategori_id: "", // [MODIFIED] Reset sub kategori saat kategori berubah
               })
             }
             disabled={loading || loadingCategories}
@@ -102,6 +107,40 @@ export default function PricingFormCard({
           <p className="text-xs text-gray-500 mt-1">
             Pilih kategori yang sesuai dengan layanan Anda
           </p>
+        </div>
+
+        {/* [MODIFIED] Sub Kategori */}
+        <div className="space-y-2">
+          <Label>Sub Kategori</Label>
+          <SelectBox
+            value={values.sub_kategori_id || ""}
+            onChange={(e) =>
+              onChange({
+                sub_kategori_id: e.target.value,
+              })
+            }
+            disabled={
+              !values.kategori_id ||
+              loading ||
+              loadingSub ||
+              subCategories.length === 0
+            }
+          >
+            <option value="">
+              {loadingSub
+                ? "Memuat sub kategori..."
+                : !values.kategori_id
+                ? "Pilih Kategori Terlebih Dahulu"
+                : subCategories.length === 0
+                ? "Tidak ada sub kategori"
+                : "Pilih Sub Kategori (Opsional)"}
+            </option>
+            {subCategories.map((sub) => (
+              <option key={sub.id} value={sub.id}>
+                {sub.nama}
+              </option>
+            ))}
+          </SelectBox>
         </div>
 
         {/* Harga Dasar (DECIMAL) */}

@@ -58,6 +58,7 @@ export default function CategoryServiceSection({ category, services, onServiceCl
               key={service.id}
               service={service}
               onClick={() => onServiceClick && onServiceClick(service)}
+              isCarousel={true}
             />
           ))}
         </div>

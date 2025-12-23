@@ -18,13 +18,14 @@ export default function ServiceEditPage() {
     judul: "",
     deskripsi: "",
     kategori_id: "",
+    sub_kategori_id: "",
     harga: "",
     waktu_pengerjaan: "",
     batas_revisi: "",
-    thumbnail: "", // path existing
-    gambar: [], // array path existing
-    thumbnailFile: null, // File baru
-    gambarFiles: [], // File[] baru
+    thumbnail: "",
+    gambar: [],
+    thumbnailFile: null,
+    gambarFiles: [],
   });
 
   const [uiError, setUiError] = useState("");
@@ -44,6 +45,7 @@ export default function ServiceEditPage() {
         judul: service.judul || "",
         deskripsi: service.deskripsi || "",
         kategori_id: service.kategori_id || "",
+        sub_kategori_id: service.sub_kategori_id || "",
         harga:
           service.harga !== undefined && service.harga !== null
             ? String(service.harga)
@@ -98,7 +100,6 @@ export default function ServiceEditPage() {
       await updateService(id, form);
       navigate("/freelance/service");
     } catch {
-      // error sudah di-set di hook
     }
   }
 

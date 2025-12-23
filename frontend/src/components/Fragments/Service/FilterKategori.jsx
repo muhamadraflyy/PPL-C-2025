@@ -72,18 +72,13 @@ export default function FilterKategori({ onFilterChange, activeFilter: externalA
           {/* Filter Pills */}
           <div
             ref={scrollContainerRef}
-            className="flex gap-3 overflow-x-auto pb-2 flex-1"
+            className="flex gap-3 overflow-x-auto pb-2 flex-1 scrollbar-hide"
             style={{
               scrollbarWidth: 'none',
               msOverflowStyle: 'none',
               WebkitOverflowScrolling: 'touch'
             }}
           >
-            <style jsx>{`
-              div::-webkit-scrollbar {
-                display: none;
-              }
-            `}</style>
             {categories.map((category) => (
               <button
                 key={category.id}

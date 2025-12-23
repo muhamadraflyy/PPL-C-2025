@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Navbar from "../../components/Fragments/Common/Navbar";
 import ServiceHeaderCard from "../../components/Fragments/Service/ServiceHeaderCard";
@@ -13,6 +14,9 @@ import NotFoundPage from "../Public/NotFoundPage";
 export default function ServiceDetailPage() {
   const { slug } = useParams(); // route: /services/:slug
   const navigate = useNavigate();
+
+  const [selectedPortfolio, setSelectedPortfolio] = useState(null);
+  const [showPortfolioModal, setShowPortfolioModal] = useState(false);
 
   if (!slug || slug === "undefined") {
     return <NotFoundPage />;
@@ -104,7 +108,7 @@ export default function ServiceDetailPage() {
     return <NotFoundPage />;
   }
 
-  // Helper gambar header & portfolio (sudah dinormalisasi di hook)
+  // Helper gambar header (sudah dinormalisasi di hook)
   const headerImages =
     serviceData &&
     Array.isArray(serviceData.gambar) &&
@@ -114,7 +118,10 @@ export default function ServiceDetailPage() {
       ? [serviceData.thumbnail]
       : [];
 
-  const portfolioItems = headerImages;
+  // Portfolio harus ambil dari portofolio freelancer, bukan gambar layanan
+  const portfolioItems = Array.isArray(serviceData?.freelancer?.portfolio)
+    ? serviceData.freelancer.portfolio
+    : [];
 
   // ========================
   // Render utama
@@ -184,6 +191,10 @@ export default function ServiceDetailPage() {
                     );
                   }
                 }}
+                onItemClick={(item) => {
+                  setSelectedPortfolio(item);
+                  setShowPortfolioModal(true);
+                }}
               />
 
               {/* About Freelancer */}
@@ -226,6 +237,52 @@ export default function ServiceDetailPage() {
       </main>
 
       <Footer />
+
+      {showPortfolioModal && selectedPortfolio && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
+          onClick={() => setShowPortfolioModal(false)}
+        >
+          <div
+            className="relative w-full max-w-3xl rounded-2xl bg-white p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setShowPortfolioModal(false)}
+              className="absolute right-4 top-4 text-neutral-600"
+              aria-label="Close"
+            >
+              <i className="fas fa-times text-xl"></i>
+            </button>
+
+            <img
+              src={selectedPortfolio.url}
+              alt="Portfolio"
+              className="mb-4 w-full max-h-[55vh] rounded object-contain"
+              onError={(e) => {
+                e.currentTarget.src =
+                  "https://via.placeholder.com/600x400?text=No+Image";
+              }}
+            />
+
+            {(selectedPortfolio.judul || selectedPortfolio.deskripsi) && (
+              <div>
+                {selectedPortfolio.judul && (
+                  <h2 className="text-lg font-semibold text-neutral-900">
+                    {selectedPortfolio.judul}
+                  </h2>
+                )}
+                {selectedPortfolio.deskripsi && (
+                  <p className="mt-2 text-sm text-neutral-700">
+                    {selectedPortfolio.deskripsi}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

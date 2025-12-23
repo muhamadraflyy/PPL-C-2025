@@ -32,21 +32,28 @@ class FavoriteController {
      */
     async addFavorite(req, res) {
         try {
+            console.log('\n' + '='.repeat(80));
+            console.log('API: POST /api/recommendations/favorites/:serviceId');
+            console.log('='.repeat(80));
+
             const userId = req.user?.userId || req.body.userId;
             let { serviceId } = req.params;
 
-            console.log('addFavorite - Input:', { userId, serviceId });
+            console.log('Request from user:', userId);
+            console.log('Service to favorite:', serviceId);
 
             // VALIDASI userId
             if (!userId) {
+                console.error('No userId');
                 return res.status(401).json({
                     success: false,
-                    message: 'User ID is required. Please login first.'
+                    message: 'User authentication required. Please login first.'
                 });
             }
 
             // VALIDASI serviceId
             if (!serviceId) {
+                console.error('No serviceId');
                 return res.status(400).json({
                     success: false,
                     message: 'Service ID is required'
@@ -58,67 +65,61 @@ class FavoriteController {
 
             // VALIDASI format UUID
             const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
             if (!uuidRegex.test(serviceId)) {
-                console.warn(`Invalid serviceId format: ${serviceId}`);
+                console.error('Invalid UUID format');
                 return res.status(400).json({
                     success: false,
-                    message: 'Invalid service ID format. Must be a valid UUID, not a number or string literal.'
+                    message: 'Invalid service ID format. Must be a valid UUID.'
                 });
             }
 
             // VALIDASI: Cek apakah layanan exists di database
-            try {
-                const Layanan = this.sequelize.models.Layanan;
-                const layananExists = await Layanan.findByPk(serviceId);
-
-                if (!layananExists) {
-                    console.warn(`Service ID ${serviceId} not found in database`);
-                    return res.status(404).json({
-                        success: false,
-                        message: 'Layanan tidak ditemukan di database'
-                    });
-                }
-            } catch (dbError) {
-                console.error('Error checking layanan existence:', dbError);
-                return res.status(500).json({
-                    success: false,
-                    message: 'Error validating service ID'
-                });
-            }
-
-            console.log('addFavorite - After validation:', { userId, serviceId });
-
-            // Create DTO setelah validasi
-            const dto = new AddFavoriteDTO({
-                userId,
-                serviceId,
-                notes: req.body.notes || ''
+            console.log('\n→ Validating service existence...');
+            const [service] = await this.sequelize.query(`
+            SELECT id, judul, status 
+            FROM layanan 
+            WHERE id = :serviceId 
+            LIMIT 1
+        `, {
+                replacements: { serviceId },
+                type: this.sequelize.QueryTypes.SELECT
             });
 
-            // Validate DTO
-            const validation = dto.validate();
-            if (!validation.isValid) {
-                return res.status(400).json({
+            if (!service) {
+                console.error('Service not found in database');
+                return res.status(404).json({
                     success: false,
-                    message: 'Validation failed',
-                    errors: validation.errors
+                    message: 'Service not found'
                 });
             }
 
+            // Check if service is active
+            if (service.status !== 'aktif') {
+                console.warn('Service is not active:', service.status);
+                return res.status(400).json({
+                    success: false,
+                    message: 'Service is not active'
+                });
+            }
+
+            console.log('Service exists:', service.judul);
+
             // Call use case
+            console.log('\n→ Calling ManageFavoritesUseCase.addFavorite()...');
             const result = await this.manageFavoritesUseCase.addFavorite(
-                dto.userId,
-                dto.serviceId,
-                dto.notes
+                userId,
+                serviceId,
+                req.body.notes || ''
             );
 
             if (!result.success) {
-                // Handle specific error messages
-                if (result.error?.includes('sudah ada')) {
+                console.warn('Use case returned error:', result.error);
+
+                // Handle specific errors
+                if (result.error?.includes('already in favorites')) {
                     return res.status(400).json({
                         success: false,
-                        message: 'Layanan sudah ada di favorit'
+                        message: 'Service already in favorites'
                     });
                 }
 
@@ -128,27 +129,34 @@ class FavoriteController {
                 });
             }
 
-            return res.status(201).json({
+            console.log('\nSuccess!');
+            console.log('='.repeat(80) + '\n');
+
+            return res.status(200).json({
                 success: true,
-                message: result.message || 'Layanan berhasil ditambahkan ke favorit',
+                message: 'Service added to favorites successfully',
                 data: result.data
             });
-        } catch (error) {
-            console.error('FavoriteController.addFavorite Error:', error);
-            console.error('Error stack:', error.stack);
 
-            // Handle specific Sequelize errors
+        } catch (error) {
+            console.error('\n' + '='.repeat(80));
+            console.error('CONTROLLER ERROR');
+            console.error('Error:', error.message);
+            console.error('Stack:', error.stack);
+            console.error('='.repeat(80) + '\n');
+
+            // Handle Sequelize specific errors
             if (error.name === 'SequelizeForeignKeyConstraintError') {
                 return res.status(400).json({
                     success: false,
-                    message: 'Invalid service ID or user ID - Foreign key constraint failed'
+                    message: 'Invalid service ID or user ID'
                 });
             }
 
             if (error.name === 'SequelizeUniqueConstraintError') {
-                return res.status(400).json({
+                return res.status(409).json({
                     success: false,
-                    message: 'Layanan sudah ada di favorit'
+                    message: 'Service already in favorites'
                 });
             }
 
@@ -166,59 +174,80 @@ class FavoriteController {
      */
     async removeFavorite(req, res) {
         try {
+            console.log('\n' + '='.repeat(80));
+            console.log('API: DELETE /api/recommendations/favorites/:serviceId');
+            console.log('='.repeat(80));
+
             const userId = req.user?.userId || req.query.userId;
             let { serviceId } = req.params;
 
-            // VALIDASI format UUID untuk removeFavorite juga
-            if (serviceId) {
-                serviceId = serviceId.trim();
-                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            console.log('Request from user:', userId);
+            console.log('Service to unfavorite:', serviceId);
 
-                if (!uuidRegex.test(serviceId)) {
-                    return res.status(400).json({
-                        success: false,
-                        message: 'Invalid service ID format'
-                    });
-                }
-            }
-
-            const dto = new RemoveFavoriteDTO({
-                userId,
-                serviceId
-            });
-
-            // Validate DTO
-            const validation = dto.validate();
-            if (!validation.isValid) {
-                return res.status(400).json({
+            // VALIDASI userId
+            if (!userId) {
+                console.error('No userId');
+                return res.status(401).json({
                     success: false,
-                    message: 'Validation failed',
-                    errors: validation.errors
+                    message: 'User authentication required'
                 });
             }
 
+            // VALIDASI serviceId
+            if (!serviceId) {
+                console.error('No serviceId');
+                return res.status(400).json({
+                    success: false,
+                    message: 'Service ID is required'
+                });
+            }
+
+            // Trim whitespace
+            serviceId = serviceId.trim();
+
+            // VALIDASI format UUID
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            if (!uuidRegex.test(serviceId)) {
+                console.error('Invalid UUID format');
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid service ID format'
+                });
+            }
+
+            // Call use case
+            console.log('\n→ Calling ManageFavoritesUseCase.removeFavorite()...');
             const result = await this.manageFavoritesUseCase.removeFavorite(
-                dto.userId,
-                dto.serviceId
+                userId,
+                serviceId
             );
 
             if (!result.success) {
-                return res.status(400).json({
+                console.warn('Use case returned error:', result.error);
+                return res.status(404).json({
                     success: false,
                     message: result.error
                 });
             }
 
+            console.log('\nSuccess!');
+            console.log('='.repeat(80) + '\n');
+
             return res.status(200).json({
                 success: true,
-                message: result.message
+                message: 'Service removed from favorites successfully'
             });
+
         } catch (error) {
-            console.error('FavoriteController.removeFavorite Error:', error);
+            console.error('\n' + '='.repeat(80));
+            console.error('CONTROLLER ERROR');
+            console.error('Error:', error.message);
+            console.error('='.repeat(80) + '\n');
+
             return res.status(500).json({
                 success: false,
                 message: 'Internal server error',
-                error: error.message
+                error: process.env.NODE_ENV === 'development' ? error.message : 'An error occurred'
             });
         }
     }
@@ -229,21 +258,24 @@ class FavoriteController {
      */
     async getFavorites(req, res) {
         try {
+            console.log('\n' + '='.repeat(80));
+            console.log('API: GET /api/recommendations/favorites');
+            console.log('='.repeat(80));
+
             const userId = req.user?.userId || req.query.userId;
 
-            const dto = new GetFavoritesDTO({ userId });
+            console.log('Request from user:', userId);
 
-            // Validate DTO
-            const validation = dto.validate();
-            if (!validation.isValid) {
-                return res.status(400).json({
+            if (!userId) {
+                console.error('No userId');
+                return res.status(401).json({
                     success: false,
-                    message: 'Validation failed',
-                    errors: validation.errors
+                    message: 'User authentication required'
                 });
             }
 
-            const result = await this.manageFavoritesUseCase.getFavorites(dto.userId);
+            console.log('\n→ Calling ManageFavoritesUseCase.getFavorites()...');
+            const result = await this.manageFavoritesUseCase.getFavorites(userId);
 
             if (!result.success) {
                 return res.status(400).json({
@@ -252,18 +284,26 @@ class FavoriteController {
                 });
             }
 
+            console.log('\nSuccess! Found', result.data.length, 'favorites');
+            console.log('='.repeat(80) + '\n');
+
             return res.status(200).json({
                 success: true,
                 message: 'Favorites retrieved successfully',
                 data: result.data,
                 metadata: result.metadata
             });
+
         } catch (error) {
-            console.error('FavoriteController.getFavorites Error:', error);
+            console.error('\n' + '='.repeat(80));
+            console.error('CONTROLLER ERROR');
+            console.error('Error:', error.message);
+            console.error('='.repeat(80) + '\n');
+
             return res.status(500).json({
                 success: false,
                 message: 'Internal server error',
-                error: error.message
+                error: process.env.NODE_ENV === 'development' ? error.message : 'An error occurred'
             });
         }
     }

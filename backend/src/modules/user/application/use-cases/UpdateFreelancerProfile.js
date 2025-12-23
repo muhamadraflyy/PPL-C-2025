@@ -1,5 +1,8 @@
 const { validateFileType, validateFileSize } = require('../../../../shared/utils/fileValidator');
 
+// Maximum allowed length for description fields
+const MAX_DESCRIPTION_LENGTH = 1000;
+
 class UpdateFreelancerProfile {
   constructor({ userRepository }) {
     this.userRepository = userRepository;
@@ -41,8 +44,36 @@ class UpdateFreelancerProfile {
       if (profileData.nama_depan) userUpdates.nama_depan = profileData.nama_depan;
       if (profileData.nama_belakang) userUpdates.nama_belakang = profileData.nama_belakang;
     }
-    if (profileData.no_telepon) userUpdates.no_telepon = profileData.no_telepon;
-    if (profileData.bio || profileData.deskripsi) userUpdates.bio = profileData.bio || profileData.deskripsi;
+    if (profileData.no_telepon) {
+      const phone = String(profileData.no_telepon).trim();
+      if (/[A-Za-z]/.test(phone)) {
+        const error = new Error('Nomor telepon tidak boleh mengandung huruf');
+        error.statusCode = 400;
+        throw error;
+      }
+      if (phone.length > 15) {
+        const error = new Error('Nomor telepon maksimal 15 karakter');
+        error.statusCode = 400;
+        throw error;
+      }
+      userUpdates.no_telepon = phone;
+    }
+    // Validate bio / deskripsi length when updating user
+    if (profileData.bio) {
+      if (String(profileData.bio).length > MAX_DESCRIPTION_LENGTH) {
+        const error = new Error('Deskripsi maksimal ' + MAX_DESCRIPTION_LENGTH + ' karakter');
+        error.statusCode = 400;
+        throw error;
+      }
+      userUpdates.bio = profileData.bio;
+    } else if (profileData.deskripsi) {
+      if (String(profileData.deskripsi).length > MAX_DESCRIPTION_LENGTH) {
+        const error = new Error('Deskripsi maksimal ' + MAX_DESCRIPTION_LENGTH + ' karakter');
+        error.statusCode = 400;
+        throw error;
+      }
+      userUpdates.bio = profileData.deskripsi;
+    }
     // Map `lokasi` -> kota / provinsi (accept formats like 'Kota, Provinsi' or 'Kota/Provinsi')
     if (profileData.lokasi !== undefined && profileData.lokasi !== null) {
       const loc = String(profileData.lokasi).trim();
@@ -67,12 +98,22 @@ class UpdateFreelancerProfile {
       if (profileData.kota) userUpdates.kota = profileData.kota;
       if (profileData.provinsi) userUpdates.provinsi = profileData.provinsi;
     }
+    
+    // ✅ Update avatar and foto_latar in users table (shared across roles)
     if (profileData.avatar) userUpdates.avatar = profileData.avatar;
+    if (profileData.foto_latar) userUpdates.foto_latar = profileData.foto_latar;
 
     // Validate file types and sizes for user updates using shared util
-    if (userUpdates.avatar) {
+    // Skip validation for local file paths (already validated by multer)
+    const isLocalPath = (path) => typeof path === 'string' && path.startsWith('/');
+    
+    if (userUpdates.avatar && !isLocalPath(userUpdates.avatar)) {
       validateFileType(userUpdates.avatar, 'Avatar');
       validateFileSize(userUpdates.avatar, 'Avatar');
+    }
+    if (userUpdates.foto_latar && !isLocalPath(userUpdates.foto_latar)) {
+      validateFileType(userUpdates.foto_latar, 'Cover photo');
+      validateFileSize(userUpdates.foto_latar, 'Cover photo');
     }
 
     // Apply user updates
@@ -86,7 +127,14 @@ class UpdateFreelancerProfile {
     // Basic fields
     if (profileData.judul_profesi !== undefined) profilePayload.judul_profesi = profileData.judul_profesi;
     if (profileData.gelar !== undefined) profilePayload.judul_profesi = profileData.gelar; // gelar also maps to judul_profesi if provided
-    if (profileData.deskripsi_lengkap !== undefined) profilePayload.deskripsi_lengkap = profileData.deskripsi_lengkap;
+    if (profileData.deskripsi_lengkap !== undefined) {
+      if (profileData.deskripsi_lengkap !== null && String(profileData.deskripsi_lengkap).length > MAX_DESCRIPTION_LENGTH) {
+        const error = new Error('Deskripsi lengkap maksimal ' + MAX_DESCRIPTION_LENGTH + ' karakter');
+        error.statusCode = 400;
+        throw error;
+      }
+      profilePayload.deskripsi_lengkap = profileData.deskripsi_lengkap;
+    }
     
     // Handle array/JSON fields
     if (profileData.keahlian !== undefined) {
@@ -105,7 +153,14 @@ class UpdateFreelancerProfile {
     // Portfolio fields
     if (profileData.portfolio_url !== undefined) profilePayload.portfolio_url = profileData.portfolio_url;
     if (profileData.judul_portfolio !== undefined) profilePayload.judul_portfolio = profileData.judul_portfolio;
-    if (profileData.deskripsi_portfolio !== undefined) profilePayload.deskripsi_portfolio = profileData.deskripsi_portfolio;
+    if (profileData.deskripsi_portfolio !== undefined) {
+      if (profileData.deskripsi_portfolio !== null && String(profileData.deskripsi_portfolio).length > MAX_DESCRIPTION_LENGTH) {
+        const error = new Error('Deskripsi portfolio maksimal ' + MAX_DESCRIPTION_LENGTH + ' karakter');
+        error.statusCode = 400;
+        throw error;
+      }
+      profilePayload.deskripsi_portfolio = profileData.deskripsi_portfolio;
+    }
     if (profileData.file_portfolio !== undefined) profilePayload.file_portfolio = profileData.file_portfolio;
     
     // Photo fields
@@ -113,11 +168,12 @@ class UpdateFreelancerProfile {
     if (profileData.foto_latar !== undefined) profilePayload.foto_latar = profileData.foto_latar;
 
     // Validate file types and sizes for profile using shared util
-    if (profilePayload.avatar) {
+    // Skip validation for local file paths (already validated by multer)
+    if (profilePayload.avatar && !isLocalPath(profilePayload.avatar)) {
       validateFileType(profilePayload.avatar, 'Avatar');
       validateFileSize(profilePayload.avatar, 'Avatar');
     }
-    if (profilePayload.foto_latar) {
+    if (profilePayload.foto_latar && !isLocalPath(profilePayload.foto_latar)) {
       validateFileType(profilePayload.foto_latar, 'Background photo');
       validateFileSize(profilePayload.foto_latar, 'Background photo');
     }
@@ -157,7 +213,8 @@ class UpdateFreelancerProfile {
         kota: user.kota,
         provinsi: user.provinsi,
         bio: user.bio,
-        avatar: user.avatar
+        avatar: user.avatar,
+        foto_latar: user.foto_latar
       }
     };
   }

@@ -339,6 +339,67 @@ export const paymentService = {
         message: error.response?.data?.message || 'Failed to get balance'
       }
     }
+  },
+
+  // ==========================================
+  // ADMIN WITHDRAWAL MANAGEMENT
+  // ==========================================
+
+  /**
+   * Get all withdrawals (Admin)
+   * @param {Object} params - { status, limit, offset }
+   */
+  async adminGetWithdrawals(params = {}) {
+    try {
+      const response = await api.get('/payments/admin/withdrawals', { params })
+      return response.data
+    } catch (error) {
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Failed to get withdrawals'
+      }
+    }
+  },
+
+  /**
+   * Approve withdrawal (Admin)
+   * @param {string} withdrawalId - Withdrawal ID
+   * @param {FormData} data - FormData with bukti_transfer file and catatan
+   */
+  async adminApproveWithdrawal(withdrawalId, data) {
+    try {
+      // If data is FormData, let axios set Content-Type automatically
+      const config = data instanceof FormData ? {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      } : {}
+
+      const response = await api.post(`/payments/admin/withdrawals/${withdrawalId}/approve`, data, config)
+      return response.data
+    } catch (error) {
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Failed to approve withdrawal'
+      }
+    }
+  },
+
+  /**
+   * Reject withdrawal (Admin)
+   * @param {string} withdrawalId - Withdrawal ID
+   * @param {Object} data - { reason }
+   */
+  async adminRejectWithdrawal(withdrawalId, data) {
+    try {
+      const response = await api.post(`/payments/admin/withdrawals/${withdrawalId}/reject`, data)
+      return response.data
+    } catch (error) {
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Failed to reject withdrawal'
+      }
+    }
   }
 }
 

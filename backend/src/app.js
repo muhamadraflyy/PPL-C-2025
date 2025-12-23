@@ -71,6 +71,8 @@ const adminLogRoutes = require('./modules/admin/presentation/routes/adminLogRout
 const kategoriRoutes = require('./modules/service/presentation/routes/kategoriRoutes');
 const subKategoriRoutes = require('./modules/service/presentation/routes/subKategoriRoutes');
 const chatRoutes = require('./modules/chat/presentation/routes/chatRoutes');
+const bookmarkRoutes = require('./modules/order/presentation/routes/bookmarkRoutes');
+const favoriteRoutes = require('./modules/favorite/presentation/routes/favoriteRoutes');
 
 // ================================
 // 🚀 Initialize Service Module Controllers (Kategori & Sub-Kategori)
@@ -83,6 +85,12 @@ const subKategoriController = new SubKategoriController(sequelize);
 
 const ChatController = require('./modules/chat/presentation/controllers/ChatController');
 const chatController = new ChatController(sequelize, socketService);
+
+const BookmarkController = require('./modules/order/presentation/controllers/BookmarkController');
+const bookmarkController = new BookmarkController(sequelize);
+
+const FavoriteController = require('./modules/favorite/presentation/controllers/FavoriteController');
+const favoriteController = new FavoriteController(sequelize);
 
 // ================================
 // 🛣️ Register Routes
@@ -99,6 +107,10 @@ app.use('/api/sub-kategori', subKategoriRoutes(subKategoriController));
 app.use('/api/admin', authMiddleware, adminMiddleware, adminRoutes(adminController));
 app.use('/api/admin/logs', authMiddleware, adminMiddleware, adminLogRoutes(adminLogController));
 app.use('/api/chat', authMiddleware, chatRoutes(chatController));
+
+// Bookmark & Favorite routes (protected - client only)
+app.use('/api/bookmarks', bookmarkRoutes(bookmarkController));
+app.use('/api/favorites', favoriteRoutes);
 
 
 // Test DB (untuk development)

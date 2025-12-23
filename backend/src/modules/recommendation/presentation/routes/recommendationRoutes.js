@@ -6,6 +6,7 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../../../../shared/middleware/authMiddleware');
+const adminMiddleware = require('../../../../shared/middleware/adminMiddleware');
 
 // Import validators
 const {
@@ -60,67 +61,214 @@ module.exports = (recommendationController, favoriteController) => {
   // ==================== RECOMMENDATION ENDPOINTS ====================
 
   /**
-   * @swagger
-   * /api/recommendations:
-   *   get:
-   *     tags: [Recommendations]
-   *     summary: Generate rekomendasi personal untuk pengguna
-   *     description: Menghasilkan rekomendasi layanan berdasarkan tren, histori aktivitas, dan preferensi pengguna
-   *     security:
-   *       - bearerAuth: []
-   *     parameters:
-   *       - in: query
-   *         name: limit
-   *         schema:
-   *           type: integer
-   *           default: 10
-   *           minimum: 1
-   *           maximum: 50
-   *         description: Jumlah rekomendasi yang dikembalikan
-   *       - in: query
-   *         name: refresh
-   *         schema:
-   *           type: boolean
-   *           default: false
-   *         description: Force refresh rekomendasi
-   *       - in: query
-   *         name: exclude
-   *         schema:
-   *           type: string
-   *         description: Service IDs yang di-exclude (comma-separated)
-   *     responses:
-   *       200:
-   *         description: Daftar rekomendasi berhasil dihasilkan
-   *         content:
-   *           application/json:
-   *             schema:
-   *               type: object
-   *               properties:
-   *                 success:
-   *                   type: boolean
-   *                   example: true
-   *                 message:
-   *                   type: string
-   *                   example: Recommendations retrieved successfully
-   *                 data:
-   *                   type: array
-   *                   items:
-   *                     $ref: '#/components/schemas/Recommendation'
-   *                 metadata:
-   *                   type: object
-   *                   properties:
-   *                     total:
-   *                       type: integer
-   *                     timestamp:
-   *                       type: string
-   *                       format: date-time
-   *                     userId:
-   *                       type: string
-   *       401:
-   *         description: Unauthorized - token tidak valid
-   *       500:
-   *         description: Terjadi kesalahan server
-   */
+ * @swagger
+ * /api/recommendations:
+ *   get:
+ *     tags: [Recommendations]
+ *     summary: Generate rekomendasi personal untuk pengguna
+ *     description: |
+ *       Menghasilkan rekomendasi layanan berdasarkan:
+ *       - Layanan yang di-LIKE/Favorit user
+ *       - History transaksi/order user
+ *       - Preferensi kategori user
+ *       
+ *       **Filter Kategori:**
+ *       - Tanpa parameter kategoriId Sistem otomatis filter berdasarkan preferensi user
+ *       - Dengan parameter kategoriId User manual pilih kategori tertentu
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: kategoriId
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *           example:
+ *         required: false
+ *         description: |
+ *           Kosongkan untuk melihat semua kategori sesuai preferensi user.
+ * 
+ *           UUID kategori untuk filter rekomendasi (optional).
+ *     responses:
+ *       200:
+ *         description: Daftar rekomendasi berhasil dihasilkan
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Recommendations retrieved successfully
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                         example: "rec-1765221860998-0-d4e5f6a7-b8c9-0123-def0-123456789abc"
+ *                       serviceId:
+ *                         type: string
+ *                         format: uuid
+ *                         example: "d4e5f6a7-b8c9-0123-def0-123456789abc"
+ *                       serviceName:
+ *                         type: string
+ *                         example: "Desain Brosur Company Profile"
+ *                       kategoriId:
+ *                         type: string
+ *                         format: uuid
+ *                         example: "c8b5da8f-b200-405f-9a2d-a2325bf14e87"
+ *                       kategoriNama:
+ *                         type: string
+ *                         example: "Desain Grafis"
+ *                       harga:
+ *                         type: number
+ *                         example: 350000
+ *                       batasRevisi:
+ *                         type: integer
+ *                         example: 3
+ *                       waktuPengerjaan:
+ *                         type: integer
+ *                         example: 5
+ *                         description: "Waktu pengerjaan dalam hari"
+ *                       score:
+ *                         type: integer
+ *                         example: 100
+ *                         description: "Recommendation score (0-200)"
+ *                       reason:
+ *                         type: string
+ *                         example: "Berdasarkan layanan yang Anda sukai"
+ *                       source:
+ *                         type: string
+ *                         enum: [favorites_and_orders, popular]
+ *                         example: "favorites_and_orders"
+ *                       stats:
+ *                         type: object
+ *                         properties:
+ *                           views:
+ *                             type: integer
+ *                             example: 150
+ *                           favorites:
+ *                             type: integer
+ *                             example: 48
+ *                           orders:
+ *                             type: integer
+ *                             example: 48
+ *                           rating:
+ *                             type: number
+ *                             format: float
+ *                             example: 4.9
+ *                 metadata:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                       example: 10
+ *                       description: "Jumlah rekomendasi yang dikembalikan"
+ *                     basedOn:
+ *                       type: object
+ *                       properties:
+ *                         favorites:
+ *                           type: integer
+ *                           example: 4
+ *                           description: "Jumlah favorit user"
+ *                         orders:
+ *                           type: integer
+ *                           example: 2
+ *                           description: "Jumlah pesanan user"
+ *                         categories:
+ *                           type: integer
+ *                           example: 2
+ *                           description: "Jumlah kategori yang user minati"
+ *                     excluded:
+ *                       type: object
+ *                       properties:
+ *                         alreadyInteracted:
+ *                           type: integer
+ *                           example: 5
+ *                           description: "Layanan yang sudah pernah user like/order"
+ *                         hidden:
+ *                           type: integer
+ *                           example: 1
+ *                           description: "Layanan yang user sembunyikan"
+ *                         total:
+ *                           type: integer
+ *                           example: 6
+ *                     filters:
+ *                       type: object
+ *                       properties:
+ *                         kategoriId:
+ *                           type: string
+ *                           example: "all"
+ *                           description: "Kategori yang sedang difilter ('all' = semua kategori)"
+ *                         availableCategories:
+ *                           type: array
+ *                           description: "Daftar kategori yang tersedia untuk filter"
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               id:
+ *                                 type: string
+ *                                 format: uuid
+ *                                 example: "c8b5da8f-b200-405f-9a2d-a2325bf14e87"
+ *                               nama:
+ *                                 type: string
+ *                                 example: "Desain Grafis"
+ *                     timestamp:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2025-12-08T19:24:21.006Z"
+ *                     userId:
+ *                       type: string
+ *                       format: uuid
+ *                       example: "334b02ce-07d6-49da-ac8e-df32c59b3e6d"
+ *       400:
+ *         description: Bad Request - Parameter tidak valid
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid category ID format"
+ *                 error:
+ *                   type: string
+ *                   example: "Category ID must be a valid UUID"
+ *       401:
+ *         description: Unauthorized - token tidak valid
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "User authentication required"
+ *       500:
+ *         description: Terjadi kesalahan server
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
   router.get(
     '/',
     authMiddleware,
@@ -236,7 +384,7 @@ module.exports = (recommendationController, favoriteController) => {
    *   post:
    *     tags: [Recommendations]
    *     summary: Track interaksi user dengan layanan
-   *     description: Mencatat interaksi user (view, click, like, order, dll) untuk meningkatkan akurasi rekomendasi
+   *     description: Mencatat interaksi user (order) untuk meningkatkan akurasi rekomendasi
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -358,7 +506,7 @@ module.exports = (recommendationController, favoriteController) => {
    *                 maxLength: 500
    *                 description: Catatan tentang favorit (optional)
    *     responses:
-   *       201:
+   *       200:
    *         description: Layanan berhasil ditambahkan ke favorit
    *       400:
    *         description: Layanan sudah ada di favorit
@@ -459,23 +607,16 @@ module.exports = (recommendationController, favoriteController) => {
 
   /**
    * @swagger
-   * /api/recommendations/hide/{serviceId}:
-   *   post:
+   * /api/recommendations/hidden:
+   *   get:
    *     tags: [Recommendations]
-   *     summary: Sembunyikan layanan dari rekomendasi
-   *     description: Menyembunyikan layanan tertentu agar tidak muncul lagi di rekomendasi pengguna
+   *     summary: Membuka Layanan Rekomendasi yang Disembunyikan
+   *     description: Menampilkan daftar layanan yang telah disembunyikan oleh pengguna
    *     security:
    *       - bearerAuth: []
-   *     parameters:
-   *       - in: path
-   *         name: serviceId
-   *         required: true
-   *         schema:
-   *           type: string
-   *         description: ID layanan yang ingin disembunyikan
    *     responses:
    *       200:
-   *         description: Layanan berhasil disembunyikan dari rekomendasi
+   *         description: Daftar layanan tersembunyi berhasil diambil
    *         content:
    *           application/json:
    *             schema:
@@ -486,22 +627,101 @@ module.exports = (recommendationController, favoriteController) => {
    *                   example: true
    *                 message:
    *                   type: string
-   *                   example: "Service hidden from recommendations"
+   *                   example: "Hidden services retrieved successfully"
+   *                 data:
+   *                   type: array
+   *                   items:
+   *                     type: object
+   *                     properties:
+   *                       id:
+   *                         type: string
+   *                         example: "abc123"
+   *                       userId:
+   *                         type: string
+   *                         example: "user-123"
+   *                       serviceId:
+   *                         type: string
+   *                         example: "service-456"
+   *                       hiddenAt:
+   *                         type: string
+   *                         format: date-time
+   *                       serviceData:
+   *                         type: object
+   *                         properties:
+   *                           serviceName:
+   *                             type: string
+   *                           servicePrice:
+   *                             type: number
+   *                           kategoriNama:
+   *                             type: string
+   *                 metadata:
+   *                   type: object
+   *                   properties:
+   *                     total:
+   *                       type: integer
+   *                     userId:
+   *                       type: string
+   *                     timestamp:
+   *                       type: string
+   *                       format: date-time
+   *       401:
+   *         description: User tidak terautentikasi
+   *       500:
+   *         description: Terjadi kesalahan server
+   */
+  router.get(
+    '/hidden',
+    authMiddleware,
+    (req, res) => recommendationController.getHiddenServices(req, res)
+  );
+
+  /**
+   * @swagger
+   * /api/recommendations/hide/{serviceId}:
+   *   post:
+   *     tags: [Recommendations]
+   *     summary: Menyembunyikan Layanan Rekomendasi
+   *     description: |
+   *       Pengguna dapat menyembunyikan layanan tertentu yang dianggap tidak relevan.
+   *       Sistem menyimpan preferensi ini ke database dan layanan tidak akan muncul lagi di rekomendasi.
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: serviceId
+   *         required: true
+   *         schema:
+   *           type: string
+   *           format: uuid
+   *         description: ID layanan yang ingin disembunyikan
+   *     responses:
+   *       200:
+   *         description: Layanan berhasil disembunyikan
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 message:
+   *                   type: string
+   *                   example: "Service hidden from recommendations successfully"
    *                 data:
    *                   type: object
    *                   properties:
+   *                     id:
+   *                       type: string
    *                     userId:
    *                       type: string
-   *                       example: "123"
    *                     serviceId:
    *                       type: string
-   *                       example: "45"
    *                     hiddenAt:
    *                       type: string
    *                       format: date-time
-   *                       example: "2025-11-08T10:26:37.593Z"
    *       400:
-   *         description: Parameter serviceId tidak valid
+   *         description: Bad request - layanan sudah disembunyikan atau ID tidak valid
    *       401:
    *         description: User tidak terautentikasi
    *       404:
@@ -515,14 +735,15 @@ module.exports = (recommendationController, favoriteController) => {
     (req, res) => recommendationController.hideService(req, res)
   );
 
-
   /**
    * @swagger
    * /api/recommendations/hide/{serviceId}:
    *   delete:
    *     tags: [Recommendations]
-   *     summary: Tampilkan kembali layanan yang disembunyikan (Unhide)
-   *     description: Mengembalikan layanan yang sebelumnya disembunyikan agar muncul lagi di rekomendasi pengguna
+   *     summary: Menghapus Layanan dari Daftar Tersembunyi
+   *     description: |
+   *       Pengguna dapat menghapus layanan dari daftar tersembunyi.
+   *       Sistem menghapus preferensi dan layanan akan kembali muncul di rekomendasi.
    *     security:
    *       - bearerAuth: []
    *     parameters:
@@ -531,6 +752,7 @@ module.exports = (recommendationController, favoriteController) => {
    *         required: true
    *         schema:
    *           type: string
+   *           format: uuid
    *         description: ID layanan yang ingin ditampilkan kembali
    *     responses:
    *       200:
@@ -545,26 +767,13 @@ module.exports = (recommendationController, favoriteController) => {
    *                   example: true
    *                 message:
    *                   type: string
-   *                   example: "Service unhidden successfully"
-   *                 data:
-   *                   type: object
-   *                   properties:
-   *                     userId:
-   *                       type: string
-   *                       example: "123"
-   *                     serviceId:
-   *                       type: string
-   *                       example: "45"
-   *                     unhiddenAt:
-   *                       type: string
-   *                       format: date-time
-   *                       example: "2025-11-08T10:30:00.000Z"
+   *                   example: "Service unhidden successfully. It will appear in recommendations again."
    *       400:
-   *         description: Parameter serviceId tidak valid
+   *         description: Bad request - ID tidak valid
    *       401:
    *         description: User tidak terautentikasi
    *       404:
-   *         description: Layanan tidak ditemukan
+   *         description: Layanan tidak ada di daftar tersembunyi
    *       500:
    *         description: Terjadi kesalahan server
    */
@@ -576,6 +785,113 @@ module.exports = (recommendationController, favoriteController) => {
 
 
   // ==================== ADMIN ENDPOINTS ====================
+
+  /**
+     * @swagger
+     * /api/recommendations/admin/dashboard:
+     *   get:
+     *     tags: [Admin]
+     *     summary: Membuka Halaman Dashboard Monitoring
+     *     description: |
+     *       Menampilkan dashboard visual lengkap untuk admin memantau performa sistem rekomendasi:
+     *       - Grafik statistik rekomendasi yang sering digunakan
+     *       - Grafik total transaksi
+     *       - Tabel detail transaksi terakhir
+     *       - Grafik total favorit
+     *       - Tabel jumlah favorit per layanan
+     *       - Tabel Top 10 Layanan yang Paling Direkomendasikan
+     *       - Filter berdasarkan periode waktu (hari/minggu/bulan)
+     *     security:
+     *       - bearerAuth: []
+     *     parameters:
+     *       - in: query
+     *         name: timeRange
+     *         schema:
+     *           type: string
+     *           enum: [daily, weekly, monthly]
+     *           default: weekly
+     *         description: Periode waktu untuk filter data (hari/minggu/bulan)
+     *     responses:
+     *       200:
+     *         description: Dashboard data berhasil diambil
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 success:
+     *                   type: boolean
+     *                   example: true
+     *                 message:
+     *                   type: string
+     *                   example: "Dashboard data retrieved successfully"
+     *                 data:
+     *                   type: object
+     *                   properties:
+     *                     timeRange:
+     *                       type: string
+     *                       example: "weekly"
+     *                     period:
+     *                       type: object
+     *                       properties:
+     *                         startDate:
+     *                           type: string
+     *                           format: date-time
+     *                         endDate:
+     *                           type: string
+     *                           format: date-time
+     *                         days:
+     *                           type: integer
+     *                     recommendationStats:
+     *                       type: object
+     *                       properties:
+     *                         chart:
+     *                           type: array
+     *                           description: Data untuk grafik statistik rekomendasi
+     *                         summary:
+     *                           type: object
+     *                           description: Ringkasan total statistik
+     *                     transactionStats:
+     *                       type: object
+     *                       properties:
+     *                         chart:
+     *                           type: array
+     *                           description: Data untuk grafik transaksi
+     *                         summary:
+     *                           type: object
+     *                     recentTransactions:
+     *                       type: array
+     *                       description: Tabel detail transaksi terakhir
+     *                     favoritesStats:
+     *                       type: object
+     *                       properties:
+     *                         chart:
+     *                           type: array
+     *                           description: Data untuk grafik favorit
+     *                         summary:
+     *                           type: object
+     *                     favoritesByService:
+     *                       type: array
+     *                       description: Tabel jumlah favorit per layanan
+     *                     topRecommendedServices:
+     *                       type: array
+     *                       description: Tabel Top 10 Layanan yang Paling Direkomendasikan
+     *                     activityBreakdown:
+     *                       type: array
+     *                       description: Breakdown aktivitas user (untuk pie chart)
+     *       400:
+     *         description: Bad request - parameter tidak valid
+     *       401:
+     *         description: User tidak terautentikasi atau bukan admin
+     *       500:
+     *         description: Terjadi kesalahan server
+     */
+  router.get(
+    '/admin/dashboard',
+    authMiddleware,
+    adminMiddleware,
+    (req, res) => recommendationController.getAdminDashboard(req, res)
+  );
 
   /**
    * @swagger
@@ -624,6 +940,7 @@ module.exports = (recommendationController, favoriteController) => {
   router.get(
     '/admin/stats',
     authMiddleware,
+    adminMiddleware,
     (req, res) => recommendationController.getAdminStats(req, res)
   );
 
@@ -678,6 +995,7 @@ module.exports = (recommendationController, favoriteController) => {
   router.get(
     '/admin/performance',
     authMiddleware,
+    adminMiddleware,
     (req, res) => recommendationController.getRecommendationPerformance(req, res)
   );
 

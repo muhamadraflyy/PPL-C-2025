@@ -5,9 +5,9 @@ import { Header } from '../../components/Fragments/Admin/Header';
 import { adminService } from '../../services/adminService';
 import Button from '../../components/Elements/Buttons/Button';
 import Badge from '../../components/Elements/Common/Badge';
-import { Search, Filter, Download, ChevronDown } from 'lucide-react';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import { Search, Filter, Download, ChevronDown, DollarSign, Shield, Wallet } from 'lucide-react';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 // Status badge variants
 const getStatusBadge = (status) => {
@@ -264,90 +264,51 @@ export default function AdminTransactionsPage() {
     }
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     try {
-      const doc = new jsPDF();
+      toast.show('Memproses export PDF...', 'info');
 
-      // Title
-      doc.setFontSize(18);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Laporan Daftar Transaksi', 14, 22);
-
-      // Subtitle with date
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Tanggal: ${new Date().toLocaleDateString('id-ID', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric'
-      })}`, 14, 30);
-
-      let startY = 36;
-      if (statusFilter !== 'all') {
-        const statusLabel = getStatusBadge(statusFilter).label;
-        doc.text(`Filter Status: ${statusLabel}`, 14, 36);
-        startY = 42;
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast.show('Session expired, please login again', 'error');
+        return;
       }
 
-      // Prepare table data
-      const tableData = filteredTransactions.map((t, idx) => [
-        idx + 1,
-        t.order_number || t.pesanan_id?.slice(0, 8) || '-',
-        t.order_title || '-',
-        t.client?.full_name || 'N/A',
-        t.freelancer?.full_name || 'N/A',
-        `Rp ${Number(t.total || 0).toLocaleString('id-ID')}`,
-        getStatusBadge(t.status).label
-      ]);
-
-      // Add table
-      doc.autoTable({
-        startY: startY,
-        head: [['No', 'No. Order', 'Judul', 'Klien', 'Freelancer', 'Harga', 'Status']],
-        body: tableData,
-        theme: 'striped',
-        headStyles: {
-          fillColor: [71, 130, 190],
-          textColor: 255,
-          fontStyle: 'bold',
-          fontSize: 9
+      // Call backend export endpoint
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/admin/reports/export`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
-        bodyStyles: {
-          fontSize: 8
-        },
-        columnStyles: {
-          0: { cellWidth: 10 },
-          1: { cellWidth: 25 },
-          2: { cellWidth: 40 },
-          3: { cellWidth: 30 },
-          4: { cellWidth: 30 },
-          5: { cellWidth: 25 },
-          6: { cellWidth: 25 }
-        },
-        margin: { left: 14, right: 14 }
+        body: JSON.stringify({
+          reportType: 'revenue',
+          format: 'pdf',
+          filters: {
+            status: statusFilter !== 'all' ? statusFilter : null,
+            search: searchQuery || null
+          }
+        })
       });
 
-      // Footer
-      const pageCount = doc.internal.getNumberOfPages();
-      for (let i = 1; i <= pageCount; i++) {
-        doc.setPage(i);
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'normal');
-        doc.text(
-          `SkillConnect - Halaman ${i} dari ${pageCount}`,
-          doc.internal.pageSize.width / 2,
-          doc.internal.pageSize.height - 10,
-          { align: 'center' }
-        );
+      if (!response.ok) {
+        throw new Error('Failed to generate PDF');
       }
 
-      // Save PDF
-      const fileName = `transaksi_${new Date().toISOString().split('T')[0]}.pdf`;
-      doc.save(fileName);
+      // Download the PDF file
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `transaksi_${new Date().toISOString().split('T')[0]}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
 
-      toast.show('PDF berhasil diunduh', 'success');
+      toast.show('PDF berhasil diunduh (semua data)', 'success');
     } catch (err) {
-      console.error('Error generating PDF:', err);
+      console.error('Error exporting PDF:', err);
       toast.show('Gagal membuat PDF', 'error');
     }
   };
@@ -396,6 +357,45 @@ export default function AdminTransactionsPage() {
 
       <div className="flex-1 overflow-auto">
         <Header />
+
+        {/* Tab Navigation */}
+        <div className="bg-white border-b border-gray-200 px-6">
+          <div className="flex gap-1">
+            <button
+              onClick={() => navigate('/admin/transactions')}
+              className={`flex items-center gap-2 px-6 py-3 font-medium text-sm border-b-2 transition-colors ${
+                location.pathname === '/admin/transactions'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+              }`}
+            >
+              <DollarSign size={18} />
+              Transaksi
+            </button>
+            <button
+              onClick={() => navigate('/admin/escrow')}
+              className={`flex items-center gap-2 px-6 py-3 font-medium text-sm border-b-2 transition-colors ${
+                location.pathname === '/admin/escrow'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+              }`}
+            >
+              <Shield size={18} />
+              Escrow
+            </button>
+            <button
+              onClick={() => navigate('/admin/withdrawals')}
+              className={`flex items-center gap-2 px-6 py-3 font-medium text-sm border-b-2 transition-colors ${
+                location.pathname === '/admin/withdrawals'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+              }`}
+            >
+              <Wallet size={18} />
+              Penarikan
+            </button>
+          </div>
+        </div>
 
         <div className="p-6">
           {/* Combined Toolbar and Table */}

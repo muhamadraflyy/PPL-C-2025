@@ -22,9 +22,14 @@ class MarkAsRead {
         // 3. Reset unread count di Conversation Model
         await this.conversationRepository.resetUnreadCount(percakapanId, userId);
 
-        // 4. (Opsional) Emit event ke pengirim lama untuk update status pesan mereka
+        // 4. Emit event ke pengirim untuk update status pesan mereka menjadi "read"
         if (this.socketService) {
             const otherUserId = conversation.getOtherUserId(userId);
+            this.socketService.io.to(`user:${otherUserId}`).emit('message:status-updated', {
+                percakapanId: percakapanId,
+                status: 'read',
+                dibaca_pada: new Date()
+            });
         }
 
         return { message: 'Pesan berhasil ditandai sebagai terbaca' };

@@ -17,13 +17,9 @@ function Row({ icon: IconCmp, label, value }) {
   );
 }
 
-/**
- * Komponen rating
- *
- */
 function StarRating({ value = 0, max = 5 }) {
   const rating = Math.max(0, Math.min(max, Number(value) || 0));
-  const rounded = Math.round(rating * 2) / 2; // misal 4.3 -> 4.5
+  const rounded = Math.round(rating * 2) / 2;
 
   return (
     <div className="flex items-center gap-0.5">
@@ -36,9 +32,7 @@ function StarRating({ value = 0, max = 5 }) {
           <Star
             key={starIndex}
             className={`h-4 w-4 ${
-              filled || isHalf
-                ? "fill-[#FBBF24] text-[#FBBF24]"
-                : "text-neutral-300"
+              filled || isHalf ? "fill-[#FBBF24] text-[#FBBF24]" : "text-neutral-300"
             }`}
           />
         );
@@ -47,6 +41,7 @@ function StarRating({ value = 0, max = 5 }) {
   );
 }
 
+// [3] Tambahkan status & onReview ke props
 export default function OrderCard({
   price,
   rating = 0,
@@ -54,30 +49,29 @@ export default function OrderCard({
   completed = 0,
   waktu_pengerjaan,
   batas_revisi,
+  status, 
   onOrder,
   onContact,
+  onReview 
 }) {
   const safeRating = Number.isFinite(Number(rating)) ? Number(rating) : 0;
-  const safeReviews = Number.isFinite(Number(reviewCount))
-    ? Number(reviewCount)
-    : 0;
-  const safeCompleted = Number.isFinite(Number(completed))
-    ? Number(completed)
-    : 0;
+  const safeReviews = Number.isFinite(Number(reviewCount)) ? Number(reviewCount) : 0;
+  const safeCompleted = Number.isFinite(Number(completed)) ? Number(completed) : 0;
+
+  // [4] Logika: Apakah pesanan selesai?
+  const isCompleted = status?.toLowerCase() === 'selesai';
 
   return (
     <aside className="rounded-2xl border border-neutral-200 bg-white p-4 sm:p-5 shadow-sm">
       {/* Header harga */}
       <div className="mb-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
-          Harga
-        </p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Harga</p>
         <p className="mt-1 text-2xl font-semibold text-[#2563EB]">
           Rp. {Number(price || 0).toLocaleString("id-ID")}
         </p>
       </div>
 
-      {/* Rating & statistik pesanan */}
+      {/* Rating & statistik */}
       <div className="mb-3 flex items-center gap-2 text-sm text-[#585859]">
         <StarRating value={safeRating} />
         <span>{safeRating.toFixed(1)}</span>
@@ -89,39 +83,47 @@ export default function OrderCard({
 
       <hr className="mb-3 border-neutral-200" />
 
-      {/* Info waktu, revisi, proteksi, CS */}
+      {/* Info Detail */}
       <div className="space-y-2">
-        <Row
-          icon={Clock}
-          label="Estimasi Pengerjaan"
-          value={waktu_pengerjaan}
-        />
-        <Row
-          icon={RotateCcw}
-          label="Revamb / Revisi"
-          value={batas_revisi != null ? `${batas_revisi}` : "3x revisi besar"}
-        />
+        <Row icon={Clock} label="Estimasi Pengerjaan" value={waktu_pengerjaan} />
+        <Row icon={RotateCcw} label="Revamb / Revisi" value={batas_revisi != null ? `${batas_revisi}` : "3x revisi besar"} />
         <Row icon={ShieldCheck} label="Pembayaran dilindungi platform" />
         <Row icon={Headset} label="Didukung customer servis 24/7" />
       </div>
 
-      {/* Tombol aksi */}
+      {/* [5] Tombol Aksi (Kondisional) */}
       <div className="mt-5 flex flex-col gap-2">
-        <Button
-          variant="order"
-          onClick={onOrder}
-          className="w-full px-4 py-2.5 text-sm font-semibold shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F172A]/60 focus-visible:ring-offset-2"
-        >
-          Pesan Sekarang
-        </Button>
+        {isCompleted ? (
+            // TOMBOL HIJAU: BERIKAN ULASAN
+            <button
+                onClick={(e) => {
+                    e.stopPropagation(); 
+                    if(onReview) onReview();
+                }}
+                className="w-full rounded-xl bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 text-sm font-semibold shadow transition-colors flex items-center justify-center gap-2"
+            >
+                <Star className="h-4 w-4 fill-current" />
+                Berikan Ulasan
+            </button>
+        ) : (
+            <>
+                <Button
+                  variant="order"
+                  onClick={onOrder}
+                  className="w-full px-4 py-2.5 text-sm font-semibold shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F172A]/60 focus-visible:ring-offset-2"
+                >
+                  Pesan Sekarang
+                </Button>
 
-        <Button
-          variant="outline"
-          onClick={onContact}
-          className="w-full rounded-xl border-none bg-[#F3F4F6] px-4 py-2.5 text-sm font-semibold text-[#111827] hover:bg-[#E5E7EB]"
-        >
-          Hubungi Freelancer
-        </Button>
+                <Button
+                  variant="outline"
+                  onClick={onContact}
+                  className="w-full rounded-xl border-none bg-[#F3F4F6] px-4 py-2.5 text-sm font-semibold text-[#111827] hover:bg-[#E5E7EB]"
+                >
+                  Hubungi Freelancer
+                </Button>
+            </>
+        )}
       </div>
     </aside>
   );

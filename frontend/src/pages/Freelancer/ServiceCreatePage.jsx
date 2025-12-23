@@ -17,6 +17,7 @@ export default function ServiceCreatePage() {
     deskripsi: "", // text
     waktu_pengerjaan: "", // int (hari)
     kategori_id: "", // fk kategori
+    sub_kategori_id: "", // Tambahkan state sub_kategori_id
     harga: "", // decimal(10,2) – string di UI
   });
 
@@ -57,7 +58,6 @@ export default function ServiceCreatePage() {
       await createService(form);
       window.location.href = "/freelance/service";
     } catch {
-      // error sudah di-set di submitError oleh hook, jadi di sini cukup diam
     }
   }
 

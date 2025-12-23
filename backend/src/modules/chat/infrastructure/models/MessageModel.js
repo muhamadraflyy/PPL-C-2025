@@ -38,12 +38,21 @@ const MessageModel = sequelize.define('pesan', {
         type: DataTypes.JSON,
         allowNull: true
     },
+    status: {
+        type: DataTypes.ENUM('sent', 'delivered', 'read'),
+        allowNull: false,
+        defaultValue: 'sent'
+    },
     is_read: {
         type: DataTypes.BOOLEAN,
         allowNull: false,
         defaultValue: false
     },
     dibaca_pada: {
+        type: DataTypes.DATE,
+        allowNull: true
+    },
+    terkirim_pada: {
         type: DataTypes.DATE,
         allowNull: true
     }

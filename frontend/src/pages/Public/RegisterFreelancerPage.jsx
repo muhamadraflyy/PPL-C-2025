@@ -1,10 +1,5 @@
 import { useState, useEffect } from "react";
-import { useGoogleLogin } from "@react-oauth/google";
-import { Link, useNavigate } from "react-router-dom";
-import AuthLayout from "../../components/Layouts/AuthLayout";
-import AuthCard from "../../components/Fragments/Auth/AuthCard";
-import FormGroup from "../../components/Fragments/Auth/FormGroup";
-import Icon from "../../components/Elements/Icons/Icon";
+import { useNavigate } from "react-router-dom";
 import Button from "../../components/Elements/Buttons/Button";
 import { validateName } from "../../utils/validators";
 import LoadingOverlay from "../../components/Fragments/Common/LoadingOverlay";
@@ -12,6 +7,7 @@ import { useToast } from "../../components/Fragments/Common/ToastProvider";
 import { authService } from "../../services/authService";
 
 export default function RegisterFreelancerPage() {
+  const [step, setStep] = useState(1);
   const [form, setForm] = useState({
     nama_lengkap: "",
     gelar: "",
@@ -19,88 +15,9 @@ export default function RegisterFreelancerPage() {
     deskripsi: "",
   });
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const navigate = useNavigate();
   const [errors, setErrors] = useState({});
+  const navigate = useNavigate();
   const toast = useToast();
-  const [googleLoading, setGoogleLoading] = useState(false);
-
-  const handleGoogleRegister = useGoogleLogin({
-    onSuccess: async (tokenResponse) => {
-      setGoogleLoading(true);
-      try {
-        // Since this page requires login, user should already be logged in
-        // Use Google to auto-fill form and create freelancer profile
-        const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-          headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
-        });
-        
-        if (!userInfoResponse.ok) {
-          throw new Error('Failed to get user info from Google');
-        }
-        
-        const userInfo = await userInfoResponse.json();
-        
-        // Pre-fill form with Google data
-        const updatedForm = {
-          nama_lengkap: userInfo.name || form.nama_lengkap || "",
-          gelar: form.gelar || "Freelancer",
-          no_telepon: form.no_telepon || "",
-          deskripsi: form.deskripsi || `Hi, I'm ${userInfo.name || 'a freelancer'}`,
-        };
-        
-        setForm(updatedForm);
-
-        // Check if we have minimum required data to create profile
-        // Note: Backend doesn't require no_telepon, but frontend form validation does
-        // So we'll auto-fill form and let user complete if needed
-        const hasMinimumData = updatedForm.nama_lengkap && updatedForm.gelar;
-        
-        if (!hasMinimumData) {
-          toast.show("Data dari Google tidak lengkap. Silakan lengkapi form manual.", "info");
-          setGoogleLoading(false);
-          return;
-        }
-
-        // If no_telepon is missing, ask user to fill it first
-        if (!updatedForm.no_telepon) {
-          toast.show("Form telah diisi otomatis. Mohon lengkapi nomor telepon sebelum submit.", "info");
-          setGoogleLoading(false);
-          return;
-        }
-
-        // Create freelancer profile for existing logged-in user
-        const result = await authService.createFreelancerProfile({
-          nama_lengkap: updatedForm.nama_lengkap,
-          gelar: updatedForm.gelar,
-          no_telepon: updatedForm.no_telepon,
-          deskripsi: updatedForm.deskripsi,
-        });
-
-        if (result.success) {
-          toast.show("Profil freelancer berhasil dibuat!", "success");
-          authService.setActiveRole("freelancer");
-          navigate("/dashboard", { replace: true });
-        } else {
-          toast.show(result.message || "Gagal membuat profil freelancer", "error");
-        }
-      } catch (err) {
-        console.error("Google registration error:", err);
-        if (err.message?.includes("already exists") || err.response?.data?.message?.includes("already exists")) {
-          toast.show("Anda sudah memiliki profil freelancer. Silakan login dengan role freelancer.", "info");
-          navigate("/dashboard", { replace: true });
-        } else {
-          toast.show("Gagal mengambil informasi dari Google. Silakan isi form manual.", "error");
-        }
-      } finally {
-        setGoogleLoading(false);
-      }
-    },
-    onError: () => {
-      toast.show("Google authentication failed", "error");
-      setGoogleLoading(false);
-    },
-  });
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -131,29 +48,44 @@ export default function RegisterFreelancerPage() {
   }, [navigate, toast]);
 
   const onChange = (e) => {
-    const value = e.target.value;
-    setForm((s) => ({ ...s, [e.target.name]: value }));
+    setForm((s) => ({ ...s, [e.target.name]: e.target.value }));
+    if (errors[e.target.name]) {
+      setErrors((prev) => ({ ...prev, [e.target.name]: null }));
+    }
   };
 
-  const submit = async (e) => {
+  const handleNextStep = () => {
+    if (step === 1) {
+      const newErrors = {
+        nama_lengkap: validateName(form.nama_lengkap, "Nama lengkap"),
+        gelar: form.gelar.trim() ? null : "Gelar wajib diisi",
+        no_telepon: form.no_telepon.trim() ? null : "Nomor telepon wajib diisi",
+      };
+      
+      setErrors(newErrors);
+      if (Object.values(newErrors).some(Boolean)) return;
+      
+      setErrors({});
+      setStep(2);
+    }
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const newErrors = {
-      nama_lengkap: validateName(form.nama_lengkap, "Nama lengkap"),
-      gelar: form.gelar.trim() ? null : "Gelar wajib diisi",
-      no_telepon: form.no_telepon.trim() ? null : "Nomor telepon wajib diisi",
-    };
-    setErrors(newErrors);
-    if (Object.values(newErrors).some(Boolean)) return;
+    
+    if (!form.deskripsi.trim()) {
+      setErrors({ deskripsi: "Deskripsi wajib diisi" });
+      return;
+    }
 
     setLoading(true);
-    setError(null);
 
     try {
       const result = await authService.createFreelancerProfile({
         nama_lengkap: form.nama_lengkap,
         gelar: form.gelar,
         no_telepon: form.no_telepon,
-        deskripsi: form.deskripsi || undefined,
+        deskripsi: form.deskripsi,
       });
 
       if (result.success) {
@@ -161,65 +93,150 @@ export default function RegisterFreelancerPage() {
         authService.setActiveRole("freelancer");
         navigate("/dashboard", { replace: true });
       } else {
-        setError(result.message || "Gagal membuat profil freelancer");
         toast.show(result.message || "Gagal membuat profil freelancer", "error");
       }
     } catch (err) {
       const errorMessage = err.response?.data?.message || "Gagal membuat profil freelancer";
-      setError(errorMessage);
       toast.show(errorMessage, "error");
     } finally {
       setLoading(false);
     }
   };
 
-  const overlayText = googleLoading ? "Memproses Google..." : "Creating account...";
-
   return (
-    <AuthLayout title="Register Freelancer">
-      <LoadingOverlay show={loading || googleLoading} text={overlayText} />
-      <AuthCard
-        title="Buat Akun"
-        headerRight={
-          <Link to="/login" className="text-[#1B1B1B] text-sm underline">
-            {" "}
-            Masuk
-          </Link>
-        }
-      >
-        <form onSubmit={submit}>
-          <FormGroup label="Nama Lengkap" name="nama_lengkap" value={form.nama_lengkap} onChange={onChange} error={errors.nama_lengkap} required />
-          <FormGroup label="Gelar" name="gelar" value={form.gelar} onChange={onChange} error={errors.gelar} placeholder="Contoh: Web Developer, Graphic Designer, dll" required />
-          <FormGroup label="Nomor Telepon" name="no_telepon" type="tel" value={form.no_telepon} onChange={onChange} error={errors.no_telepon} required />
-          <div className="mb-4 sm:mb-5">
-            <label htmlFor="deskripsi" className="block text-sm font-medium text-[#1B1B1B] mb-1.5 sm:mb-2">
-              Deskripsi / Bio
-            </label>
-            <textarea
-              id="deskripsi"
-              name="deskripsi"
-              value={form.deskripsi}
-              onChange={onChange}
-              placeholder="Ceritakan tentang diri Anda (opsional)"
-              rows={4}
-              className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-[#B3B3B3] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#112D4E] focus:border-transparent text-sm sm:text-base"
-            />
-            {errors.deskripsi && <p className="text-red-500 text-xs sm:text-sm mt-1.5 sm:mt-2">{errors.deskripsi}</p>}
+    <div className="h-screen flex flex-col lg:flex-row overflow-hidden">
+      <LoadingOverlay show={loading} text="Membuat profile..." />
+      
+      {/* Left Section - Form */}
+      <div className="flex-1 bg-white flex flex-col h-full lg:h-screen overflow-y-auto">
+        {/* Logo */}
+        <div className="flex-shrink-0 p-4 sm:p-6 lg:p-8">
+          <img src="/assets/logo.png" alt="Skill Connect Logo" className="h-10 sm:h-12 lg:h-14 w-auto object-contain" />
+        </div>
+
+        {/* Form Content */}
+        <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-4 lg:py-0">
+          <div className="w-full max-w-md">
+            {step === 1 ? (
+              <div className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 lg:p-8 shadow-sm">
+                <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 mb-1.5 sm:mb-2">
+                  Buat Profil Pekerja Lepas Anda
+                </h1>
+                <p className="text-xs sm:text-sm text-gray-600 mb-4 sm:mb-6">
+                  Berikan informasi dasar untuk membangun kredibilitas Anda
+                </p>
+
+                <div className="space-y-3 sm:space-y-4">
+                  <div>
+                    <label htmlFor="nama_lengkap" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">
+                      Nama Lengkap
+                    </label>
+                    <input
+                      type="text"
+                      id="nama_lengkap"
+                      name="nama_lengkap"
+                      value={form.nama_lengkap}
+                      onChange={onChange}
+                      className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs sm:text-sm"
+                    />
+                    {errors.nama_lengkap && (
+                      <p className="text-red-500 text-xs sm:text-sm mt-1 sm:mt-2">{errors.nama_lengkap}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label htmlFor="gelar" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">
+                      Gelar
+                    </label>
+                    <input
+                      type="text"
+                      id="gelar"
+                      name="gelar"
+                      value={form.gelar}
+                      onChange={onChange}
+                      className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs sm:text-sm"
+                    />
+                    {errors.gelar && (
+                      <p className="text-red-500 text-xs sm:text-sm mt-1 sm:mt-2">{errors.gelar}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label htmlFor="no_telepon" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">
+                      Nomor Telepon
+                    </label>
+                    <input
+                      type="tel"
+                      id="no_telepon"
+                      name="no_telepon"
+                      value={form.no_telepon}
+                      onChange={onChange}
+                      className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs sm:text-sm"
+                    />
+                    {errors.no_telepon && (
+                      <p className="text-red-500 text-xs sm:text-sm mt-1 sm:mt-2">{errors.no_telepon}</p>
+                    )}
+                  </div>
+
+                  <Button
+                    type="button"
+                    onClick={handleNextStep}
+                    className="w-full bg-gray-400 hover:bg-gray-500 text-white py-2.5 sm:py-3 rounded-full font-medium transition-colors text-xs sm:text-sm"
+                  >
+                    Simpan dan Lanjut
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 lg:p-8 shadow-sm">
+                <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 mb-1.5 sm:mb-2 text-center">
+                  Jelaskan diri Anda agar klien mengenal Anda lebih baik.
+                </h1>
+                <p className="text-xs sm:text-sm text-gray-600 mb-4 sm:mb-6 text-center leading-relaxed">
+                  Bagikan riwayat pekerjaan Anda seperti pengalaman kerja, latar belakang pendidikan, dan sertifikasi apa pun yang pernah Anda peroleh.
+                </p>
+
+                <form onSubmit={handleSubmit}>
+                  <div className="mb-4 sm:mb-6">
+                    <label htmlFor="deskripsi" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">
+                      Deskripsi
+                    </label>
+                    <textarea
+                      id="deskripsi"
+                      name="deskripsi"
+                      value={form.deskripsi}
+                      onChange={onChange}
+                      placeholder="Gunakan ruang ini untuk menunjukkan kepada klien bahwa Anda memiliki keterampilan dan pengalaman yang mereka cari."
+                      rows={5}
+                      className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs sm:text-sm resize-none"
+                    />
+                    {errors.deskripsi && (
+                      <p className="text-red-500 text-xs sm:text-sm mt-1 sm:mt-2">{errors.deskripsi}</p>
+                    )}
+                  </div>
+
+                  <Button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-gray-400 hover:bg-gray-500 text-white py-2.5 sm:py-3 rounded-full font-medium transition-colors text-xs sm:text-sm"
+                  >
+                    {loading ? "Memproses..." : "Simpan dan Lanjut"}
+                  </Button>
+                </form>
+              </div>
+            )}
           </div>
-          {error && <p className="text-red-500 text-sm mb-3">{error}</p>}
-          <Button type="submit" variant="neutral" className="w-full" disabled={loading}>
-            {loading ? "Loading..." : "Buat Akun"}
-          </Button>
-          <div className="flex items-center gap-4 text-[#8a8a8a] my-4">
-            <div className="flex-1 h-px bg-[#B3B3B3]" />
-            <span>Atau</span>
-            <div className="flex-1 h-px bg-[#B3B3B3]" />
-          </div>
-          <Button variant="outline" className="w-full" icon={<Icon name="google" size="md" />} onClick={handleGoogleRegister} disabled={googleLoading || loading}>
-            {googleLoading ? "Memproses..." : "Lanjutkan dengan Google"}
-          </Button>
-        </form>
-      </AuthCard>
-    </AuthLayout>
+        </div>
+      </div>
+
+      {/* Right Section - Illustration */}
+      <div className="hidden lg:flex lg:flex-1 lg:h-screen items-center justify-center overflow-hidden">
+        <img 
+          src="/assets/handshake.png" 
+          alt="Handshake Illustration" 
+          className="w-full h-full object-cover"
+        />
+      </div>
+    </div>
   );
 }

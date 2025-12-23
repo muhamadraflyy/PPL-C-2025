@@ -21,6 +21,13 @@ const Favorite = sequelize.define('Favorite', {
         field: 'layanan_id',
         comment: 'Foreign key ke layanan'
     },
+    type: {
+        type: DataTypes.ENUM('favorite', 'bookmark'),
+        allowNull: false,
+        defaultValue: 'favorite',
+        field: 'type',
+        comment: 'Type: favorite (public like) or bookmark (private save)'
+    },
     created_at: {
         type: DataTypes.DATE,
         allowNull: false,
@@ -34,8 +41,8 @@ const Favorite = sequelize.define('Favorite', {
     indexes: [
         {
             unique: true,
-            fields: ['user_id', 'layanan_id'],
-            name: 'unique_user_layanan'
+            fields: ['user_id', 'layanan_id', 'type'],
+            name: 'unique_user_layanan_type'
         },
         { fields: ['user_id'] },
         { fields: ['layanan_id'] }

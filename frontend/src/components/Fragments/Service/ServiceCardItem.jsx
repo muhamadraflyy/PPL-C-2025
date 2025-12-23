@@ -1,8 +1,9 @@
 import { motion } from "framer-motion";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { authService } from "../../../services/authService";
 import { favoriteService } from "../../../services/favoriteService";
 import { bookmarkService } from "../../../services/bookmarkService";
+import { serviceService } from "../../../services/serviceService";
 import FavoriteToast from "../Common/FavoriteToast";
 import SavedToast from "../Common/SavedToast";
 import UnfavoriteConfirmModal from "../Common/UnfavoriteConfirmModal";
@@ -13,21 +14,50 @@ export default function ServiceCardItem({
   onClick,
   onFavoriteToggle,
   onBookmarkToggle,
-  fullWidth = false,
+  isCarousel = false,
 }) {
-  const user = authService.getCurrentUser();
+  // Make user reactive by tracking it in state
+  const [user, setUser] = useState(() => {
+    const currentUser = authService.getCurrentUser();
+    console.log('[ServiceCardItem INIT] Getting current user:', currentUser);
+    return currentUser;
+  });
   const isClient = user?.role === "client";
 
-  const getFavoriteStatus = () => {
-    if (!user) return false;
-    const favorites = JSON.parse(localStorage.getItem("favorites") || "[]");
-    return favorites.includes(service.id);
-  };
+  // Listen to user role changes (custom event from authService)
+  useEffect(() => {
+    const handleUserRoleChanged = (event) => {
+      console.log('[USER ROLE CHANGED EVENT]', event.detail);
+      const updatedUser = event.detail?.user || authService.getCurrentUser();
+      setUser(updatedUser);
+    };
 
-  // Initial saved status: rely on prop if provided (e.g., SavedPage), fallback to false
+    // Listen to custom event
+    window.addEventListener('userRoleChanged', handleUserRoleChanged);
+
+    return () => {
+      window.removeEventListener('userRoleChanged', handleUserRoleChanged);
+    };
+  }, []);
+
+  // Debug logging
+  useEffect(() => {
+    console.log('==================================');
+    console.log('[ServiceCardItem] Component state:', {
+      serviceId: service?.id,
+      serviceTitle: service?.title,
+      userId: user?.id, // ← FIX: use user.id not user.userId
+      userRole: user?.role,
+      isClient,
+      isFavorite,
+      favoriteCount
+    });
+    console.log('==================================');
+  });
+
   const initialBookmarked = Boolean(service?.isSaved || service?.isBookmarked);
 
-  const [isFavorite, setIsFavorite] = useState(getFavoriteStatus());
+  const [isFavorite, setIsFavorite] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(initialBookmarked);
   const [isLoading, setIsLoading] = useState(false);
   const [isBookmarkLoading, setIsBookmarkLoading] = useState(false);
@@ -35,22 +65,73 @@ export default function ServiceCardItem({
   const [showBookmarkToast, setShowBookmarkToast] = useState(false);
   const [showUnfavoriteModal, setShowUnfavoriteModal] = useState(false);
   const [showUnbookmarkModal, setShowUnbookmarkModal] = useState(false);
+  const [favoriteCount, setFavoriteCount] = useState(service.favoriteCount || 0);
+  const [isProcessingFavorite, setIsProcessingFavorite] = useState(false);
+  const [isProcessingBookmark, setIsProcessingBookmark] = useState(false);
 
-  // Ensure initial bookmark state reflects server on refresh/navigation
+  // Sync favorite state from server - re-fetch when user or service changes
   useEffect(() => {
+    // Skip if no user or not client
+    if (!user || !isClient || !service?.id) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const hydrateFavoriteState = async () => {
+      console.log('[FAVORITE SYNC] Fetching favorite status from server for service:', service.id, 'user:', user.id);
+
+      try {
+        const res = await favoriteService.isFavorite(service.id);
+        if (cancelled) return;
+
+        console.log('[FAVORITE SYNC] Server response:', res);
+
+        if (res?.success && typeof res.data?.isFavorite === "boolean") {
+          console.log('[FAVORITE SYNC] Setting isFavorite to:', res.data.isFavorite);
+          setIsFavorite(res.data.isFavorite);
+        } else {
+          setIsFavorite(false);
+        }
+      } catch (err) {
+        console.log('[FAVORITE SYNC] Error:', err);
+        setIsFavorite(false);
+      }
+    };
+
+    hydrateFavoriteState();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, isClient, service?.id]);
+
+  // Sync bookmark state from server - re-fetch when user or service changes
+  useEffect(() => {
+    // Skip if no user or not client
+    if (!user || !isClient || !service?.id) {
+      return;
+    }
+
     let cancelled = false;
 
     const hydrateBookmarkState = async () => {
-      if (!user || !isClient || !service?.id) return;
+      console.log('[BOOKMARK SYNC] Fetching bookmark status from server for service:', service.id, 'user:', user.id);
 
       try {
         const res = await bookmarkService.isBookmarked(service.id);
         if (cancelled) return;
+
+        console.log('[BOOKMARK SYNC] Server response:', res);
+
         if (res?.success && typeof res.data?.isBookmarked === "boolean") {
+          console.log('[BOOKMARK SYNC] Setting isBookmarked to:', res.data.isBookmarked);
           setIsBookmarked(res.data.isBookmarked);
+        } else {
+          setIsBookmarked(false);
         }
-      } catch (_) {
-        // ignore - keep current optimistic state
+      } catch (err) {
+        console.log('[BOOKMARK SYNC] Error:', err);
+        setIsBookmarked(false);
       }
     };
 
@@ -58,34 +139,91 @@ export default function ServiceCardItem({
     return () => {
       cancelled = true;
     };
-  }, [user, isClient, service?.id]);
+  }, [user?.id, isClient, service?.id]);
+
+  // Fetch fresh favoriteCount from backend when user or service changes
+  useEffect(() => {
+    let cancelled = false;
+
+    const refreshFavoriteCount = async () => {
+      if (!service?.id && !service?.slug) return;
+
+      try {
+        // Fetch service data to get latest favoriteCount
+        const serviceId = service.id || service.slug;
+        console.log('[FAVORITE COUNT REFRESH] Fetching count for service:', serviceId, 'user:', user?.id);
+
+        const response = await serviceService.getServiceById(serviceId);
+
+        if (cancelled) return;
+
+        if (response?.success && response?.service) {
+          const latestCount = parseInt(response.service.jumlah_favorit || response.service.favoriteCount) || 0;
+          console.log('[FAVORITE COUNT REFRESH] ✅ Updated count from', favoriteCount, 'to', latestCount);
+          setFavoriteCount(latestCount);
+        } else {
+          console.log('[FAVORITE COUNT REFRESH] ❌ Failed to get service data');
+        }
+      } catch (err) {
+        console.log('[FAVORITE COUNT REFRESH] Error:', err);
+        // Keep current count on error
+      }
+    };
+
+    refreshFavoriteCount();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, service?.id, service?.slug]);
 
   const handleFavoriteClick = async (e) => {
     e.stopPropagation();
+    e.preventDefault();
+
+    const timestamp = new Date().toISOString();
+    console.log(`[FAVORITE CLICK @ ${timestamp}] Triggered`, {
+      serviceId: service.id,
+      currentFavorite: isFavorite,
+      currentBookmark: isBookmarked,
+      isProcessingFavorite,
+      isProcessingBookmark,
+      eventTarget: e.target,
+      eventCurrentTarget: e.currentTarget
+    });
+
+    // Prevent double clicks
+    if (isProcessingFavorite) {
+      console.log('[FAVORITE CLICK] Blocked - already processing');
+      return;
+    }
 
     if (!user || !isClient) {
+      console.log('[FAVORITE CLICK] Blocked - not client');
       return; // Silent fail - better UX
     }
 
     // If unfavoriting, show confirmation modal
     if (isFavorite) {
+      console.log('[FAVORITE CLICK] Opening unfavorite modal');
       setShowUnfavoriteModal(true);
       return;
     }
 
+    console.log('[FAVORITE CLICK] Adding to favorites');
     // Adding to favorites (no confirmation needed)
+    setIsProcessingFavorite(true);
     setIsLoading(true);
 
     try {
-      // Update localStorage immediately (offline-first)
-      const favorites = JSON.parse(localStorage.getItem("favorites") || "[]");
-      if (!favorites.includes(service.id)) {
-        favorites.push(service.id);
-      }
-      localStorage.setItem("favorites", JSON.stringify(favorites));
-
-      // Update UI
+      // Update UI optimistically
+      const oldCount = favoriteCount;
       setIsFavorite(true);
+      setFavoriteCount(prev => {
+        console.log('[FAVORITE CLICK] Optimistic update: count from', prev, 'to', prev + 1);
+        return prev + 1;
+      });
+
       if (onFavoriteToggle) {
         onFavoriteToggle(service.id, true);
       }
@@ -93,33 +231,62 @@ export default function ServiceCardItem({
       // Show toast notification
       setShowToast(true);
 
-      // Sync to backend (optional, don't block UI)
-      favoriteService.toggleFavorite(service.id, true).catch((err) => {
-        console.log("Backend sync failed:", err);
-        // Keep localStorage state, don't revert
-      });
+      // Sync to backend
+      console.log('[FAVORITE CLICK] Calling backend API...');
+      const res = await favoriteService.toggleFavorite(service.id, true);
+      console.log('[FAVORITE CLICK] Backend response:', res);
+
+      if (!res?.success) {
+        // Revert on failure
+        console.log("Backend sync failed:", res?.message);
+        setIsFavorite(false);
+        setFavoriteCount(prev => Math.max(0, prev - 1));
+        if (onFavoriteToggle) {
+          onFavoriteToggle(service.id, false);
+        }
+      } else {
+        // Success - wait longer to ensure backend increment completes
+        console.log('[FAVORITE CLICK] Waiting 1 second before fetching real count...');
+        setTimeout(async () => {
+          try {
+            console.log('[FAVORITE CLICK] Fetching real count now...');
+            const serviceData = await serviceService.getServiceById(service.id);
+            if (serviceData?.success && serviceData?.service) {
+              const realCount = parseInt(serviceData.service.jumlah_favorit || serviceData.service.favoriteCount) || 0;
+              console.log('[FAVORITE CLICK] ✅ Real count from backend:', realCount, '(was optimistic:', favoriteCount, ')');
+              setFavoriteCount(realCount);
+            } else {
+              console.log('[FAVORITE CLICK] ❌ Failed to get service data');
+            }
+          } catch (err) {
+            console.log('[FAVORITE CLICK] ❌ Error fetching real count:', err);
+          }
+        }, 1000); // 1 second delay
+      }
     } catch (error) {
       console.error("Error:", error);
+      // Revert on error
+      setIsFavorite(false);
+      setFavoriteCount(prev => Math.max(0, prev - 1));
+      if (onFavoriteToggle) {
+        onFavoriteToggle(service.id, false);
+      }
     } finally {
       setIsLoading(false);
+      setTimeout(() => setIsProcessingFavorite(false), 500);
     }
   };
 
   const handleConfirmUnfavorite = async () => {
     setShowUnfavoriteModal(false);
+    setIsProcessingFavorite(true);
     setIsLoading(true);
 
     try {
-      // Update localStorage immediately (offline-first)
-      const favorites = JSON.parse(localStorage.getItem("favorites") || "[]");
-      const index = favorites.indexOf(service.id);
-      if (index > -1) {
-        favorites.splice(index, 1);
-      }
-      localStorage.setItem("favorites", JSON.stringify(favorites));
-
-      // Update UI
+      // Update UI optimistically
       setIsFavorite(false);
+      setFavoriteCount(prev => Math.max(0, prev - 1));
+
       if (onFavoriteToggle) {
         onFavoriteToggle(service.id, false);
       }
@@ -127,70 +294,124 @@ export default function ServiceCardItem({
       // Show toast notification
       setShowToast(true);
 
-      // Sync to backend (optional, don't block UI)
-      favoriteService.toggleFavorite(service.id, false).catch((err) => {
-        console.log("Backend sync failed:", err);
-        // Keep localStorage state, don't revert
-      });
+      // Sync to backend
+      const res = await favoriteService.toggleFavorite(service.id, false);
+
+      if (!res?.success) {
+        // Revert on failure
+        console.log("Backend sync failed:", res?.message);
+        setIsFavorite(true);
+        setFavoriteCount(prev => prev + 1);
+        if (onFavoriteToggle) {
+          onFavoriteToggle(service.id, true);
+        }
+      } else {
+        // Success - wait a bit then fetch real count from backend
+        // Delay untuk ensure backend sudah selesai decrement count
+        setTimeout(async () => {
+          try {
+            const serviceData = await serviceService.getServiceById(service.id);
+            if (serviceData?.success && serviceData?.service) {
+              const realCount = parseInt(serviceData.service.jumlah_favorit || serviceData.service.favoriteCount) || 0;
+              console.log('[UNFAVORITE] Real count from backend:', realCount);
+              setFavoriteCount(realCount);
+            }
+          } catch (err) {
+            console.log('[UNFAVORITE] Failed to fetch real count:', err);
+          }
+        }, 300); // 300ms delay
+      }
     } catch (error) {
       console.error("Error:", error);
+      // Revert on error
+      setIsFavorite(true);
+      setFavoriteCount(prev => prev + 1);
+      if (onFavoriteToggle) {
+        onFavoriteToggle(service.id, true);
+      }
     } finally {
       setIsLoading(false);
+      setTimeout(() => setIsProcessingFavorite(false), 500);
     }
   };
 
   const handleBookmarkClick = async (e) => {
     e.stopPropagation();
+    e.preventDefault();
 
-    if (!user || !isClient) {
-      return; // Silent fail - better UX
+    const timestamp = new Date().toISOString();
+    console.log(`[BOOKMARK CLICK @ ${timestamp}] Triggered`, {
+      serviceId: service.id,
+      currentFavorite: isFavorite,
+      currentBookmark: isBookmarked,
+      isProcessingFavorite,
+      isProcessingBookmark,
+      eventTarget: e.target,
+      eventCurrentTarget: e.currentTarget
+    });
+
+    // Prevent double clicks
+    if (isProcessingBookmark) {
+      console.log('[BOOKMARK CLICK] Blocked - already processing');
+      return;
     }
 
-    // If unsaving, show confirmation modal
+    if (!user || !isClient) {
+      console.log('[BOOKMARK CLICK] Blocked - not client');
+      return;
+    }
+
     if (isBookmarked) {
+      console.log('[BOOKMARK CLICK] Opening unbookmark modal');
       setShowUnbookmarkModal(true);
       return;
     }
 
-    // Bookmarking (no confirmation needed)
+    console.log('[BOOKMARK CLICK] Adding to bookmarks');
+    setIsProcessingBookmark(true);
     setIsBookmarkLoading(true);
 
     try {
-      // Optimistic UI update
       setIsBookmarked(true);
       if (onBookmarkToggle) onBookmarkToggle(service.id, true);
       setShowBookmarkToast(true);
 
-      // Sync to backend bookmarks
       const res = await bookmarkService.addBookmark(service.id);
+
+      // If already bookmarked, keep the UI state (don't revert)
       if (!res?.success) {
-        // Revert if failed
-        setIsBookmarked(false);
-        if (onBookmarkToggle) onBookmarkToggle(service.id, false);
+        if (res?.message?.includes('sudah ada')) {
+          console.log('[BOOKMARK CLICK] Already bookmarked - keeping UI state');
+          // Keep isBookmarked = true, don't revert
+        } else {
+          // Other errors - revert state
+          setIsBookmarked(false);
+          if (onBookmarkToggle) onBookmarkToggle(service.id, false);
+        }
       }
     } catch (error) {
       console.error("[ServiceCardItem] addBookmark error:", error);
+      // On network error, revert state
       setIsBookmarked(false);
       if (onBookmarkToggle) onBookmarkToggle(service.id, false);
     } finally {
       setIsBookmarkLoading(false);
+      setTimeout(() => setIsProcessingBookmark(false), 500);
     }
   };
 
   const handleConfirmUnbookmark = async () => {
     setShowUnbookmarkModal(false);
+    setIsProcessingBookmark(true);
     setIsBookmarkLoading(true);
 
     try {
-      // Optimistic UI update
       setIsBookmarked(false);
       if (onBookmarkToggle) onBookmarkToggle(service.id, false);
       setShowBookmarkToast(true);
 
-      // Sync to backend bookmarks
       const res = await bookmarkService.removeBookmark(service.id);
       if (!res?.success) {
-        // Revert if failed
         setIsBookmarked(true);
         if (onBookmarkToggle) onBookmarkToggle(service.id, true);
       }
@@ -200,24 +421,37 @@ export default function ServiceCardItem({
       if (onBookmarkToggle) onBookmarkToggle(service.id, true);
     } finally {
       setIsBookmarkLoading(false);
+      setTimeout(() => setIsProcessingBookmark(false), 500);
     }
   };
 
   const thumbnailSrc = service.thumbnail || "/asset/layanan/Layanan.png";
+
+  const handleCardClick = (e) => {
+    // Jangan trigger onClick jika user klik favorite/bookmark button
+    if (e.target.closest('button')) {
+      console.log('[CARD CLICK] Blocked - clicked on button');
+      return;
+    }
+    console.log('[CARD CLICK] Triggered - navigating to service');
+    if (onClick) {
+      onClick(e);
+    }
+  };
 
   return (
     <>
       <motion.div
         whileHover={{ y: -8 }}
         transition={{ duration: 0.3 }}
-        onClick={onClick}
+        onClick={handleCardClick}
         className={`cursor-pointer group ${
-          fullWidth ? "w-full" : "flex-shrink-0 w-64"
+          isCarousel ? "w-full sm:w-80 md:w-[320px] flex-shrink-0" : "w-full h-full"
         }`}
       >
-        <div className="bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-shadow duration-300">
+        <div className="bg-white rounded-3xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 border border-neutral-100 h-full flex flex-col min-h-[480px]">
           {/* Image */}
-          <div className="relative h-40 overflow-hidden bg-gradient-to-br from-[#D8E3F3] to-[#9DBBDD]">
+          <div className="relative h-48 overflow-hidden flex-shrink-0">
             <img
               src={thumbnailSrc}
               alt={service.title}
@@ -225,81 +459,108 @@ export default function ServiceCardItem({
             />
             {/* Category Badge */}
             <div className="absolute top-3 left-3">
-              <span className="px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full text-xs font-semibold text-[#1D375B]">
+              <span className="px-4 py-1.5 bg-white/95 backdrop-blur-sm rounded-full text-xs font-bold text-neutral-900 shadow-sm">
                 {service.category}
               </span>
             </div>
           </div>
 
           {/* Content */}
-          <div className="relative p-4">
-            <h3 className="font-bold text-lg text-neutral-900 mb-2 line-clamp-2 group-hover:text-[#4782BE] transition-colors">
+          <div className="relative p-5 flex-1 flex flex-col">
+            {/* Category Label */}
+            <div className="mb-2">
+              <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">
+                {service.category}
+              </span>
+            </div>
+
+            {/* Title */}
+            <h3 className="font-bold text-xl text-neutral-900 mb-3 line-clamp-2 h-14 leading-tight group-hover:text-[#4782BE] transition-colors">
               {service.title}
             </h3>
 
             {/* Freelancer Info */}
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#4782BE] to-[#1D375B]" />
-              <span className="text-sm text-neutral-600">
+            <div className="flex items-center gap-2 mb-4 h-7 flex-shrink-0">
+              <img
+                src={service.freelancerAvatar || "/asset/default-avatar.png"}
+                alt={service.freelancer}
+                className="w-7 h-7 rounded-full object-cover border-2 border-neutral-200"
+                onError={(e) => {
+                  e.target.src = "/asset/default-avatar.png";
+                }}
+              />
+              <span className="text-sm font-medium text-neutral-700 truncate">
                 {service.freelancer}
+              </span>
+              <i className="fas fa-star text-yellow-400 text-xs ml-auto" />
+              <span className="text-sm font-bold text-neutral-900">
+                {service.rating}
+              </span>
+              <span className="text-xs text-neutral-500">
+                ({service.reviews})
               </span>
             </div>
 
-            {/* Rating & Price */}
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-1">
-                <i className="fas fa-star text-yellow-400 text-sm" />
-                <span className="text-sm font-semibold text-neutral-900">
-                  {service.rating}
-                </span>
-                <span className="text-sm text-neutral-500">
-                  ({service.reviews})
-                </span>
-              </div>
-              <div className="text-right">
-                <div className="text-xs text-neutral-500">Mulai dari</div>
-                <div className="text-lg font-bold text-[#4782BE]">
-                  Rp {service.price.toLocaleString("id-ID")}
-                </div>
+            {/* Price */}
+            <div className="mb-4 mt-auto flex-shrink-0">
+              <div className="text-xs text-neutral-500 mb-1">Mulai dari</div>
+              <div className="text-2xl font-bold text-neutral-900 h-9 flex items-center">
+                Rp {service.price.toLocaleString("id-ID")}
               </div>
             </div>
 
-            {/* Favorite & Bookmark Icons - Only show for logged in clients */}
-            {isClient && (
-              <div className="flex items-center gap-2">
+            {/* Favorite & Bookmark Section */}
+            <div className="flex items-center justify-between pt-4 border-t border-neutral-100 flex-shrink-0">
+              {/* Favorite with count */}
+              {isClient ? (
                 <button
+                  type="button"
                   onClick={handleFavoriteClick}
                   disabled={isLoading}
-                  className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-neutral-50 hover:bg-neutral-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 hover:opacity-80 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? (
-                    <i className="fas fa-spinner fa-spin text-neutral-600 text-lg" />
+                    <i className="fas fa-spinner fa-spin text-neutral-600 text-2xl pointer-events-none" />
                   ) : (
                     <i
                       className={`${isFavorite ? "fas" : "far"} fa-heart ${
-                        isFavorite ? "text-red-500" : "text-neutral-600"
-                      } text-lg`}
+                        isFavorite ? "text-red-500" : "text-neutral-400"
+                      } text-2xl pointer-events-none`}
                     />
                   )}
+                  <span className="text-base font-semibold text-neutral-700 pointer-events-none">
+                    {favoriteCount}
+                  </span>
                 </button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <i className="far fa-heart text-neutral-400 text-2xl pointer-events-none" />
+                  <span className="text-base font-semibold text-neutral-700 pointer-events-none">
+                    {favoriteCount}
+                  </span>
+                </div>
+              )}
 
+              {/* Bookmark */}
+              {isClient && (
                 <button
+                  type="button"
                   onClick={handleBookmarkClick}
                   disabled={isBookmarkLoading}
-                  className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-neutral-50 hover:bg-neutral-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center justify-center hover:opacity-80 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isBookmarkLoading ? (
-                    <i className="fas fa-spinner fa-spin text-neutral-600 text-lg" />
+                    <i className="fas fa-spinner fa-spin text-neutral-600 text-2xl pointer-events-none" />
                   ) : (
                     <i
                       className={`${isBookmarked ? "fas" : "far"} fa-bookmark ${
-                        isBookmarked ? "text-neutral-900" : "text-neutral-600"
-                      } text-lg`}
+                        isBookmarked ? "text-neutral-900" : "text-neutral-400"
+                      } text-2xl pointer-events-none`}
                     />
                   )}
                 </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </motion.div>

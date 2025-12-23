@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { authService } from "../../services/authService";
-import { getServiceById } from "../../utils/servicesData";
+import { favoriteService } from "../../services/favoriteService";
 import Navbar from "../../components/Fragments/Common/Navbar";
 import Footer from "../../components/Fragments/Common/Footer";
 import ServiceCardItem from "../../components/Fragments/Service/ServiceCardItem";
@@ -27,18 +27,30 @@ export default function FavoritePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const loadFavorites = () => {
+  const loadFavorites = async () => {
     try {
-      // Load from localStorage
-      const favoriteIds = JSON.parse(localStorage.getItem('favorites') || '[]');
+      setLoading(true);
+      const response = await favoriteService.getFavorites();
 
-      // Get full service data
-      const favoriteServices = favoriteIds
-        .map(id => getServiceById(id))
-        .filter(Boolean)
-        .map(service => ({ ...service, isFavorite: true }));
-
-      setFavorites(favoriteServices);
+      if (response?.success && response?.data?.favorites) {
+        // Map favorites to service card format
+        const favoriteServices = response.data.favorites.map(fav => ({
+          id: fav.layanan_id,
+          slug: fav.slug,
+          title: fav.judul,
+          category: fav.nama_kategori || "Uncategorized",
+          freelancer: fav.freelancer_name || "Unknown",
+          rating: parseFloat(fav.rating_rata_rata) || 0,
+          reviews: parseInt(fav.jumlah_rating) || 0,
+          price: parseInt(fav.harga) || 0,
+          thumbnail: fav.thumbnail,
+          favoriteCount: parseInt(fav.jumlah_favorit) || 0,
+          isFavorite: true,
+        }));
+        setFavorites(favoriteServices);
+      } else {
+        setFavorites([]);
+      }
     } catch (err) {
       console.error("Error loading favorites:", err);
       setFavorites([]);
@@ -109,14 +121,14 @@ export default function FavoritePage() {
             <div className="mb-4 text-sm text-neutral-600">
               {favorites.length} layanan favorit
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" style={{ gridAutoRows: '1fr' }}>
               {favorites.map((service) => (
                 <ServiceCardItem
                   key={service.id}
                   service={service}
                   onClick={() => handleServiceClick(service)}
                   onFavoriteToggle={handleFavoriteToggle}
-                  fullWidth={true}
+                  onBookmarkToggle={() => {}}
                 />
               ))}
             </div>

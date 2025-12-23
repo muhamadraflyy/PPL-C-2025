@@ -90,4 +90,14 @@ const WithdrawalModel = sequelize.define('pencairan_dana', {
   ]
 });
 
+// Add association setup method
+WithdrawalModel.setupAssociations = (models) => {
+  if (models.User || models.users) {
+    WithdrawalModel.belongsTo(models.User || models.users, {
+      foreignKey: 'freelancer_id',
+      as: 'freelancer'
+    });
+  }
+};
+
 module.exports = WithdrawalModel;

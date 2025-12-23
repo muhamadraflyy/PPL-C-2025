@@ -49,7 +49,7 @@ class EscrowService {
   /**
    * Release escrow (client approved work)
    */
-  async releaseEscrow(escrow_id, userId) {
+  async releaseEscrow(escrow_id, userId, reason = null) {
     const escrowRecord = await EscrowModel.findByPk(escrow_id);
 
     if (!escrowRecord) {
@@ -64,7 +64,8 @@ class EscrowService {
     // Update database
     await escrowRecord.update({
       status: escrow.status,
-      dirilis_pada: escrow.dirilis_pada
+      dirilis_pada: escrow.dirilis_pada,
+      ...(reason ? { alasan: reason } : {})
     });
 
     console.log(`[ESCROW] Released escrow ${escrow_id} by user ${userId}`);

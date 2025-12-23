@@ -1378,6 +1378,231 @@ async getLogsByAdminId(req, res) {
       });
     }
   }
+
+  async getRecommendationMonitoring(req, res) {
+    try {
+      console.log('[AdminController.getRecommendationMonitoring] Starting...');
+      const { timeRange = 'minggu_ini' } = req.query;
+      console.log('[AdminController.getRecommendationMonitoring] timeRange:', timeRange);
+
+      // Calculate date ranges based on timeRange parameter
+      const now = new Date();
+      let startDate, endDate = now;
+
+      switch (timeRange) {
+        case 'minggu_ini':
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
+          break;
+        case 'bulan_ini':
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          break;
+        case 'tahun_ini':
+          startDate = new Date(now.getFullYear(), 0, 1);
+          break;
+        default:
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
+      }
+
+      // Get total recommendation count (total active services)
+      const [totalRecommendationsResult] = await this.sequelize.query(
+        `SELECT COUNT(*) as total FROM layanan WHERE status = 'aktif'`
+      );
+      const totalRecommendations = totalRecommendationsResult[0]?.total || 0;
+
+      // Get total favorites count
+      const [totalFavoritesResult] = await this.sequelize.query(
+        `SELECT COUNT(*) as total FROM favorit WHERE type = 'favorite' AND created_at BETWEEN ? AND ?`,
+        { replacements: [startDate, endDate] }
+      );
+      const totalFavorites = totalFavoritesResult[0]?.total || 0;
+
+      // Get total transactions count
+      const [totalTransactionsResult] = await this.sequelize.query(
+        `SELECT COUNT(*) as total FROM pesanan WHERE created_at BETWEEN ? AND ?`,
+        { replacements: [startDate, endDate] }
+      );
+      const totalTransactions = totalTransactionsResult[0]?.total || 0;
+
+      // Get favorite chart data (by day/week/month depending on timeRange)
+      let favoriteChartQuery;
+      if (timeRange === 'minggu_ini') {
+        favoriteChartQuery = `
+          SELECT
+            DATE_FORMAT(full_date, '%a') as period,
+            full_date,
+            COUNT(*) as count
+          FROM (
+            SELECT DATE(created_at) as full_date
+            FROM favorit
+            WHERE type = 'favorite' AND created_at BETWEEN ? AND ?
+          ) as dates
+          GROUP BY full_date
+          ORDER BY full_date ASC
+        `;
+      } else if (timeRange === 'bulan_ini') {
+        favoriteChartQuery = `
+          SELECT
+            DATE_FORMAT(full_date, '%b %d') as period,
+            full_date,
+            COUNT(*) as count
+          FROM (
+            SELECT DATE(created_at) as full_date
+            FROM favorit
+            WHERE type = 'favorite' AND created_at BETWEEN ? AND ?
+          ) as dates
+          GROUP BY full_date
+          ORDER BY full_date ASC
+          LIMIT 30
+        `;
+      } else {
+        favoriteChartQuery = `
+          SELECT
+            DATE_FORMAT(DATE(CONCAT(year_month, '-01')), '%b') as period,
+            month_num,
+            COUNT(*) as count
+          FROM (
+            SELECT
+              DATE_FORMAT(created_at, '%Y-%m') as year_month,
+              MONTH(created_at) as month_num
+            FROM favorit
+            WHERE type = 'favorite' AND created_at BETWEEN ? AND ?
+          ) as dates
+          GROUP BY year_month, month_num
+          ORDER BY year_month ASC
+        `;
+      }
+
+      const [favoriteChart] = await this.sequelize.query(favoriteChartQuery, {
+        replacements: [startDate, endDate]
+      });
+
+      // Get transaction chart data
+      let transactionChartQuery;
+      if (timeRange === 'minggu_ini') {
+        transactionChartQuery = `
+          SELECT
+            DATE_FORMAT(full_date, '%a') as period,
+            full_date,
+            COUNT(*) as count
+          FROM (
+            SELECT DATE(created_at) as full_date
+            FROM pesanan
+            WHERE created_at BETWEEN ? AND ?
+          ) as dates
+          GROUP BY full_date
+          ORDER BY full_date ASC
+        `;
+      } else if (timeRange === 'bulan_ini') {
+        transactionChartQuery = `
+          SELECT
+            DATE_FORMAT(full_date, '%b %d') as period,
+            full_date,
+            COUNT(*) as count
+          FROM (
+            SELECT DATE(created_at) as full_date
+            FROM pesanan
+            WHERE created_at BETWEEN ? AND ?
+          ) as dates
+          GROUP BY full_date
+          ORDER BY full_date ASC
+          LIMIT 30
+        `;
+      } else {
+        transactionChartQuery = `
+          SELECT
+            DATE_FORMAT(DATE(CONCAT(year_month, '-01')), '%b') as period,
+            month_num,
+            COUNT(*) as count
+          FROM (
+            SELECT
+              DATE_FORMAT(created_at, '%Y-%m') as year_month,
+              MONTH(created_at) as month_num
+            FROM pesanan
+            WHERE created_at BETWEEN ? AND ?
+          ) as dates
+          GROUP BY year_month, month_num
+          ORDER BY year_month ASC
+        `;
+      }
+
+      const [transactionChart] = await this.sequelize.query(transactionChartQuery, {
+        replacements: [startDate, endDate]
+      });
+
+      // Get top favorite services (detail favorit terakhir)
+      const [topFavoriteServices] = await this.sequelize.query(
+        `SELECT
+          u.nama_depan,
+          u.nama_belakang,
+          CONCAT(u.nama_depan, ' ', u.nama_belakang) as userName,
+          COUNT(f.id) as favoriteCount,
+          k.nama as serviceName
+        FROM favorit f
+        JOIN users u ON f.user_id = u.id
+        JOIN layanan l ON f.layanan_id = l.id
+        JOIN kategori k ON l.kategori_id = k.id
+        WHERE f.type = 'favorite' AND f.created_at BETWEEN ? AND ?
+        GROUP BY u.id, u.nama_depan, u.nama_belakang, k.id, k.nama
+        ORDER BY favoriteCount DESC
+        LIMIT 4`,
+        { replacements: [startDate, endDate] }
+      );
+
+      // Get top 10 recommended services
+      const [topRecommendedServices] = await this.sequelize.query(
+        `SELECT
+          CONCAT(u.nama_depan, ' ', u.nama_belakang) as freelancerName,
+          COUNT(p.id) as recommendationCount,
+          ROUND((COUNT(p.id) / (SELECT COUNT(*) FROM pesanan WHERE created_at BETWEEN ? AND ?)) * 100, 2) as percentage
+        FROM pesanan p
+        JOIN layanan l ON p.layanan_id = l.id
+        JOIN users u ON l.freelancer_id = u.id
+        WHERE p.created_at BETWEEN ? AND ?
+        GROUP BY u.id, u.nama_depan, u.nama_belakang
+        ORDER BY recommendationCount DESC
+        LIMIT 10`,
+        { replacements: [startDate, endDate, startDate, endDate] }
+      );
+
+      res.json({
+        success: true,
+        message: 'Recommendation monitoring data retrieved',
+        data: {
+          totalRecommendations,
+          totalFavorites,
+          totalTransactions,
+          favoriteChart: favoriteChart.map(item => ({
+            period: item.period,
+            count: parseInt(item.count)
+          })),
+          transactionChart: transactionChart.map(item => ({
+            period: item.period,
+            count: parseInt(item.count)
+          })),
+          topFavoriteDetails: topFavoriteServices.map(item => ({
+            userName: item.userName,
+            favoriteCount: parseInt(item.favoriteCount),
+            serviceName: item.serviceName
+          })),
+          topRecommendedServices: topRecommendedServices.map(item => ({
+            freelancerName: item.freelancerName,
+            recommendationCount: parseInt(item.recommendationCount),
+            percentage: parseFloat(item.percentage)
+          }))
+        }
+      });
+
+      console.log('[AdminController.getRecommendationMonitoring] Success! Returning data.');
+    } catch (error) {
+      console.error('[AdminController.getRecommendationMonitoring] Error:', error);
+      console.error('[AdminController.getRecommendationMonitoring] Error stack:', error.stack);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        message: error.message
+      });
+    }
+  }
 }
 
 module.exports = AdminController;

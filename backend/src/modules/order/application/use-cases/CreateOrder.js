@@ -64,9 +64,10 @@ class CreateOrder {
     // Generate nomor pesanan
     const nomorPesanan = this.generateOrderNumber();
 
-    // Hitung biaya platform (10%)
-    const biayaPlatform = Math.floor(harga * 0.1);
-    const totalBayar = parseFloat(harga) + biayaPlatform;
+    // Hitung biaya platform (5%) dan gateway fee (1%) - SAMA dengan Payment
+    const biayaPlatform = harga * 0.05; // 5% platform fee
+    const biayaGateway = harga * 0.01; // 1% payment gateway fee (Midtrans)
+    const totalBayar = parseFloat(harga) + biayaPlatform + biayaGateway;
 
     // Hitung tenggat waktu
     const tenggat = new Date();
@@ -84,13 +85,44 @@ class CreateOrder {
       catatan_client: orderData.catatan_client || null,
       harga: harga,
       biaya_platform: biayaPlatform,
+      biaya_payment_gateway: biayaGateway,
       total_bayar: totalBayar,
       waktu_pengerjaan: waktuPengerjaan,
       tenggat_waktu: tenggat,
       status: 'menunggu_pembayaran'
     });
 
-    return order;
+    // Catat riwayat status awal
+    if (order && order.id) {
+      await this.orderRepository.addStatusHistory({
+        pesanan_id: order.id,
+        from_status: null,
+        to_status: 'menunggu_pembayaran',
+        changed_by_user_id: userId,
+        changed_by_role: 'client',
+        reason: 'Order dibuat oleh client',
+      });
+    }
+
+    // Return order dengan fee breakdown lengkap untuk frontend
+    return {
+      ...order.toJSON ? order.toJSON() : order,
+      // Fee breakdown untuk display
+      fee_breakdown: {
+        harga_layanan: parseFloat(harga),
+        biaya_platform: {
+          amount: parseFloat(biayaPlatform),
+          percentage: '5%',
+          label: 'Biaya Platform SkillConnect'
+        },
+        biaya_gateway: {
+          amount: parseFloat(biayaGateway),
+          percentage: '1%',
+          label: 'Biaya Payment Gateway (Midtrans)'
+        },
+        total_bayar: parseFloat(totalBayar)
+      }
+    };
   }
 
   generateOrderNumber() {

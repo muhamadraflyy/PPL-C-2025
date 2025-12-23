@@ -109,14 +109,13 @@ export default function SavedPage() {
             <div className="mb-4 text-sm text-neutral-600">
               {saved.length} layanan tersimpan
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" style={{ gridAutoRows: '1fr' }}>
               {saved.map((service) => (
                 <ServiceCardItem
                   key={service.id}
                   service={service}
                   onClick={() => handleServiceClick(service)}
-                  onSaveToggle={handleSaveToggle}
-                  fullWidth={true}
+                  onBookmarkToggle={handleSaveToggle}
                 />
               ))}
             </div>

@@ -31,6 +31,30 @@ const mockPaymentHelmet = helmet({
   crossOriginEmbedderPolicy: false,
 });
 
+const testDashboardHelmet = helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.socket.io"],
+      scriptSrcElem: ["'self'", "'unsafe-inline'", "https://cdn.socket.io"],
+      scriptSrcAttr: ["'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      connectSrc: [
+        "'self'",
+        "http://localhost:5000",
+        "http://localhost:5001",
+        "ws://localhost:5000",
+        "ws://localhost:5001",
+        "https://api-ppl.vinmedia.my.id",
+        "wss://api-ppl.vinmedia.my.id",
+        "ws://api-ppl.vinmedia.my.id",
+      ],
+    },
+  },
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginEmbedderPolicy: false,
+});
+
 const scalarHelmet = helmet({
   contentSecurityPolicy: {
     directives: {
@@ -79,6 +103,8 @@ app.use((req, res, next) => {
     scalarHelmet(req, res, next);
   } else if (req.path.includes("/audit-report")) {
     scalarHelmet(req, res, next); // Reuse Scalar CSP for audit page (needs CDN)
+  } else if (req.path.includes("/xX-m00nL1ght-ph03n1x-Xx") || req.path.includes("/test-u53r") || req.path.includes("/xX-0ffl1n3-3m41l-t3st-Xx")) {
+    testDashboardHelmet(req, res, next); // Allow inline scripts + socket.io CDN for test dashboards
   } else {
     baseHelmet(req, res, next);
   }
@@ -99,14 +125,39 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Body parser with configurable limit
+const bodyLimit = process.env.BODY_LIMIT || '10mb';
+app.use(express.json({ limit: bodyLimit }));
+app.use(express.urlencoded({ extended: true, limit: bodyLimit }));
 app.use(morgan("dev")); // Logging
 
 // Serve static files (mock payment gateway)
 app.use("/mock-payment", express.static("public/mock-payment"));
 // Serve static files umum (misal: thumbnail & gambar layanan)
 app.use("/public", express.static("public"));
+
+// Serve static files untuk profile images
+const path = require("path");
+const profilesPath = path.join(process.cwd(), "public", "profiles");
+const layananPath = path.join(process.cwd(), "public", "layanan");
+const portfolioPath = path.join(process.cwd(), "public", "portfolio");
+const orderAttachmentsPath = path.join(process.cwd(), "public", "order-attachments");
+const chatAttachmentsPath = path.join(process.cwd(), "public", "chat-attachments");
+
+console.log("📁 Serving static files:");
+console.log("   Profiles:", profilesPath);
+console.log("   Layanan:", layananPath);
+console.log("   Portfolio:", portfolioPath);
+console.log("   Order Attachments:", orderAttachmentsPath);
+console.log("   Chat Attachments:", chatAttachmentsPath);
+
+app.use("/profiles", express.static(profilesPath));
+app.use("/layanan", express.static(layananPath));
+app.use("/portfolio", express.static(portfolioPath));
+app.use("/order-attachments", express.static(orderAttachmentsPath));
+app.use("/chat-attachments", express.static(chatAttachmentsPath));
+// Backward compatibility for old chat uploads
+app.use("/uploads/chat", express.static(chatAttachmentsPath));
 
 // ==================== API DOCUMENTATION ====================
 // Serve spec with cache busting
@@ -196,6 +247,25 @@ app.get("/health", async (req, res) => {
   }
 });
 
+// Test dashboard with weird route
+app.get("/xX-m00nL1ght-ph03n1x-Xx/test-d4shb0ard", (req, res) => {
+  res.sendFile(path.join(__dirname, "../public/test-moonlight-phoenix.html"));
+});
+
+// User 1 & User 2 test pages
+app.get("/test-u53r-0n3", (req, res) => {
+  res.sendFile(path.join(__dirname, "../public/test-user1.html"));
+});
+
+app.get("/test-u53r-tw0", (req, res) => {
+  res.sendFile(path.join(__dirname, "../public/test-user2.html"));
+});
+
+// Offline Email Notification Test
+app.get("/xX-0ffl1n3-3m41l-t3st-Xx", (req, res) => {
+  res.sendFile(path.join(__dirname, "../public/test-offline-email.html"));
+});
+
 // ==================== MODULE ROUTES ====================
 // Import sequelize for dependencies
 const { sequelize } = require("./shared/database/connection");
@@ -278,17 +348,19 @@ const reviewController = new ReviewController(sequelize);
 const reviewRoutes = require("./modules/review/presentation/routes/reviewRoutes");
 app.use("/api/reviews", reviewRoutes(reviewController));
 
-// ===== Modul 6: Chat & Notification (Dalam Pengembangan) =====
-const ChatController = require("./modules/chat/presentation/controllers/ChatController");
-const chatController = new ChatController(sequelize);
-const chatRoutes = require("./modules/chat/presentation/routes/chatRoutes");
-app.use("/api/chat", chatRoutes(chatController));
+// ===== Modul 6: Chat & Notification =====
+// Socket.io service will be initialized after server starts
+const socketService = require('./modules/chat/infrastructure/services/SocketService');
+
+// Chat & Notification controllers will be initialized AFTER database connection
+// Placeholder routes - will be setup in connectDatabase().then()
+let chatController, notificationController;
 
 // ===== Modul 7: DashboardAdmin) =====
 const adminKategoriRoutes = require("./modules/admin/presentation/routes/adminKategoriRoutes");
 app.use("/api/admin", adminKategoriRoutes);
 
-// ===== Modul 8: Recommendation & Personalization (Dalam Pengembangan) =====
+// ===== Modul 8: Recommendation & Personalization =====
 const RecommendationController = require("./modules/recommendation/presentation/controllers/RecommendationController");
 const FavoriteController = require("./modules/recommendation/presentation/controllers/FavoriteController");
 const recommendationController = new RecommendationController(sequelize);
@@ -298,6 +370,7 @@ app.use(
   "/api/recommendations",
   recommendationRoutes(recommendationController, favoriteController)
 );
+
 
 // ==================== WEBHOOK PROXY ====================
 // GitHub Webhook Proxy to WhatsApp Notifier
@@ -354,34 +427,62 @@ app.post("/test/notification", async (req, res) => {
   }
 });
 
-// ==================== ERROR HANDLING ====================
-// 404 Handler
-app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: "Endpoint not found",
-  });
-});
-
-// Global Error Handler
-app.use((err, req, res, next) => {
-  console.error("Error:", err);
-
-  res.status(err.statusCode || 500).json({
-    success: false,
-    message: err.message || "Internal server error",
-    ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
-  });
-});
-
 // ==================== START SERVER ====================
 connectDatabase()
   .then(() => {
-    const server = app.listen(PORT, () => {
+    const http = require('http');
+    const httpServer = http.createServer(app);
+
+    // Initialize Socket.io
+    socketService.init(httpServer);
+    console.log('✅ Socket.IO initialized');
+
+    // Initialize Chat & Notification controllers AFTER models are loaded
+    const ChatController = require("./modules/chat/presentation/controllers/ChatController");
+    const NotificationController = require("./modules/chat/presentation/controllers/NotificationController");
+    chatController = new ChatController(sequelize, socketService);
+    notificationController = new NotificationController(sequelize, socketService);
+
+    // Inject SendMessage use case into SocketService for socket event handling
+    socketService.setSendMessageUseCase(chatController.sendMessageUseCase);
+    console.log('✅ SendMessage use case injected into SocketService');
+
+    // Register chat routes
+    const chatRoutes = require("./modules/chat/presentation/routes/chatRoutes");
+    app.use("/api/chat", chatRoutes(chatController));
+
+    // Register notification routes
+    const notificationRoutes = require("./modules/chat/presentation/routes/notificationRoutes");
+    app.use("/api/notifications", notificationRoutes(notificationController));
+
+    console.log('✅ Chat & Notification routes registered');
+
+    // ==================== ERROR HANDLING ====================
+    // 404 Handler (must be registered AFTER all routes)
+    app.use((req, res) => {
+      res.status(404).json({
+        success: false,
+        message: "Endpoint not found",
+      });
+    });
+
+    // Global Error Handler
+    app.use((err, req, res, next) => {
+      console.error("Error:", err);
+
+      res.status(err.statusCode || 500).json({
+        success: false,
+        message: err.message || "Internal server error",
+        ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
+      });
+    });
+
+    const server = httpServer.listen(PORT, () => {
       console.log(`🚀 Server is running on http://localhost:${PORT}`);
       console.log(`📝 Environment: ${process.env.NODE_ENV || "development"}`);
       console.log(`📡 API Base URL: http://localhost:${PORT}/api`);
       console.log(`📚 API Documentation: http://localhost:${PORT}/api-docs`);
+      console.log(`🔌 Socket.IO ready for connections`);
     });
 
     // Graceful shutdown

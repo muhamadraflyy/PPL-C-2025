@@ -5,6 +5,9 @@ import Footer from '../../components/Fragments/Common/Footer'
 import OrderList from '../../components/Fragments/Order/OrderList'
 import { useOrders } from '../../hooks/useOrder'
 
+// [ADD 1] Import Modal
+import ReviewModal from '../../components/Fragments/Order/ReviewModal'
+
 /**
  * OrderListPage - My Orders
  * Client dapat melihat semua order mereka
@@ -13,6 +16,16 @@ const OrderListPage = () => {
   const navigate = useNavigate()
   const [page, setPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState(null)
+
+  // [ADD 2] State untuk Pop-up (Wajib ada agar modal bisa muncul)
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [selectedOrderForReview, setSelectedOrderForReview] = useState(null);
+
+  // [ADD 3] Fungsi Handler (Wajib ada untuk menerima klik dari tombol)
+  const handleReviewClick = (order) => {
+    setSelectedOrderForReview(order);
+    setIsReviewModalOpen(true);
+  };
 
   // Ambil orders dari backend: GET /api/orders/my via hook useOrders
   const { orders = [], pagination = { page: 1, limit: 10, total: 0, totalPages: 1 }, isLoading, error } = useOrders({
@@ -130,6 +143,7 @@ const OrderListPage = () => {
         <OrderList
           orders={orders}
           onOrderClick={handleOrderClick}
+          onReviewClick={handleReviewClick} // [ADD 4] Kirim handler ke list
           loading={isLoading}
         />
 
@@ -158,6 +172,14 @@ const OrderListPage = () => {
           </div>
         )}
       </div>
+
+      {/* [ADD 5] Komponen Modal (Tidak terlihat sampai dipanggil) */}
+      <ReviewModal 
+        isOpen={isReviewModalOpen} 
+        onClose={() => setIsReviewModalOpen(false)} 
+        order={selectedOrderForReview}
+      />
+
       <Footer />
     </div>
   )
