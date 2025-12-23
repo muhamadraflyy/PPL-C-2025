@@ -57,12 +57,13 @@ class SequelizeServiceRepository {
 
     // expose nama kategori & nama freelancer
     layananCols.push("k.nama AS nama_kategori");
-    
+
     layananCols.push("sk.nama AS nama_sub_kategori");
 
     layananCols.push(
       "CONCAT(u.nama_depan, ' ', u.nama_belakang) AS freelancer_name"
     );
+    layananCols.push("u.avatar AS freelancer_avatar");
     return layananCols.join(", ");
   }
 
