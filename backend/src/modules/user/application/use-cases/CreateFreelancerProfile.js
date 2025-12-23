@@ -27,7 +27,7 @@ class CreateFreelancerProfile {
     // - nama_lengkap (string) -> mapped to users.nama_depan and users.nama_belakang
     // - gelar (string) -> stored in profil_freelancer.judul_profesi
     // - no_telepon (string) -> stored on users.no_telepon
-    // - deskripsi (string) -> stored on users.bio
+    // - deskripsi (string) -> stored on profil_freelancer.deskripsi_lengkap (do NOT save into users.bio)
     // Any other fields sent will be ignored by this use-case (keahlian, portfolio, etc. handled elsewhere)
 
     // Maximum allowed length for description fields
@@ -56,17 +56,20 @@ class CreateFreelancerProfile {
       }
       userUpdates.no_telepon = phone;
     }
+    // Prepare freelancer profile payload (gelar -> judul_profesi, deskripsi -> deskripsi_lengkap)
+    const profilePayload = {};
+
     if (profileData.deskripsi) {
       if (String(profileData.deskripsi).length > MAX_DESCRIPTION_LENGTH) {
         const error = new Error('Deskripsi maksimal ' + MAX_DESCRIPTION_LENGTH + ' karakter');
         error.statusCode = 400;
         throw error;
       }
-      userUpdates.bio = profileData.deskripsi;
+      // Save description into freelancer profile instead of shared user.bio
+      // (will be attached to `profil_freelancer.deskripsi_lengkap`)
+      profilePayload.deskripsi_lengkap = profileData.deskripsi;
     }
 
-    // Prepare freelancer profile payload (only gelar -> judul_profesi)
-    const profilePayload = {};
     if (profileData.gelar) profilePayload.judul_profesi = profileData.gelar;
 
     // create profile record
@@ -87,7 +90,8 @@ class CreateFreelancerProfile {
       freelancerProfile: {
         id: profile.id,
         user_id: profile.user_id,
-        judul_profesi: profile.judul_profesi
+        judul_profesi: profile.judul_profesi,
+        deskripsi_lengkap: profile.deskripsi_lengkap
       },
       user: {
         id: user.id,
