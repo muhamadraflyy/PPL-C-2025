@@ -2,7 +2,7 @@
 class HybridResetPasswordService {
   constructor() {
     this.useMock = true // Set to false untuk menggunakan real API
-    this.baseURL = 'http://localhost:5000/api/users'
+    this.baseURL = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api'}/users`
     
     // Mock data untuk UI testing
     this.mockData = {
