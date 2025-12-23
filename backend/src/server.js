@@ -11,6 +11,9 @@ const { connectDatabase } = require("./shared/database/connection");
 const app = express();
 const PORT = process.env.PORT || 5001;
 
+console.log('[INIT] Port configured:', PORT);
+console.log('[INIT] Environment:', process.env.NODE_ENV);
+
 // ==================== MIDDLEWARE ====================
 // Helmet security headers - with custom CSP for mock-payment
 const baseHelmet = helmet({
@@ -432,28 +435,36 @@ app.post("/test/notification", async (req, res) => {
 // ==================== START SERVER ====================
 connectDatabase()
   .then(() => {
+    console.log('[SERVER] Creating HTTP server...');
     const http = require('http');
     const httpServer = http.createServer(app);
+    console.log('[SERVER] HTTP server created');
 
     // Initialize Socket.io
+    console.log('[SERVER] Initializing Socket.IO...');
     socketService.init(httpServer);
     console.log('✅ Socket.IO initialized');
 
     // Initialize Chat & Notification controllers AFTER models are loaded
+    console.log('[SERVER] Loading Chat & Notification controllers...');
     const ChatController = require("./modules/chat/presentation/controllers/ChatController");
     const NotificationController = require("./modules/chat/presentation/controllers/NotificationController");
+    console.log('[SERVER] Initializing controllers...');
     chatController = new ChatController(sequelize, socketService);
     notificationController = new NotificationController(sequelize, socketService);
+    console.log('[SERVER] Controllers initialized');
 
     // Inject SendMessage use case into SocketService for socket event handling
     socketService.setSendMessageUseCase(chatController.sendMessageUseCase);
     console.log('✅ SendMessage use case injected into SocketService');
 
     // Register chat routes
+    console.log('[SERVER] Registering chat routes...');
     const chatRoutes = require("./modules/chat/presentation/routes/chatRoutes");
     app.use("/api/chat", chatRoutes(chatController));
 
     // Register notification routes
+    console.log('[SERVER] Registering notification routes...');
     const notificationRoutes = require("./modules/chat/presentation/routes/notificationRoutes");
     app.use("/api/notifications", notificationRoutes(notificationController));
 
@@ -479,12 +490,35 @@ connectDatabase()
       });
     });
 
-    const server = httpServer.listen(PORT, () => {
+    console.log('[SERVER] Starting HTTP server on port', PORT);
+    console.log('[SERVER] httpServer type:', typeof httpServer);
+    console.log('[SERVER] httpServer.listening:', httpServer.listening);
+    
+    const server = httpServer.listen(PORT, '0.0.0.0', () => {
+      console.log('[SERVER] Listen callback fired!');
+      console.log('[SERVER] Server.listening:', server.listening);
+      console.log('[SERVER] Server.address():', server.address());
       console.log(`🚀 Server is running on http://localhost:${PORT}`);
       console.log(`📝 Environment: ${process.env.NODE_ENV || "development"}`);
       console.log(`📡 API Base URL: http://localhost:${PORT}/api`);
       console.log(`📚 API Documentation: http://localhost:${PORT}/api-docs`);
       console.log(`🔌 Socket.IO ready for connections`);
+    });
+    console.log('[SERVER] After listen() call');
+    console.log('[SERVER] Server object created:', !!server);
+
+    // Handle server errors
+    server.on('error', (err) => {
+      console.error('❌ Server error:', err);
+      if (err.code === 'EADDRINUSE') {
+        console.error(`❌ Port ${PORT} is already in use!`);
+      }
+      process.exit(1);
+    });
+
+    httpServer.on('error', (err) => {
+      console.error('❌ HTTP Server error:', err);
+      process.exit(1);
     });
 
     // Graceful shutdown

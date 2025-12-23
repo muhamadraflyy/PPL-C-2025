@@ -106,6 +106,13 @@ class SocketService {
             this.onlineUsers.set(socket.userId, socket.id);
             // user join room pribadi
             socket.join(`user:${socket.userId}`);
+            
+            // Broadcast ke semua user bahwa user ini online
+            socket.broadcast.emit('user:online', {
+                userId: socket.userId,
+                timestamp: new Date()
+            });
+            
             // handle join room percakapan
             socket.on('chat:join-conversation', (percakapanId) => {
                 socket.join(`conversation:${percakapanId}`);
@@ -114,6 +121,7 @@ class SocketService {
 
             // Handle 'Typing' indicator
             socket.on('chat:typing', (data) => {
+                console.log(`[Socket] User ${socket.userId} typing status:`, data.isTyping, 'in conversation:', data.conversationId);
                 socket.to(`conversation:${data.conversationId}`).emit('chat:typing-indicator', {
                     userId: socket.userId,
                     isTyping: data.isTyping
@@ -202,6 +210,12 @@ class SocketService {
                 console.log(`🔌 User disconnected: ${socket.userId}`);
                 // Hapus dari daftar online users
                 this.onlineUsers.delete(socket.userId);
+                
+                // Broadcast ke semua user bahwa user ini offline
+                socket.broadcast.emit('user:offline', {
+                    userId: socket.userId,
+                    timestamp: new Date()
+                });
             });
         });
     }
@@ -221,21 +235,40 @@ class SocketService {
             pesan: message?.pesan || message?.isi_pesan
         });
 
-        // Kirim ke room percakapan (untuk yang sudah join conversation room)
-        this.io.to(`conversation:${percakapanId}`).emit('chat:new-message', message);
-        console.log(`[SocketService] Emitted to conversation:${percakapanId}`);
+        // Helper untuk safely serialize date
+        const serializeDate = (dateValue) => {
+            if (!dateValue) return null;
+            try {
+                const date = new Date(dateValue);
+                return isNaN(date.getTime()) ? null : date.toISOString();
+            } catch (e) {
+                return null;
+            }
+        };
 
-        // Kirim ke room pribadi PENERIMA
-        if (receiverId) {
-            this.io.to(`user:${receiverId}`).emit('chat:new-message', message);
+        // Serialize date fields to ISO string untuk frontend
+        const serializedMessage = {
+            ...message,
+            created_at: serializeDate(message.created_at),
+            updated_at: serializeDate(message.updated_at)
+        };
+
+        // WhatsApp pattern: Broadcast hanya ke RECEIVER, BUKAN ke sender
+        // Sender sudah melihat message melalui optimistic update di frontend
+        
+        // Broadcast ke semua user di conversation room KECUALI pengirim
+        if (message?.pengirim_id) {
+            this.io.to(`conversation:${percakapanId}`).except(`user:${message.pengirim_id}`).emit('chat:new-message', serializedMessage);
+            console.log(`[SocketService] Broadcast to conversation:${percakapanId} (excluding sender)`);
+        }
+
+        // Kirim ke room pribadi PENERIMA (backup jika belum join conversation room)
+        if (receiverId && receiverId !== message?.pengirim_id) {
+            this.io.to(`user:${receiverId}`).emit('chat:new-message', serializedMessage);
             console.log(`[SocketService] Emitted to receiver user:${receiverId}`);
         }
 
-        // PENTING: Kirim juga ke room pribadi PENGIRIM (agar muncul di chat sendiri!)
-        if (message?.pengirim_id) {
-            this.io.to(`user:${message.pengirim_id}`).emit('chat:new-message', message);
-            console.log(`[SocketService] Emitted to sender user:${message.pengirim_id}`);
-        }
+        // TIDAK kirim ke pengirim - mereka sudah punya optimistic update!
     }
 
     /**

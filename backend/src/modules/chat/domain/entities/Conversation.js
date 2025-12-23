@@ -31,13 +31,19 @@ class Conversation {
     this.created_at = created_at;
     this.updated_at = updated_at;
 
-    // Preserve nested user objects (from JOIN queries)
-    this.user1 = user1;
-    this.user2 = user2;
+    // IMPORTANT: Preserve nested user objects (from JOIN queries)
+    // These might be undefined if not included in query
+    this.user1 = user1 || null;
+    this.user2 = user2 || null;
 
     // Also support snake_case aliases for Indonesian column names
     this.pesan_terakhir = this.last_message;
     this.pesan_terakhir_pada = this.last_message_at;
+    
+    // Debug log to check if user data is preserved
+    if (!user1 && !user2) {
+      console.warn('[Conversation Entity] Created without user data - ID:', id);
+    }
   }
 
   /**

@@ -36,14 +36,18 @@ export default function ConversationList() {
 
   return (
     <div className="overflow-y-auto space-y-1 h-full">
-      {conversations.map((conversation) => (
-        <ConversationListItem
-          key={conversation.id}
-          conversation={conversation}
-          isActive={activeConversation?.id === conversation.id}
-          onClick={() => selectConversation(conversation)}
-        />
-      ))}
+      {conversations.map((conversation) => {
+        const isActive = activeConversation?.id === conversation.id;
+        console.log(`[ConversationList] Conv ${conversation.id} active? ${isActive} (activeConvId: ${activeConversation?.id})`);
+        return (
+          <ConversationListItem
+            key={conversation.id}
+            conversation={conversation}
+            isActive={isActive}
+            onClick={() => selectConversation(conversation)}
+          />
+        );
+      })}
     </div>
   );
 }

@@ -105,6 +105,22 @@ class SocketService {
     });
   }
 
+  onUserOnline(callback) {
+    if (!this.socket) return;
+
+    this.socket.on('user:online', (data) => {
+      callback(data);
+    });
+  }
+
+  onUserOffline(callback) {
+    if (!this.socket) return;
+
+    this.socket.on('user:offline', (data) => {
+      callback(data);
+    });
+  }
+
   sendTypingIndicator(conversationId, isTyping) {
     if (!this.socket) return;
 

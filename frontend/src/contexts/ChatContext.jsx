@@ -19,6 +19,7 @@ export const ChatProvider = ({ children }) => {
   const [typingUsers, setTypingUsers] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [onlineUsers, setOnlineUsers] = useState(new Set());
 
   // Inisialisasi koneksi socket saat component mount
   useEffect(() => {
@@ -47,12 +48,31 @@ export const ChatProvider = ({ children }) => {
       console.log('[ChatContext] New message received:', message);
       
       const conversationId = message.percakapan_id;
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const userId = user?.id;
+
+      // WhatsApp pattern: Hanya tambahkan message dari USER LAIN
+      // Message dari diri sendiri sudah ada via optimistic update
+      if (message.pengirim_id === userId) {
+        console.log('[ChatContext] Ignoring own message (already shown via optimistic update)');
+        return;
+      }
       
-      // Add message to state
-      setMessages(prev => ({
-        ...prev,
-        [conversationId]: [...(prev[conversationId] || []), message]
-      }));
+      // Cek duplikat - jangan tambah jika message ID sudah ada
+      setMessages(prev => {
+        const existingMessages = prev[conversationId] || [];
+        const isDuplicate = existingMessages.some(msg => msg.id === message.id);
+        
+        if (isDuplicate) {
+          console.log('[ChatContext] Duplicate message, ignoring:', message.id);
+          return prev;
+        }
+
+        return {
+          ...prev,
+          [conversationId]: [...existingMessages, message]
+        };
+      });
 
       // Update conversation's last message
       setConversations(prev => 
@@ -79,6 +99,7 @@ export const ChatProvider = ({ children }) => {
 
     // Dengarkan indikator typings
     socketService.onTypingIndicator((data) => {
+      console.log('[ChatContext] Typing indicator:', data);
       setTypingUsers(prev => ({
         ...prev,
         [data.userId]: data.isTyping
@@ -93,6 +114,26 @@ export const ChatProvider = ({ children }) => {
           }));
         }, 3000);
       }
+    });
+
+    // Dengarkan user online status
+    socketService.onUserOnline((data) => {
+      console.log('[ChatContext] User came online:', data.userId);
+      setOnlineUsers(prev => {
+        const newSet = new Set([...prev, data.userId]);
+        console.log('[ChatContext] Online users:', Array.from(newSet));
+        return newSet;
+      });
+    });
+
+    // Dengarkan user offline status
+    socketService.onUserOffline((data) => {
+      console.log('[ChatContext] User went offline:', data.userId);
+      setOnlineUsers(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(data.userId);
+        return newSet;
+      });
     });
 
     // Listen for delivery status updates
@@ -117,6 +158,8 @@ export const ChatProvider = ({ children }) => {
       socketService.off('chat:new-message');
       socketService.off('chat:typing-indicator');
       socketService.off('chat:delivery-status');
+      socketService.off('user:online');
+      socketService.off('user:offline');
     };
   }, [activeConversation]);
 
@@ -136,12 +179,6 @@ export const ChatProvider = ({ children }) => {
       return response;
     } catch (error) {
       console.error('[ChatContext] Error fetching conversations:', error);
-      
-      // Handle backend errors gracefully
-      if (error.response?.status === 500) {
-        console.error('[ChatContext] Backend error 500 - Chat feature may not be fully configured');
-        console.error('[ChatContext] Please contact backend developer to fix model associations');
-      }
       
       // Set empty conversations instead of crashing
       setConversations([]);
@@ -175,13 +212,58 @@ export const ChatProvider = ({ children }) => {
 
   const sendMessage = useCallback(async (conversationId, pesan, tipe = 'text', lampiran = null) => {
     try {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const userId = user?.id;
+
+      // OPTIMISTIC UPDATE: Tampilkan message segera (WhatsApp pattern)
+      const optimisticMessage = {
+        id: `temp-${Date.now()}`, // Temporary ID
+        percakapan_id: conversationId,
+        pengirim_id: userId,
+        pesan,
+        tipe,
+        lampiran,
+        status: 'sending',
+        is_read: false,
+        created_at: new Date().toISOString(),
+        sender: {
+          id: userId,
+          nama_depan: user.nama_depan,
+          nama_belakang: user.nama_belakang,
+          avatar: user.avatar
+        }
+      };
+
+      // Langsung tambahkan ke UI
+      setMessages(prev => ({
+        ...prev,
+        [conversationId]: [...(prev[conversationId] || []), optimisticMessage]
+      }));
+
       // Try socket first (real-time)
       if (socketService.isConnected()) {
         return new Promise((resolve, reject) => {
           socketService.sendMessage(conversationId, pesan, tipe, lampiran, (response) => {
             if (response.status === 'success') {
+              console.log('[ChatContext] Message sent via socket, updating optimistic message');
+              
+              // Update optimistic message dengan data real dari server
+              setMessages(prev => ({
+                ...prev,
+                [conversationId]: (prev[conversationId] || []).map(msg => 
+                  msg.id === optimisticMessage.id 
+                    ? { ...response.data, status: 'sent' } // Replace dengan real message
+                    : msg
+                )
+              }));
+              
               resolve(response);
             } else {
+              // Hapus optimistic message jika gagal
+              setMessages(prev => ({
+                ...prev,
+                [conversationId]: (prev[conversationId] || []).filter(msg => msg.id !== optimisticMessage.id)
+              }));
               reject(new Error(response.message));
             }
           });
@@ -191,11 +273,21 @@ export const ChatProvider = ({ children }) => {
         console.log('[ChatContext] Socket not connected, using REST API');
         const response = await chatService.sendMessage(conversationId, pesan, tipe, lampiran);
         
-        // Manually add to messages state
+        // Update optimistic message dengan real data
         if (response.data) {
           setMessages(prev => ({
             ...prev,
-            [conversationId]: [...(prev[conversationId] || []), response.data]
+            [conversationId]: (prev[conversationId] || []).map(msg => 
+              msg.id === optimisticMessage.id 
+                ? { ...response.data, status: 'sent' }
+                : msg
+            )
+          }));
+        } else {
+          // Hapus jika gagal
+          setMessages(prev => ({
+            ...prev,
+            [conversationId]: (prev[conversationId] || []).filter(msg => msg.id !== optimisticMessage.id)
           }));
         }
         
@@ -226,7 +318,9 @@ export const ChatProvider = ({ children }) => {
   }, []);
 
   const selectConversation = useCallback(async (conversation) => {
+    console.log('[ChatContext] selectConversation called with conv:', conversation?.id);
     setActiveConversation(conversation);
+    console.log('[ChatContext] activeConversation set to:', conversation?.id);
     
     // Join socket room
     if (socketService.isConnected() && conversation?.id) {
@@ -291,6 +385,7 @@ export const ChatProvider = ({ children }) => {
     typingUsers,
     isLoading,
     isConnected,
+    onlineUsers,
     fetchConversations,
     fetchMessages,
     sendMessage,

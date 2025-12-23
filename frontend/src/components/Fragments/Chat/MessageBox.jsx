@@ -12,7 +12,8 @@ export default function MessageBox({ userData }) {
     sendMessage, 
     sendTypingIndicator,
     typingUsers,
-    isConnected 
+    isConnected,
+    onlineUsers
   } = useChatContext();
   
   const [messageInput, setMessageInput] = useState('');
@@ -32,6 +33,16 @@ export default function MessageBox({ userData }) {
   const otherUser = activeConversation 
     ? (activeConversation.user1_id === userId ? activeConversation.User2 : activeConversation.User1)
     : null;
+  
+  // Debug log untuk cek otherUser
+  console.log('[MessageBox] Other user:', otherUser);
+  console.log('[MessageBox] User ID:', otherUser?.id, 'Role:', otherUser?.role);
+
+  // Format nama lengkap dari nama_depan dan nama_belakang
+  const formatName = (user) => {
+    if (!user) return 'Unknown User';
+    return `${user.nama_depan || ''} ${user.nama_belakang || ''}`.trim() || 'Unknown User';
+  };
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -175,16 +186,37 @@ export default function MessageBox({ userData }) {
     <div className="flex relative flex-col w-full h-full bg-gray-200">
       {/* Header */}
       <div className="flex gap-2 items-center px-4 py-4 w-full rounded-none bg-primary-500/30 border-b">
-        <Avatar
-          src={otherUser?.foto_profil || "https://placehold.co/200"}
-          alt={otherUser?.nama_lengkap || "avatar"}
-          size="lg"
-        />
+        <div className="relative">
+          <Avatar
+            src={otherUser?.avatar || "https://placehold.co/200"}
+            alt={formatName(otherUser)}
+            size="lg"
+          />
+          {/* Online indicator - green dot */}
+          {otherUser && onlineUsers.has(otherUser.id) && (
+            <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
+          )}
+        </div>
         <div className="flex flex-col flex-1">
-          <Text variant="h2">{otherUser?.nama_lengkap || "Unknown User"}</Text>
+          <Text variant="h2">{formatName(otherUser)}</Text>
           <span className="text-sm text-slate-500">
             {otherUser?.role === 'freelancer' ? otherUser?.profesi : 'Client'}
           </span>
+          {/* Show typing indicator or online status below profession */}
+          {isOtherUserTyping ? (
+            <span className="text-xs text-blue-600 font-medium flex items-center gap-1 mt-0.5">
+              <span className="inline-flex gap-0.5">
+                <span className="w-1 h-1 bg-blue-600 rounded-full animate-bounce"></span>
+                <span className="w-1 h-1 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></span>
+                <span className="w-1 h-1 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></span>
+              </span>
+              sedang mengetik...
+            </span>
+          ) : otherUser && onlineUsers.has(otherUser.id) ? (
+            <span className="text-xs text-green-600 font-medium mt-0.5">● online</span>
+          ) : (
+            <span className="text-xs text-gray-500 mt-0.5">● offline</span>
+          )}
           {!isConnected && (
             <span className="text-xs text-red-600">⚠️ Disconnected</span>
           )}
@@ -210,33 +242,39 @@ export default function MessageBox({ userData }) {
                     {getDateLabel(group.messages[0].created_at)}
                   </Text>
                 </li>
-                {group.messages.map((message) => (
-                  <MessageBubble
-                    key={message.id}
-                    isSender={message.pengirim_id !== userId}
-                    timestamp={new Date(message.created_at).toLocaleTimeString('id-ID', { 
-                      hour: '2-digit', 
-                      minute: '2-digit' 
-                    })}
-                    isRead={message.is_read}
-                  >
-                    {message.pesan}
-                  </MessageBubble>
-                ))}
+                {group.messages.map((message) => {
+                  // Format timestamp dengan error handling
+                  let timestamp = '';
+                  try {
+                    const date = new Date(message.created_at);
+                    if (!isNaN(date.getTime())) {
+                      timestamp = date.toLocaleTimeString('id-ID', { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      });
+                    } else {
+                      console.error('[MessageBox] Invalid date:', message.created_at);
+                      timestamp = '';
+                    }
+                  } catch (error) {
+                    console.error('[MessageBox] Error formatting timestamp:', error, message.created_at);
+                    timestamp = '';
+                  }
+
+                  return (
+                    <MessageBubble
+                      key={message.id}
+                      isSender={message.pengirim_id !== userId}
+                      timestamp={timestamp}
+                      isRead={message.is_read}
+                      status={message.status || 'sent'}
+                    >
+                      {message.pesan}
+                    </MessageBubble>
+                  );
+                })}
               </ul>
             ))}
-            
-            {/* Typing indicator */}
-            {isOtherUserTyping && (
-              <div className="flex gap-2 items-center mb-4 text-sm text-gray-500">
-                <div className="flex gap-1">
-                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></span>
-                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></span>
-                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></span>
-                </div>
-                <span>{otherUser?.nama_lengkap} is typing...</span>
-              </div>
-            )}
             
             <div ref={messagesEndRef} />
           </div>
