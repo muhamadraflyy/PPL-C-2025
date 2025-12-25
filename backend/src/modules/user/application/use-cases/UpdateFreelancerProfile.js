@@ -58,7 +58,7 @@ class UpdateFreelancerProfile {
       }
       userUpdates.no_telepon = phone;
     }
-    // Validate bio / deskripsi length when updating user
+    // Validate bio length when updating user; do NOT map `deskripsi` into shared user.bio
     if (profileData.bio) {
       if (String(profileData.bio).length > MAX_DESCRIPTION_LENGTH) {
         const error = new Error('Deskripsi maksimal ' + MAX_DESCRIPTION_LENGTH + ' karakter');
@@ -66,13 +66,6 @@ class UpdateFreelancerProfile {
         throw error;
       }
       userUpdates.bio = profileData.bio;
-    } else if (profileData.deskripsi) {
-      if (String(profileData.deskripsi).length > MAX_DESCRIPTION_LENGTH) {
-        const error = new Error('Deskripsi maksimal ' + MAX_DESCRIPTION_LENGTH + ' karakter');
-        error.statusCode = 400;
-        throw error;
-      }
-      userUpdates.bio = profileData.deskripsi;
     }
     // Map `lokasi` -> kota / provinsi (accept formats like 'Kota, Provinsi' or 'Kota/Provinsi')
     if (profileData.lokasi !== undefined && profileData.lokasi !== null) {
@@ -134,6 +127,15 @@ class UpdateFreelancerProfile {
         throw error;
       }
       profilePayload.deskripsi_lengkap = profileData.deskripsi_lengkap;
+    }
+    // Backwards-compatible: accept `deskripsi` and map it to deskripsi_lengkap
+    if (profileData.deskripsi !== undefined && profileData.deskripsi_lengkap === undefined) {
+      if (profileData.deskripsi !== null && String(profileData.deskripsi).length > MAX_DESCRIPTION_LENGTH) {
+        const error = new Error('Deskripsi lengkap maksimal ' + MAX_DESCRIPTION_LENGTH + ' karakter');
+        error.statusCode = 400;
+        throw error;
+      }
+      profilePayload.deskripsi_lengkap = profileData.deskripsi;
     }
     
     // Handle array/JSON fields
