@@ -60,7 +60,7 @@ class RequestRefund {
         escrow_id: escrow.id,
         user_id,
         alasan,
-        jumlah_refund: refundAmount,
+        jumlah: refundAmount,
         status: 'pending'
       });
 
