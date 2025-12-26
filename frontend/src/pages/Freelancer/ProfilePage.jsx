@@ -178,23 +178,35 @@ export default function FreelancerProfilePage() {
   }
 
   const handleSubmitReport = async () => {
-    if (!reportReason) {
-      toast.show("Pilih alasan pelaporan terlebih dahulu", "error")
-      return
-    }
-    try {
-      setSubmittingReport(true)
-      // Simulasi API call (ganti endpoint ini jika sudah ada fitur report di backend)
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      toast.show("Laporan berhasil dikirim. Kami akan meninjaunya.", "success")
-      setShowReportModal(false)
-    } catch (err) {
-      toast.show("Gagal mengirim laporan", "error")
-    } finally {
-      setSubmittingReport(false)
-    }
+  if (!reportReason) {
+    toast.show("Pilih alasan pelaporan terlebih dahulu", "error");
+    return;
   }
+
+  try {
+    setSubmittingReport(true);
+
+    // SEKARANG MEMANGGIL API ASLI
+    const response = await api.post(`/reviews/${selectedReviewId}/report`, {
+      reason: reportReason 
+    });
+
+    if (response.data.success) {
+      toast.show("Laporan berhasil dikirim. Kami akan meninjaunya.", "success");
+      setShowReportModal(false);
+
+      // REFRESH DATA (Opsional tapi disarankan agar UI sinkron dengan DB)
+      if (profile?.id) {
+        loadReviews(profile.id);
+      }
+    }
+  } catch (err) {
+    const msg = err.response?.data?.message || "Gagal mengirim laporan";
+    toast.show(msg, "error");
+  } finally {
+    setSubmittingReport(false);
+  }
+};
 
   const loadStats = async (profileData) => {
     try {
