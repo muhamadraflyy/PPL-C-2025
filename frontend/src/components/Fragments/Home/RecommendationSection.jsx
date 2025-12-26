@@ -90,6 +90,8 @@ export default function RecommendationSection({ onServiceClick, onFavoriteToggle
             reviews: parseInt(service.jumlah_rating || service.jumlah_ulasan || service.reviews) || 0,
             price: parseInt(service.harga || service.price) || 0,
             favoriteCount: parseInt(service.jumlah_favorit || service.favorite_count || service.favoriteCount) || 0,
+            thumbnail: service.thumbnail || null,
+            freelancerAvatar: service.freelancer_avatar || service.avatar || null,
           }));
 
           // Filter out hidden recommendations
@@ -248,6 +250,8 @@ export default function RecommendationSection({ onServiceClick, onFavoriteToggle
             reviews: parseInt(service.jumlah_rating || service.jumlah_ulasan || service.reviews) || 0,
             price: parseInt(service.harga || service.price) || 0,
             favoriteCount: parseInt(service.jumlah_favorit || service.favorite_count || service.favoriteCount) || 0,
+            thumbnail: service.thumbnail || null,
+            freelancerAvatar: service.freelancer_avatar || service.avatar || null,
           }));
 
           const visibleServices = mappedServices.filter(service => !hiddenRecommendations.includes(service.id));

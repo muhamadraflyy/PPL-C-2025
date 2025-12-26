@@ -1,4 +1,3 @@
-// src/hooks/useServiceSearch.js
 import { useEffect, useState } from "react";
 
 // Sesuaikan base URL sama environment-mu

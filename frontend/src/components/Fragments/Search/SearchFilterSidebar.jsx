@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Funnel, ChevronDown, ChevronUp} from "lucide-react";
+import { Funnel, ChevronDown, ChevronUp, RotateCcw } from "lucide-react";
 
 function FilterSection({ title, isOpen, onToggle, children }) {
   return (
@@ -26,17 +26,15 @@ function RatingRow({ stars, active, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className={`flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-[13px] ${
-        active ? "bg-[#EEF2FF]" : "hover:bg-neutral-50"
-      }`}
+      className={`flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-[13px] ${active ? "bg-[#EEF2FF]" : "hover:bg-neutral-50"
+        }`}
     >
       <span className="flex items-center gap-1">
         {Array.from({ length: 5 }).map((_, i) => (
           <i
             key={i}
-            className={`fas fa-star text-[11px] ${
-              i < stars ? "text-[#FBBF24]" : "text-neutral-300"
-            }`}
+            className={`fas fa-star text-[11px] ${i < stars ? "text-[#FBBF24]" : "text-neutral-300"
+              }`}
           />
         ))}
       </span>
@@ -59,6 +57,9 @@ export default function SearchFilterSidebar({
   onChangePriceMin,
   onChangePriceMax,
   onApplyPriceFilter,
+  priceSort,
+  onChangePriceSort,
+  onResetFilters,
 }) {
   const [openCategory, setOpenCategory] = useState(true);
   const [openPrice, setOpenPrice] = useState(false);
@@ -131,8 +132,47 @@ export default function SearchFilterSidebar({
             ))}
           </div>
 
+          {/* Urutan Harga (dipindahkan dari SortBar) */}
+          <div className="mt-4 space-y-2">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-neutral-500">
+              Urutan Harga
+            </p>
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-[13px] text-neutral-700">
+                <input
+                  type="radio"
+                  name="price-sort"
+                  className="h-4 w-4 border-neutral-300 text-[#2563EB] focus:ring-[#2563EB]"
+                  checked={priceSort === ""}
+                  onChange={() => onChangePriceSort("")}
+                />
+                <span>Default</span>
+              </label>
+              <label className="flex items-center gap-2 text-[13px] text-neutral-700">
+                <input
+                  type="radio"
+                  name="price-sort"
+                  className="h-4 w-4 border-neutral-300 text-[#2563EB] focus:ring-[#2563EB]"
+                  checked={priceSort === "price_desc"}
+                  onChange={() => onChangePriceSort("price_desc")}
+                />
+                <span>Harga: Tinggi ke Rendah</span>
+              </label>
+              <label className="flex items-center gap-2 text-[13px] text-neutral-700">
+                <input
+                  type="radio"
+                  name="price-sort"
+                  className="h-4 w-4 border-neutral-300 text-[#2563EB] focus:ring-[#2563EB]"
+                  checked={priceSort === "price_asc"}
+                  onChange={() => onChangePriceSort("price_asc")}
+                />
+                <span>Harga: Rendah ke Tinggi</span>
+              </label>
+            </div>
+          </div>
+
           {/* Input range custom */}
-          <div className="mt-3 space-y-2">
+          <div className="mt-4 space-y-2">
             <p className="text-[11px] font-bold uppercase tracking-wide text-neutral-500">
               Batas Harga
             </p>
@@ -182,6 +222,18 @@ export default function SearchFilterSidebar({
             ))}
           </div>
         </FilterSection>
+      </div>
+
+      {/* Reset Filter Button */}
+      <div className="mt-4 pt-4 border-t border-neutral-200">
+        <button
+          type="button"
+          onClick={onResetFilters}
+          className="flex w-full items-center justify-center gap-2 rounded-lg border border-black bg-[#102d4f] px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-neutral-50 hover:border-neutral-400"
+        >
+          <RotateCcw className="h-4 w-4 text-white" />
+          Reset Filter
+        </button>
       </div>
     </aside>
   );

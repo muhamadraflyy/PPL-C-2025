@@ -10,7 +10,7 @@ import { useToast } from "../Common/ToastProvider";
 import NotificationBell from "../Common/NotificationBell";
 
 const ROLE_HOME = {
-  client: "/dashboard",
+  client: "/orders",
   freelancer: "/dashboard",
 };
 
@@ -62,7 +62,7 @@ function ProfileDropdown({ name, email, avatarUrl, role, hasFreelancerProfile, o
             Profile
           </button>
           <button type="button" role="menuitem" onClick={onDashboard} className="w-full px-4 py-2.5 text-left text-sm hover:bg-neutral-50 transition-colors">
-            Dashboard
+            {role === "client" ? "Pesanan Saya" : "Dashboard"}
           </button>
           
           {/* Section Ganti Role */}
@@ -207,7 +207,7 @@ export default function NavHeader() {
   const handleRegister = () => navigate("/register/client");
   const handleRegisterFreelancer = () => navigate("/register/freelancer");
   const handleProfile = () => navigate("/profile");
-  const handleDashboard = () => navigate("/dashboard");
+  const handleDashboard = () => navigate(userRole === "client" ? "/orders" : "/dashboard");
   const handleFavorites = () => navigate("/favorit");
   const handleBookmarks = () => navigate("/bookmarks");
   const handleOrders = () => navigate("/orders");
@@ -292,17 +292,6 @@ export default function NavHeader() {
             <div className="h-9 sm:h-10 w-20 sm:w-24 animate-pulse rounded-full bg-neutral-200" />
           ) : isLoggedIn ? (
             <>
-              {/* Bookmark button - only for client */}
-              {userRole === "client" && (
-                <button
-                  onClick={handleBookmarks}
-                  className="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-neutral-700 hover:bg-neutral-100 transition-colors"
-                  title="Lihat Bookmark"
-                >
-                  <i className="far fa-bookmark text-lg" />
-                  <span className="hidden lg:inline">Disimpan</span>
-                </button>
-              )}
               {!hasFreelancerProfile && (
                 <Button
                   onClick={handleRegisterFreelancer}

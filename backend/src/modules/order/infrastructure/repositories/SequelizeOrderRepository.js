@@ -276,6 +276,9 @@ class SequelizeOrderRepository {
       order: [[sortBy, sortOrder]],
       limit,
       offset,
+      // Gunakan DISTINCT untuk menghindari duplikasi hitung ketika ada banyak pembayaran / ulasan
+      distinct: true,
+      col: 'id',
       attributes: [
         'id', 'nomor_pesanan', 'judul', 'status', 'total_bayar', 'harga',
         'waktu_pengerjaan', 'tenggat_waktu', 'created_at', 'updated_at',
@@ -347,6 +350,9 @@ class SequelizeOrderRepository {
       order: [[sortBy, sortOrder]],
       limit,
       offset,
+      // Gunakan DISTINCT agar total count tidak dobel ketika ada banyak pembayaran untuk 1 pesanan
+      distinct: true,
+      col: 'id',
       attributes: [
         'id', 'nomor_pesanan', 'judul', 'status', 'total_bayar', 'harga',
         'waktu_pengerjaan', 'tenggat_waktu', 'created_at', 'updated_at',

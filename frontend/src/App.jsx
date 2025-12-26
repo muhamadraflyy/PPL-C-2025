@@ -16,6 +16,11 @@ import FreelancerPublicProfile from "./pages/Public/FreelancerPublicProfile";
 import FreelancerDetailPage from "./pages/Public/FreelancerDetailPage";
 import ServiceDetailPage from "./pages/jobs/ServiceDetailPage";
 import StartWorkPage from "./pages/Public/StartWorkPage";
+import PaymentPage from "./pages/Public/PaymentPage";
+import FAQPage from "./pages/Public/FAQPage";
+import AboutWorkPage from "./pages/Public/AboutWorkPage";
+import TermsPage from "./pages/Public/TermsPage";
+import PrivacyPage from "./pages/Public/PrivacyPage";
 
 // Client pages
 import DashboardPage from "./pages/Client/DashboardPage";
@@ -96,6 +101,11 @@ export default function App() {
 
       {/* Halaman Panduan publik */}
       <Route path="/cara-jual-pekerjaan" element={<StartWorkPage />} />
+      <Route path="/pembayaran" element={<PaymentPage />} />
+      <Route path="/faq" element={<FAQPage />} />
+      <Route path="/tentang/bekerja" element={<AboutWorkPage />} />
+      <Route path="/syarat-ketentuan" element={<TermsPage />} />
+      <Route path="/kebijakan-privasi" element={<PrivacyPage />} />
 
       {/* List layanan publik */}
       <Route path="/services" element={<ServiceListPage />} />
