@@ -26,6 +26,7 @@ const httpServer = http.createServer(app);
 const allowedOrigins = [
   'http://localhost:3000',
   'https://ppl.vinmedia.my.id',
+  'https://frontenppl.vinmedia.my.id',
   process.env.FRONTEND_URL
 ].filter(Boolean);
 

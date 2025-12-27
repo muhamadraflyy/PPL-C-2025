@@ -10,7 +10,8 @@ const options = {
     },
     servers: [
       { url: 'http://localhost:5000', description: 'Development Server' },
-      { url: 'https://api-ppl.vinmedia.my.id', description: 'Production Server' }
+      { url: 'https://bekenppl.vinmedia.my.id', description: 'Production Server' },
+      { url: 'https://api-ppl.vinmedia.my.id', description: 'Production Server (Old)' }
     ],
     components: {
       securitySchemes: {
