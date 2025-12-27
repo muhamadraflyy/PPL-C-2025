@@ -81,7 +81,7 @@ class RequestRefund {
 
 class ProcessRefund {
   constructor({ refundRepository, escrowRepository })
-  async execute({ refund_id, admin_id, action, catatan_admin })
+  async execute({ refund_id, admin_id, action, catatan_admin }) // catatan_admin: NEW parameter
 }
 ```
 
@@ -637,8 +637,97 @@ classDiagram
 
 ---
 
+## Recent Updates & Enhancements (2025)
+
+### 1. Refund Processing Enhancement
+**Use Case**: `ProcessRefund.js`
+- **New Parameter**: `catatan_admin` - Admin dapat memberikan notes saat approve/reject refund
+- **Controller**: `PaymentController.processRefund()` - Menerima dan menyimpan catatan admin
+- **API Enhancement**: `GET /api/payments/refunds` - Mengembalikan detail lengkap order dan layanan
+
+**Example Usage**:
+```javascript
+// Admin approve refund dengan catatan
+await processRefundUseCase.execute({
+  refund_id: 'uuid',
+  admin_id: 'admin-uuid',
+  action: 'approve',
+  catatan_admin: 'Refund disetujui karena layanan tidak sesuai deskripsi'
+});
+
+// Admin reject refund dengan catatan
+await processRefundUseCase.execute({
+  refund_id: 'uuid',
+  admin_id: 'admin-uuid',
+  action: 'reject',
+  catatan_admin: 'Bukti tidak cukup, mohon upload screenshot tambahan'
+});
+```
+
+### 2. Withdrawal Module Enhancement
+**Service**: `WithdrawalService.js`
+- **FIFO Escrow Selection**: Otomatis memilih escrows dengan First-In-First-Out untuk memenuhi jumlah withdrawal
+- **Flexible Amount**: Freelancer bisa withdraw sejumlah apapun dari available balance
+- **Bank Name Field**: Support untuk menyimpan nama bank spesifik (BCA, BRI, Mandiri, dll)
+
+### 3. Analytics Enhancement
+**Controller**: `PaymentController.js`
+- **Role-Based Analytics**: Different analytics untuk freelancer, client, dan admin
+- **New Endpoints**:
+  - `GET /api/payments/analytics/summary` - Summary berdasarkan role
+  - `GET /api/payments/analytics/freelancer-earnings` - Earning freelancer
+  - `GET /api/payments/analytics/client-spending` - Spending client
+  - `GET /api/payments/balance` - Freelancer balance
+
+### 4. Platform Configuration
+**Controller**: `PlatformConfigController.js`
+- **Dynamic Fee Management**: Admin dapat update platform fee via API
+- **Category-Based Config**: Config diorganisir berdasarkan kategori
+- **Data Type Validation**: Validasi tipe data (string, number, boolean, json)
+
+---
+
+## Updated Class Diagram for Refund Module
+
+```mermaid
+classDiagram
+    class ProcessRefund {
+        -RefundRepository refundRepo
+        -EscrowRepository escrowRepo
+        +execute(refund_id, admin_id, action, catatan_admin)
+    }
+
+    class RefundModel {
+        +UUID id
+        +UUID pembayaran_id
+        +UUID user_id
+        +Decimal jumlah_refund
+        +Text alasan
+        +Text catatan_admin
+        +Enum status
+        +create()
+        +updateStatus()
+        +addAdminNote()
+    }
+
+    class PaymentController {
+        -ProcessRefund processRefundUseCase
+        +processRefund(req, res)
+        +getAllRefunds(req, res)
+    }
+
+    ProcessRefund ..> RefundModel : uses
+    PaymentController ..> ProcessRefund : uses
+
+    note for RefundModel "catatan_admin field added\nfor admin feedback"
+    note for ProcessRefund "Enhanced with\nadmin notes support"
+```
+
+---
+
 ## Notes
 - ✓ = File sudah ada
 - □ = File belum ada, recommended untuk dibuat
 - Semua file yang ✓ bisa langsung digunakan untuk class diagram
 - Files dengan □ adalah recommended refactoring untuk clean architecture
+- **Documentation Updated**: 2025-12-27 - Added recent enhancements and new features
