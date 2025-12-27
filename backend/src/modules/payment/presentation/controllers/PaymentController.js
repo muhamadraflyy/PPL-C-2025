@@ -1847,15 +1847,17 @@ class PaymentController {
         ? { status, limit: parseInt(limit), offset: parseInt(offset) }
         : { limit: parseInt(limit), offset: parseInt(offset) };
 
-      const [refunds] = await PaymentModel.sequelize.query(query, {
+      const refunds = await PaymentModel.sequelize.query(query, {
         replacements,
         type: PaymentModel.sequelize.QueryTypes.SELECT
       });
 
-      const [[{ total }]] = await PaymentModel.sequelize.query(countQuery, {
+      const countResult = await PaymentModel.sequelize.query(countQuery, {
         replacements: status ? { status } : {},
         type: PaymentModel.sequelize.QueryTypes.SELECT
       });
+
+      const total = countResult[0]?.total || 0;
 
       // Transform flat results into nested structure for frontend compatibility
       const formattedRefunds = Array.isArray(refunds) ? refunds : [refunds];
