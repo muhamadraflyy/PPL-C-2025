@@ -1800,103 +1800,27 @@ class PaymentController {
     try {
       const { status, limit = 50, offset = 0 } = req.query;
 
-      // Build WHERE clause for status filter
-      const statusFilter = status ? `WHERE r.status = :status` : '';
+      const RefundModel = PaymentModel.sequelize.models.refund;
 
-      // Raw SQL query with JOINs to get all related data
-      const query = `
-        SELECT
-          r.id,
-          r.pembayaran_id,
-          r.user_id,
-          r.alasan,
-          r.jumlah_refund as jumlah,
-          r.status,
-          r.created_at,
-          r.diproses_pada,
-          r.selesai_pada,
-          r.catatan_admin,
-          u.email as user_email,
-          u.nama_depan as user_nama_depan,
-          u.nama_belakang as user_nama_belakang,
-          p.id as payment_id,
-          p.total_bayar,
-          p.status as payment_status,
-          ps.id as pesanan_id,
-          ps.judul as pesanan_judul,
-          l.id as layanan_id,
-          l.judul as layanan_judul,
-          l.slug as layanan_slug
-        FROM refund r
-        LEFT JOIN users u ON r.user_id = u.id
-        LEFT JOIN pembayaran p ON r.pembayaran_id = p.id
-        LEFT JOIN pesanan ps ON p.pesanan_id = ps.id
-        LEFT JOIN layanan l ON ps.layanan_id = l.id
-        ${statusFilter}
-        ORDER BY r.created_at DESC
-        LIMIT :limit OFFSET :offset
-      `;
+      const where = {};
+      if (status) {
+        where.status = status;
+      }
 
-      const countQuery = `
-        SELECT COUNT(*) as total
-        FROM refund r
-        ${statusFilter}
-      `;
-
-      const replacements = status
-        ? { status, limit: parseInt(limit), offset: parseInt(offset) }
-        : { limit: parseInt(limit), offset: parseInt(offset) };
-
-      const [refunds] = await PaymentModel.sequelize.query(query, {
-        replacements,
-        type: PaymentModel.sequelize.QueryTypes.SELECT
+      const refunds = await RefundModel.findAll({
+        where,
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        order: [['created_at', 'DESC']]
       });
 
-      const [[{ total }]] = await PaymentModel.sequelize.query(countQuery, {
-        replacements: status ? { status } : {},
-        type: PaymentModel.sequelize.QueryTypes.SELECT
-      });
-
-      // Transform flat results into nested structure for frontend compatibility
-      const formattedRefunds = Array.isArray(refunds) ? refunds : [refunds];
-      const transformedRefunds = formattedRefunds.filter(r => r).map(r => ({
-        id: r.id,
-        pembayaran_id: r.pembayaran_id,
-        user_id: r.user_id,
-        alasan: r.alasan,
-        jumlah: parseFloat(r.jumlah),
-        status: r.status,
-        created_at: r.created_at,
-        diproses_pada: r.diproses_pada,
-        selesai_pada: r.selesai_pada,
-        catatan_admin: r.catatan_admin,
-        user: {
-          id: r.user_id,
-          email: r.user_email,
-          nama_depan: r.user_nama_depan,
-          nama_belakang: r.user_nama_belakang
-        },
-        pembayaran: {
-          id: r.payment_id,
-          total_bayar: parseFloat(r.total_bayar),
-          status: r.payment_status,
-          pesanan: {
-            id: r.pesanan_id,
-            judul: r.pesanan_judul,
-            layanan: {
-              id: r.layanan_id,
-              judul: r.layanan_judul,
-              slug: r.layanan_slug
-            }
-          }
-        }
-      }));
+      const total = await RefundModel.count({ where });
 
       res.status(200).json({
         success: true,
         data: {
-          refunds: transformedRefunds,
-          total: parseInt(total) || 0,
+          refunds,
+          total,
           limit: parseInt(limit),
           offset: parseInt(offset)
         }

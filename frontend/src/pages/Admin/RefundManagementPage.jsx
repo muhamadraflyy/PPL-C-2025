@@ -26,7 +26,7 @@ export default function RefundManagementPage() {
       })
 
       if (response.data.success) {
-        setRefunds(response.data.data || [])
+        setRefunds(response.data.data?.refunds || [])
       }
     } catch (error) {
       console.error('Error fetching refunds:', error)
@@ -181,6 +181,9 @@ export default function RefundManagementPage() {
                         User
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Pesanan
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Jumlah
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -204,7 +207,10 @@ export default function RefundManagementPage() {
                           {refund.pembayaran_id?.slice(0, 8)}...
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {refund.user_id?.slice(0, 8)}...
+                          {refund.user?.email || refund.user_id?.slice(0, 8) + '...'}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
+                          {refund.pembayaran?.pesanan?.judul || refund.pembayaran?.pesanan?.layanan?.judul || '-'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
                           {formatRupiah(refund.jumlah || refund.jumlah_refund)}
