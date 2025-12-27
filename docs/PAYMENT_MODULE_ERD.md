@@ -77,7 +77,7 @@ Modul pembayaran mengelola seluruh transaksi keuangan di platform SkillConnect, 
 | transaction_id | VARCHAR(255) | ID transaksi refund |
 | diproses_pada | DATETIME | Waktu diproses admin |
 | selesai_pada | DATETIME | Waktu refund selesai |
-| catatan_admin | TEXT | Catatan dari admin saat approve/reject |
+| catatan_admin | TEXT | Catatan dari admin saat approve/reject (**NEW**) |
 | created_at | DATETIME | Waktu request dibuat |
 | updated_at | DATETIME | Waktu terakhir diupdate |
 
@@ -466,9 +466,65 @@ CREATE INDEX idx_withdrawal_status_created ON withdrawal(status, created_at DESC
 
 ---
 
+## Recent Updates & Enhancements
+
+### 1. Refund Module Enhancements (2025)
+- **Admin Notes**: Kolom `catatan_admin` ditambahkan ke tabel `refund` untuk memungkinkan admin memberikan catatan saat approve/reject refund request
+- **Order Details in API**: Endpoint `GET /api/payments/refunds` sekarang mengembalikan detail lengkap order dan layanan untuk setiap refund
+- **Enhanced Workflow**: Admin dapat memberikan feedback yang lebih detail kepada client tentang keputusan refund
+
+### 2. Withdrawal Module Enhancements
+- **Flexible Amount**: Freelancer dapat menarik dana sejumlah apapun dari balance yang tersedia (min. Rp 50,000)
+- **FIFO Escrow Selection**: System otomatis memilih escrows dengan urutan FIFO untuk memenuhi jumlah withdrawal
+- **Bank Name Field**: Kolom `bank_name` untuk menyimpan nama bank spesifik
+
+### 3. Payment Features
+- **Dynamic Platform Fee**: Admin dapat mengubah `platform_fee_percentage` melalui platform_config
+- **Role-Based Analytics**: Analytics yang disesuaikan berdasarkan role (freelancer, client, admin)
+- **Real-time Status Check**: Endpoint untuk mengecek status pembayaran secara real-time dari payment gateway
+
+---
+
+## API Enhancements
+
+### Refund API dengan Order Details
+```json
+GET /api/payments/refunds
+
+Response includes:
+{
+  "refund": {
+    "id": "uuid",
+    "jumlah": 100000,
+    "alasan": "Layanan tidak sesuai",
+    "status": "pending",
+    "catatan_admin": "Memerlukan bukti tambahan",
+    "user": {
+      "id": "uuid",
+      "email": "client@example.com",
+      "nama_depan": "John",
+      "nama_belakang": "Doe"
+    },
+    "pembayaran": {
+      "total_bayar": 100000,
+      "pesanan": {
+        "judul": "Website Development",
+        "layanan": {
+          "judul": "Full Stack Web Development",
+          "slug": "full-stack-web-dev"
+        }
+      }
+    }
+  }
+}
+```
+
+---
+
 ## Notes
 - Semua ID menggunakan UUID untuk keamanan dan distributed system
 - Timestamps (created_at, updated_at) otomatis dikelola database
 - ENUM values untuk status membatasi nilai yang valid
 - Foreign keys memastikan referential integrity
 - Indexes dioptimalkan untuk query yang sering digunakan
+- **Documentation Updated**: 2025-12-27 - Added recent enhancements and new features

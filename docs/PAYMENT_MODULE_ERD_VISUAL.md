@@ -208,3 +208,64 @@ withdrawal.status
 ├─ completed
 └─ failed
 ```
+
+## Recent Updates (2025)
+
+```
+╔══════════════════════════════════════════════════════════════════╗
+║                    MODUL PAYMENT - UPDATES                       ║
+╚══════════════════════════════════════════════════════════════════╝
+
+┌──────────────────────────────────────────────────────────────────┐
+│ 1. REFUND ENHANCEMENTS                                           │
+├──────────────────────────────────────────────────────────────────┤
+│ • catatan_admin (TEXT) - Admin notes saat approve/reject         │
+│ • Order details di GET /api/payments/refunds endpoint            │
+│ • Enhanced workflow dengan feedback lebih detail                 │
+└──────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────┐
+│ 2. WITHDRAWAL ENHANCEMENTS                                       │
+├──────────────────────────────────────────────────────────────────┤
+│ • Flexible withdrawal amount (min. Rp 50,000)                    │
+│ • FIFO escrow selection untuk memenuhi jumlah withdrawal         │
+│ • bank_name field untuk simpan nama bank spesifik                │
+└──────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────┐
+│ 3. PAYMENT FEATURES                                              │
+├──────────────────────────────────────────────────────────────────┤
+│ • Dynamic platform fee via platform_config                       │
+│ • Role-based analytics (freelancer/client/admin)                 │
+│ • Real-time payment status check dari gateway                    │
+└──────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────┐
+│ 4. API RESPONSE EXAMPLE - Refund dengan Order Details           │
+├──────────────────────────────────────────────────────────────────┤
+│ GET /api/payments/refunds                                        │
+│                                                                  │
+│ {                                                                │
+│   refund: {                                                      │
+│     id, jumlah, alasan, status,                                 │
+│     catatan_admin: "Memerlukan bukti tambahan",  ← NEW          │
+│     user: { nama_depan, nama_belakang, email },                 │
+│     pembayaran: {                                               │
+│       total_bayar, status,                                      │
+│       pesanan: {                                                │
+│         judul: "Website Development",                           │
+│         layanan: {                            ← NEW             │
+│           judul: "Full Stack Development",                      │
+│           slug: "full-stack-dev"                                │
+│         }                                                       │
+│       }                                                         │
+│     }                                                           │
+│   }                                                             │
+│ }                                                               │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+**Documentation Last Updated**: 2025-12-27
+**Changes**: Added recent enhancements for refund, withdrawal, and payment modules

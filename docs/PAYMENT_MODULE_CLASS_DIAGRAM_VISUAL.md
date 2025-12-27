@@ -68,8 +68,10 @@ REFUND USE CASES
 │ └─ Dependencies: PaymentRepo, EscrowRepo, RefundRepo                     │
 │                                                                            │
 │ ProcessRefund                                                              │
-│ ├─ execute(refundId, adminId, action, notes)                             │
+│ ├─ execute(refundId, adminId, action, catatan_admin)  ← ENHANCED         │
 │ └─ Dependencies: RefundRepository                                         │
+│                                                                            │
+│ NOTE: catatan_admin parameter added for admin feedback                    │
 └────────────────────────────────────────────────────────────────────────────┘
 
 WITHDRAWAL USE CASES
@@ -290,3 +292,166 @@ RECOMMENDED TO CREATE (□)
    ├─ repositories/RefundRepository.js
    └─ repositories/WithdrawalRepository.js
 ```
+
+## Recent Updates & Enhancements (2025)
+
+```
+╔══════════════════════════════════════════════════════════════════════════╗
+║           PAYMENT MODULE - CLASS DIAGRAM UPDATES                         ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 1. REFUND PROCESSING ENHANCEMENT                                         │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  ProcessRefund Use Case (ENHANCED)                                       │
+│  ┌────────────────────────────────────────────────────────────┐         │
+│  │ class ProcessRefund                                        │         │
+│  │                                                            │         │
+│  │ execute(refundId, adminId, action, catatan_admin)         │         │
+│  │         ↑                                                  │         │
+│  │         └─ NEW: Admin dapat tambahkan notes                │         │
+│  │            saat approve/reject refund                      │         │
+│  └────────────────────────────────────────────────────────────┘         │
+│                                                                          │
+│  RefundModel (UPDATED)                                                   │
+│  ┌────────────────────────────────────────────────────────────┐         │
+│  │ + catatan_admin (TEXT)  ← NEW FIELD                        │         │
+│  │   - Stores admin feedback                                  │         │
+│  │   - Visible to client in refund response                   │         │
+│  └────────────────────────────────────────────────────────────┘         │
+│                                                                          │
+│  PaymentController.getAllRefunds() (ENHANCED)                            │
+│  ┌────────────────────────────────────────────────────────────┐         │
+│  │ Returns:                                                   │         │
+│  │   - Full order details                                     │         │
+│  │   - Service/layanan info  ← NEW                            │         │
+│  │   - User details                                           │         │
+│  │   - Admin notes (catatan_admin)  ← NEW                     │         │
+│  └────────────────────────────────────────────────────────────┘         │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 2. WITHDRAWAL SERVICE ENHANCEMENT                                        │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  WithdrawalService (ENHANCED)                                            │
+│  ┌────────────────────────────────────────────────────────────┐         │
+│  │ + requestWithdrawal(freelancerId, amount, bankDetails)     │         │
+│  │   ├─ FIFO Escrow Selection  ← NEW LOGIC                    │         │
+│  │   │  Automatically selects escrows in order                │         │
+│  │   │  to fulfill requested amount                           │         │
+│  │   │                                                         │         │
+│  │   ├─ Flexible Amount Support  ← NEW                        │         │
+│  │   │  Any amount >= Rp 50,000                               │         │
+│  │   │  (previously might be fixed)                           │         │
+│  │   │                                                         │         │
+│  │   └─ Bank Name Field  ← NEW                                │         │
+│  │      Store specific bank (BCA, BRI, etc)                   │         │
+│  └────────────────────────────────────────────────────────────┘         │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 3. ANALYTICS CONTROLLERS (NEW ENDPOINTS)                                │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  PaymentController (ENHANCED)                                            │
+│  ┌────────────────────────────────────────────────────────────┐         │
+│  │ NEW METHODS:                                               │         │
+│  │                                                            │         │
+│  │ + getAnalyticsSummary(req, res)                           │         │
+│  │   └─ Role-based: Different data per role                  │         │
+│  │                                                            │         │
+│  │ + getFreelancerEarnings(req, res)                         │         │
+│  │   └─ Freelancer earning stats                             │         │
+│  │                                                            │         │
+│  │ + getClientSpending(req, res)                             │         │
+│  │   └─ Client spending stats                                │         │
+│  │                                                            │         │
+│  │ + getUserBalance(req, res)                                │         │
+│  │   └─ Freelancer available balance                         │         │
+│  └────────────────────────────────────────────────────────────┘         │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 4. PLATFORM CONFIG ENHANCEMENTS                                          │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  PlatformConfigController (ENHANCED)                                     │
+│  ┌────────────────────────────────────────────────────────────┐         │
+│  │ + updateConfig(configKey, value)                           │         │
+│  │   ├─ Dynamic platform fee updates                          │         │
+│  │   ├─ Category-based organization                           │         │
+│  │   └─ Data type validation                                  │         │
+│  └────────────────────────────────────────────────────────────┘         │
+│                                                                          │
+│  PlatformConfigModel (ENHANCED)                                          │
+│  ┌────────────────────────────────────────────────────────────┐         │
+│  │ + category (VARCHAR 50)  ← NEW                             │         │
+│  │ + data_type (ENUM)  ← NEW                                  │         │
+│  │ + is_editable (BOOLEAN)  ← NEW                             │         │
+│  └────────────────────────────────────────────────────────────┘         │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+## Updated Flow Diagram - Refund dengan Admin Notes
+
+```
+CLIENT REQUEST REFUND
+        │
+        ▼
+┌───────────────────┐
+│ RequestRefund UC  │ → Create refund (status: pending)
+└─────────┬─────────┘
+          │
+          ▼
+┌───────────────────────────────────────────────────────┐
+│           ADMIN REVIEWS IN DASHBOARD                  │
+│  (getAllRefunds shows full order + service details)   │
+└─────────┬─────────────────────────────────────────────┘
+          │
+          ├─────────────────┬─────────────────┐
+          │                 │                 │
+          ▼                 ▼                 ▼
+    [APPROVE]          [REJECT]          [NEEDS MORE INFO]
+          │                 │                 │
+          │                 │                 │
+┌─────────▼─────────────────▼─────────────────▼──────────┐
+│           ProcessRefund Use Case                       │
+│                                                        │
+│  Params:                                               │
+│  - refundId                                            │
+│  - adminId                                             │
+│  - action (approve/reject)                             │
+│  - catatan_admin  ← NEW                                │
+│                                                        │
+│  Examples:                                             │
+│  "Refund disetujui, layanan tidak sesuai"             │
+│  "Bukti tidak cukup, upload screenshot"               │
+│  "Menunggu konfirmasi freelancer"                     │
+└────────────────────┬───────────────────────────────────┘
+                     │
+                     ▼
+          ┌──────────────────┐
+          │ Update Refund    │
+          │ - status         │
+          │ - catatan_admin  │
+          │ - diproses_pada  │
+          └──────────────────┘
+                     │
+                     ▼
+          ┌──────────────────┐
+          │ Notify Client    │
+          │ (includes notes) │
+          └──────────────────┘
+```
+
+---
+
+**Documentation Last Updated**: 2025-12-27
+**Changes**:
+- Added refund processing enhancements with catatan_admin
+- Added withdrawal FIFO selection and flexible amounts
+- Added analytics endpoints documentation
+- Added platform config enhancements
+- Updated flow diagrams for refund with admin notes
