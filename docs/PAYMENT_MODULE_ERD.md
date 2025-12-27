@@ -1,7 +1,26 @@
 # Entity Relationship Diagram - Payment Module
 
 ## Overview
-Modul pembayaran mengelola seluruh transaksi keuangan di platform SkillConnect, termasuk pembayaran, escrow, refund, dan withdrawal.
+Modul pembayaran mengelola seluruh transaksi keuangan di platform SkillConnect, termasuk pembayaran, escrow, refund, withdrawal, dispute, dan revisi pesanan.
+
+**Total: 10 Tabel** (lengkap dari erdmod4.jpeg)
+
+## Table Summary
+
+| No | Tabel | Kategori | Deskripsi |
+|----|-------|----------|-----------|
+| 1 | `pembayaran` | Core Payment | Transaksi pembayaran dari client |
+| 2 | `escrow` | Core Payment | Pengelolaan dana escrow |
+| 3 | `refund` | Core Payment | Request refund dari client |
+| 4 | `pencairan_dana` (withdrawal) | Core Payment | Penarikan dana freelancer |
+| 5 | `platform_config` | Core Payment | Konfigurasi platform fee |
+| 6 | `metode_pembayaran` | Additional | Saved payment methods user |
+| 7 | `revisi` | Additional | Revisi pesanan dari client |
+| 8 | `dispute` | Additional | Dispute management |
+| 9 | `dispute_pesanan` | Additional | Dispute messages/thread |
+| 10 | `users`, `pesanan`, `layanan` | Referenced | Dari modul lain |
+
+---
 
 ## Entities
 
@@ -156,14 +175,23 @@ erDiagram
     USERS ||--o{ REFUND : "mengajukan"
     USERS ||--o{ WITHDRAWAL : "mengajukan"
     USERS ||--o{ PLATFORM_CONFIG : "mengupdate"
+    USERS ||--o{ METODE_PEMBAYARAN : "menyimpan"
+    USERS ||--o{ DISPUTE : "mengajukan"
+    USERS ||--o{ DISPUTE_PESANAN : "mengirim pesan"
 
     PESANAN ||--o{ PEMBAYARAN : "memiliki"
     PESANAN ||--o{ ESCROW : "memiliki"
+    PESANAN ||--o{ REVISI : "memiliki"
+    PESANAN ||--o{ DISPUTE : "bisa di-dispute"
 
     PEMBAYARAN ||--|| ESCROW : "menghasilkan"
     PEMBAYARAN ||--o{ REFUND : "bisa di-refund"
+    PEMBAYARAN ||--o{ DISPUTE : "bisa di-dispute"
 
     ESCROW ||--o{ REFUND : "bisa di-refund"
+    ESCROW ||--o{ DISPUTE : "bisa di-dispute"
+
+    DISPUTE ||--o{ DISPUTE_PESANAN : "memiliki thread"
 
     USERS {
         uuid id PK
@@ -238,6 +266,57 @@ erDiagram
         string config_key
         text config_value
         uuid updated_by FK
+        datetime created_at
+    }
+
+    METODE_PEMBAYARAN {
+        uuid id PK
+        uuid user_id FK
+        enum tipe
+        string provider
+        string nomor_rekening
+        string nama_pemilik
+        string empat_digit_terakhir
+        boolean is_default
+        datetime created_at
+    }
+
+    REVISI {
+        uuid id PK
+        uuid pesanan_id FK
+        int ke_berapa
+        text catatan
+        string lampiran
+        enum status
+        text tanggapan_revisi
+        datetime selesai_pada
+        datetime created_at
+    }
+
+    DISPUTE_PESANAN {
+        uuid id PK
+        uuid dispute_id FK
+        uuid pengirim_id FK
+        text pesan
+        string lampiran
+        datetime created_at
+    }
+
+    DISPUTE {
+        uuid id PK
+        uuid pesanan_id FK
+        uuid pembayaran_id FK
+        uuid escrow_id FK
+        uuid diajukan_oleh FK
+        enum tipe
+        text alasan
+        string bukti
+        enum status
+        text keputusan
+        text alasan_keputusan
+        uuid diputuskan_oleh FK
+        datetime dibuka_pada
+        datetime diselesaikan_pada
         datetime created_at
     }
 ```
@@ -359,6 +438,87 @@ CREATE TABLE platform_config (
     FOREIGN KEY (updated_by) REFERENCES users(id),
     INDEX idx_config_key (config_key)
 );
+
+-- 6. Metode Pembayaran (Saved Payment Methods) Table
+CREATE TABLE metode_pembayaran (
+    id CHAR(36) PRIMARY KEY,
+    user_id CHAR(36) NOT NULL,
+    tipe ENUM('e_wallet', 'bank_transfer', 'credit_card') NOT NULL,
+    provider VARCHAR(100) NOT NULL,
+    nomor_rekening VARCHAR(255) NOT NULL, -- Encrypted
+    nama_pemilik VARCHAR(255) NOT NULL,
+    empat_digit_terakhir VARCHAR(50),
+    is_default BOOLEAN DEFAULT FALSE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    INDEX idx_user_id (user_id),
+    INDEX idx_user_default (user_id, is_default)
+);
+
+-- 7. Revisi Pesanan Table
+CREATE TABLE revisi (
+    id CHAR(36) PRIMARY KEY,
+    pesanan_id CHAR(36) NOT NULL,
+    ke_berapa INT NOT NULL,
+    catatan TEXT NOT NULL,
+    lampiran VARCHAR(255),
+    status ENUM('pending', 'diterima', 'ditolak') DEFAULT 'pending',
+    tanggapan_revisi TEXT,
+    selesai_pada DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (pesanan_id) REFERENCES pesanan(id),
+    INDEX idx_pesanan_id (pesanan_id),
+    INDEX idx_status (status),
+    UNIQUE KEY unique_pesanan_revision (pesanan_id, ke_berapa)
+);
+
+-- 8. Dispute Table
+CREATE TABLE dispute (
+    id CHAR(36) PRIMARY KEY,
+    pesanan_id CHAR(36) NOT NULL,
+    pembayaran_id CHAR(36) NOT NULL,
+    escrow_id CHAR(36) NOT NULL,
+    diajukan_oleh CHAR(36) NOT NULL,
+    tipe ENUM('quality_issue', 'delivery_late', 'scope_change', 'payment_issue') NOT NULL,
+    alasan TEXT NOT NULL,
+    bukti VARCHAR(255),
+    status ENUM('open', 'investigating', 'resolved', 'closed') DEFAULT 'open',
+    keputusan TEXT,
+    alasan_keputusan TEXT,
+    diputuskan_oleh CHAR(36),
+    dibuka_pada DATETIME,
+    diselesaikan_pada DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (pesanan_id) REFERENCES pesanan(id),
+    FOREIGN KEY (pembayaran_id) REFERENCES pembayaran(id),
+    FOREIGN KEY (escrow_id) REFERENCES escrow(id),
+    FOREIGN KEY (diajukan_oleh) REFERENCES users(id),
+    FOREIGN KEY (diputuskan_oleh) REFERENCES users(id),
+    INDEX idx_pesanan_id (pesanan_id),
+    INDEX idx_status (status),
+    INDEX idx_diajukan_oleh (diajukan_oleh)
+);
+
+-- 9. Dispute Pesanan (Dispute Messages/Thread) Table
+CREATE TABLE dispute_pesanan (
+    id CHAR(36) PRIMARY KEY,
+    dispute_id CHAR(36) NOT NULL,
+    pengirim_id CHAR(36) NOT NULL,
+    pesan TEXT NOT NULL,
+    lampiran VARCHAR(255),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (dispute_id) REFERENCES dispute(id) ON DELETE CASCADE,
+    FOREIGN KEY (pengirim_id) REFERENCES users(id),
+    INDEX idx_dispute_id (dispute_id),
+    INDEX idx_created_at (created_at)
+);
 ```
 
 ---
@@ -408,6 +568,58 @@ Freelancer → Request Withdrawal (status: pending)
     [Reject]  → status: failed
 ```
 
+### 5. Dispute Flow
+```
+User (Client/Freelancer) → Open Dispute (status: open)
+                                 ↓
+                          Admin Investigates (status: investigating)
+                                 ↓
+                          Escrow di-hold
+                                 ↓
+                    ┌────────────┴────────────┐
+                    │   Dispute Messages      │
+                    │   (dispute_pesanan)     │
+                    │   - Client posts        │
+                    │   - Freelancer replies  │
+                    │   - Admin mediates      │
+                    └────────────┬────────────┘
+                                 ↓
+                          Admin Decision
+                                 ↓
+              ┌─────────────────┼─────────────────┐
+              ▼                 ▼                 ▼
+        Refund Penuh      Refund Sebagian    Lanjutkan Pesanan
+              │                 │                 │
+              ▼                 ▼                 ▼
+        Escrow → Client   Escrow Split     Escrow → Freelancer
+              │                 │                 │
+              └─────────────────┴─────────────────┘
+                                 ↓
+                         status: resolved
+```
+
+### 6. Revisi Flow
+```
+Client → Request Revision
+              ↓
+        Create Revisi (status: pending)
+              ↓
+        Freelancer Reviews
+              ↓
+    ┌─────────┴─────────┐
+    ▼                   ▼
+[Terima]           [Tolak]
+    │                   │
+    ▼                   ▼
+Work on Revision   status: ditolak
+    │
+    ▼
+Submit Revision
+    │
+    ▼
+status: diterima
+```
+
 ---
 
 ## Business Rules
@@ -443,6 +655,35 @@ Freelancer → Request Withdrawal (status: pending)
 2. Perubahan fee hanya berlaku untuk transaksi baru
 3. Transaksi lama tetap menggunakan fee saat transaksi dibuat
 
+### Metode Pembayaran
+1. User bisa menyimpan multiple payment methods untuk quick checkout
+2. Hanya satu metode bisa dijadikan default per user
+3. Nomor rekening harus di-encrypt di database
+4. Display hanya menampilkan 4 digit terakhir untuk security
+5. User bisa hapus payment method kapan saja
+
+### Revisi
+1. Jumlah revisi dibatasi sesuai paket layanan yang dibeli
+2. Revisi hanya bisa diminta jika pesanan masih in_progress
+3. Auto-increment `ke_berapa` untuk tracking revisi
+4. Freelancer bisa terima atau tolak revisi request
+5. Jika ditolak, client tidak kehilangan kuota revisi
+
+### Dispute
+1. Dispute hanya bisa diajukan setelah pembayaran berhasil
+2. Saat dispute investigating, escrow otomatis di-hold
+3. Both client dan freelancer bisa mengirim pesan dalam dispute
+4. Admin harus memberikan keputusan dalam 7 hari kerja
+5. Keputusan bisa: refund penuh, refund sebagian, atau lanjutkan pesanan
+6. Setelah resolved, escrow dirilis sesuai keputusan admin
+7. Dispute closed tidak bisa dibuka kembali
+
+### Dispute Pesanan (Messages)
+1. Thread komunikasi antara client, freelancer, dan admin
+2. Semua pihak bisa upload bukti/attachment
+3. Messages tidak bisa diedit atau dihapus (audit trail)
+4. Auto-delete saat parent dispute dihapus (CASCADE)
+
 ---
 
 ## Indexes untuk Performance
@@ -462,7 +703,140 @@ CREATE INDEX idx_refund_status_created ON refund(status, created_at DESC);
 -- Withdrawal indexes
 CREATE INDEX idx_withdrawal_freelancer_status ON withdrawal(freelancer_id, status);
 CREATE INDEX idx_withdrawal_status_created ON withdrawal(status, created_at DESC);
+
+-- Metode Pembayaran indexes
+CREATE INDEX idx_metode_user_id ON metode_pembayaran(user_id);
+CREATE INDEX idx_metode_user_default ON metode_pembayaran(user_id, is_default);
+
+-- Revisi indexes
+CREATE INDEX idx_revisi_pesanan_status ON revisi(pesanan_id, status);
+CREATE INDEX idx_revisi_created ON revisi(created_at DESC);
+
+-- Dispute indexes
+CREATE INDEX idx_dispute_pesanan_id ON dispute(pesanan_id);
+CREATE INDEX idx_dispute_status_created ON dispute(status, created_at DESC);
+CREATE INDEX idx_dispute_diajukan_oleh ON dispute(diajukan_oleh);
+
+-- Dispute Pesanan indexes
+CREATE INDEX idx_dispute_msg_dispute_id ON dispute_pesanan(dispute_id);
+CREATE INDEX idx_dispute_msg_created ON dispute_pesanan(created_at DESC);
 ```
+
+---
+
+### 6. Metode Pembayaran (Saved Payment Methods)
+**Table:** `metode_pembayaran`
+
+| Atribut | Tipe | Deskripsi |
+|---------|------|-----------|
+| id | UUID (PK) | Primary key |
+| user_id | UUID (FK) | Foreign key ke users |
+| tipe | ENUM | Tipe metode: e_wallet, bank_transfer, credit_card |
+| provider | VARCHAR(100) | Provider: gopay, ovo, bca, mandiri, dll |
+| nomor_rekening | VARCHAR(50) | Nomor rekening/akun (encrypted) |
+| nama_pemilik | VARCHAR(255) | Nama pemilik rekening |
+| email_digi_terakhir | VARCHAR(50) | 4 digit terakhir untuk display |
+| is_default | BOOLEAN | Apakah metode pembayaran default |
+| created_at | DATETIME | Waktu dibuat |
+| updated_at | DATETIME | Waktu terakhir diupdate |
+
+**Relationships:**
+- `user_id` → `users.id` (Many-to-One)
+
+**Business Rules:**
+- User bisa menyimpan multiple payment methods
+- Hanya satu metode bisa dijadikan default per user
+- Data sensitif (nomor rekening) harus di-encrypt
+- Untuk display, hanya tampilkan 4 digit terakhir
+
+---
+
+### 7. Revisi Pesanan
+**Table:** `revisi`
+
+| Atribut | Tipe | Deskripsi |
+|---------|------|-----------|
+| id | UUID (PK) | Primary key |
+| pesanan_id | UUID (FK) | Foreign key ke pesanan |
+| ke_berapa | INT | Revisi ke berapa |
+| catatan | TEXT | Catatan revisi dari client |
+| lampiran | VARCHAR(255) | URL file lampiran (optional) |
+| status | ENUM | Status: pending, diterima, ditolak |
+| tanggapan_revisi | TEXT | Tanggapan dari freelancer |
+| selesai_pada | DATETIME | Waktu revisi selesai |
+| created_at | DATETIME | Waktu revisi diminta |
+| updated_at | DATETIME | Waktu terakhir diupdate |
+
+**Relationships:**
+- `pesanan_id` → `pesanan.id` (Many-to-One)
+
+**Business Rules:**
+- Jumlah revisi terbatas sesuai paket layanan
+- Revisi hanya bisa diminta jika pesanan status "in_progress"
+- Auto-increment `ke_berapa` untuk setiap pesanan
+- Status default: pending
+
+---
+
+### 8. Dispute Pesanan
+**Table:** `dispute_pesanan`
+
+| Atribut | Tipe | Deskripsi |
+|---------|------|-----------|
+| id | UUID (PK) | Primary key |
+| dispute_id | UUID (FK) | Foreign key ke dispute |
+| pengirim_id | UUID (FK) | Foreign key ke users (yang mengirim dispute) |
+| pesan | TEXT | Pesan/detail dispute |
+| lampiran | VARCHAR(255) | URL file bukti |
+| created_at | DATETIME | Waktu dibuat |
+
+**Relationships:**
+- `dispute_id` → `dispute.id` (Many-to-One)
+- `pengirim_id` → `users.id` (Many-to-One)
+
+**Business Rules:**
+- Setiap dispute bisa memiliki multiple messages (thread)
+- Both client and freelancer bisa mengirim pesan
+- Admin bisa melihat semua pesan dalam dispute
+
+---
+
+### 9. Dispute
+**Table:** `dispute`
+
+| Atribut | Tipe | Deskripsi |
+|---------|------|-----------|
+| id | UUID (PK) | Primary key |
+| pesanan_id | UUID (FK) | Foreign key ke pesanan |
+| pembayaran_id | UUID (FK) | Foreign key ke pembayaran |
+| escrow_id | UUID (FK) | Foreign key ke escrow |
+| diajukan_oleh | UUID (FK) | User yang mengajukan dispute |
+| tipe | ENUM | Tipe: quality_issue, delivery_late, scope_change, payment_issue |
+| alasan | TEXT | Alasan dispute |
+| bukti | VARCHAR(255) | URL file bukti |
+| status | ENUM | Status: open, investigating, resolved, closed |
+| keputusan | TEXT | Keputusan dari admin |
+| alasan_keputusan | TEXT | Alasan keputusan admin |
+| diputuskan_oleh | UUID (FK) | Admin yang memutuskan |
+| dibuka_pada | DATETIME | Waktu dispute dibuka |
+| diselesaikan_pada | DATETIME | Waktu dispute diselesaikan |
+| created_at | DATETIME | Waktu dibuat |
+| updated_at | DATETIME | Waktu terakhir diupdate |
+
+**Relationships:**
+- `pesanan_id` → `pesanan.id` (Many-to-One)
+- `pembayaran_id` → `pembayaran.id` (Many-to-One)
+- `escrow_id` → `escrow.id` (Many-to-One)
+- `diajukan_oleh` → `users.id` (Many-to-One)
+- `diputuskan_oleh` → `users.id` (Many-to-One)
+- One-to-Many dengan `dispute_pesanan` (messages)
+
+**Business Rules:**
+- Dispute hanya bisa diajukan setelah pembayaran berhasil
+- Escrow akan di-hold saat dispute status "investigating"
+- Admin harus memberikan keputusan dalam 7 hari
+- Keputusan bisa: refund penuh, refund sebagian, lanjutkan pesanan
+- Setelah resolved, escrow dirilis sesuai keputusan
 
 ---
 
@@ -527,4 +901,13 @@ Response includes:
 - ENUM values untuk status membatasi nilai yang valid
 - Foreign keys memastikan referential integrity
 - Indexes dioptimalkan untuk query yang sering digunakan
-- **Documentation Updated**: 2025-12-27 - Added recent enhancements and new features
+
+---
+
+**Documentation Updated**: 2025-12-27
+- ✅ Added recent enhancements (catatan_admin, order details, etc.)
+- ✅ Added 4 new tables from erdmod4.jpeg: metode_pembayaran, revisi, dispute, dispute_pesanan
+- ✅ Complete SQL schema for all 10 tables
+- ✅ Added workflow diagrams for dispute and revisi
+- ✅ Updated mermaid ERD with all relationships
+- ✅ **ERD NOW COMPLETE - Ready for DB team to create diagram!**
