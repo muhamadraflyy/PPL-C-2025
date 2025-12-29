@@ -48,7 +48,7 @@ class RequestRefund {
         pembayaran_id,
         user_id,
         alasan,
-        jumlah_refund: refundAmount,
+        jumlah: refundAmount,
         status: 'pending'
       });
 

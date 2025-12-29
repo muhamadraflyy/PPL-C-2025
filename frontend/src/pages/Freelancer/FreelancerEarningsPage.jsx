@@ -98,7 +98,7 @@ export default function FreelancerEarningsPage() {
 
       <DashboardHeaderBar
         title="Freelancer"
-        subPage="Earnings Analytics"
+        subPage="Analisis Pendapatan"
         active="analisis"
       />
 
@@ -110,7 +110,7 @@ export default function FreelancerEarningsPage() {
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Available Balance</p>
+                  <p className="text-sm font-medium text-gray-600">Saldo Tersedia</p>
                   <p className="mt-2 text-3xl font-bold text-green-600">
                     {formatCurrency(balanceData.available_balance)}
                   </p>
@@ -125,14 +125,14 @@ export default function FreelancerEarningsPage() {
                 onClick={handleWithdraw}
                 className="mt-4 w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors"
               >
-                Withdraw Funds
+                Tarik Dana
               </button>
             </div>
 
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Pending in Escrow</p>
+                  <p className="text-sm font-medium text-gray-600">Dana Ditahan</p>
                   <p className="mt-2 text-3xl font-bold text-yellow-600">
                     {formatCurrency(balanceData.pending_escrow)}
                   </p>
@@ -143,13 +143,13 @@ export default function FreelancerEarningsPage() {
                   </svg>
                 </div>
               </div>
-              <p className="mt-4 text-sm text-gray-500">Funds held for 7 days</p>
+              <p className="mt-4 text-sm text-gray-500">Dana ditahan selama 7 hari</p>
             </div>
 
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Total Withdrawn</p>
+                  <p className="text-sm font-medium text-gray-600">Total Ditarik</p>
                   <p className="mt-2 text-3xl font-bold text-blue-600">
                     {formatCurrency(balanceData.total_withdrawn)}
                   </p>
@@ -160,17 +160,17 @@ export default function FreelancerEarningsPage() {
                   </svg>
                 </div>
               </div>
-              <p className="mt-4 text-sm text-gray-500">Lifetime withdrawals</p>
+              <p className="mt-4 text-sm text-gray-500">Total penarikan</p>
             </div>
           </div>
         )}
 
         {/* Date Range Filter */}
         <div className="bg-white rounded-lg shadow p-6 mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Filter Period</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Filter Periode</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Tanggal Mulai</label>
               <input
                 type="date"
                 value={dateRange.start_date}
@@ -179,7 +179,7 @@ export default function FreelancerEarningsPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Tanggal Akhir</label>
               <input
                 type="date"
                 value={dateRange.end_date}
@@ -195,28 +195,28 @@ export default function FreelancerEarningsPage() {
           <>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
               <div className="bg-white rounded-lg shadow p-6">
-                <p className="text-sm font-medium text-gray-600">Total Orders</p>
+                <p className="text-sm font-medium text-gray-600">Total Pesanan</p>
                 <p className="mt-2 text-2xl font-bold text-gray-900">
                   {earningsData.summary?.total_orders || 0}
                 </p>
               </div>
 
               <div className="bg-white rounded-lg shadow p-6">
-                <p className="text-sm font-medium text-gray-600">Total Earned</p>
+                <p className="text-sm font-medium text-gray-600">Total Pendapatan</p>
                 <p className="mt-2 text-2xl font-bold text-gray-900">
                   {formatCurrency(earningsData.summary?.total_earned)}
                 </p>
               </div>
 
               <div className="bg-white rounded-lg shadow p-6">
-                <p className="text-sm font-medium text-gray-600">Platform Fees</p>
+                <p className="text-sm font-medium text-gray-600">Biaya Platform</p>
                 <p className="mt-2 text-2xl font-bold text-red-600">
                   {formatCurrency(earningsData.summary?.platform_fees)}
                 </p>
               </div>
 
               <div className="bg-white rounded-lg shadow p-6">
-                <p className="text-sm font-medium text-gray-600">Avg Order Value</p>
+                <p className="text-sm font-medium text-gray-600">Rata-rata Nilai Pesanan</p>
                 <p className="mt-2 text-2xl font-bold text-gray-900">
                   {formatCurrency(earningsData.summary?.average_order_value)}
                 </p>
@@ -226,25 +226,25 @@ export default function FreelancerEarningsPage() {
             {/* Monthly Earnings */}
             {earningsData.monthly_earnings && earningsData.monthly_earnings.length > 0 && (
               <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-6">Monthly Earnings</h2>
+                <h2 className="text-lg font-semibold text-gray-900 mb-6">Pendapatan Bulanan</h2>
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead>
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Month
+                          Bulan
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Orders
+                          Pesanan
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Gross Earnings
+                          Pendapatan Kotor
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Platform Fees
+                          Biaya Platform
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Net Earnings
+                          Pendapatan Bersih
                         </th>
                       </tr>
                     </thead>

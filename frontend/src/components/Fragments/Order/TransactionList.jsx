@@ -2,7 +2,7 @@
  * TransactionList - List transaksi dengan filter tabs
  * Digunakan di halaman OrdersIncomingPage
  */
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Card from "../../Elements/Layout/Card";
 import Badge from "../../Elements/Common/Badge";
@@ -161,12 +161,26 @@ export default function TransactionList({
 }) {
   const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // Filtered orders based on active tab
   const filteredOrders = useMemo(() => {
     if (activeFilter === "all") return orders;
     return orders.filter((order) => order.status === activeFilter);
   }, [orders, activeFilter]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
+  const paginatedOrders = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredOrders.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredOrders, currentPage]);
+
+  // Reset to page 1 when filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeFilter]);
 
   const handleOrderClick = (order) => {
     if (onOrderClick) {
@@ -223,7 +237,7 @@ export default function TransactionList({
           </div>
         )}
 
-        {!loading && !error && filteredOrders.map((order) => (
+        {!loading && !error && paginatedOrders.map((order) => (
           <TransactionItem
             key={order.id}
             order={order}
@@ -231,6 +245,52 @@ export default function TransactionList({
           />
         ))}
       </div>
+
+      {/* Pagination - Only show if more than 10 items */}
+      {!loading && !error && filteredOrders.length > itemsPerPage && (
+        <div className="p-4 border-t border-gray-200 flex items-center justify-between">
+          <div className="text-sm text-gray-600">
+            Menampilkan {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredOrders.length)} dari {filteredOrders.length} transaksi
+          </div>
+          <div className="flex gap-1">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                currentPage === 1
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
+            >
+              ← Prev
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  currentPage === page
+                    ? "bg-blue-500 text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                currentPage === totalPages
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
+            >
+              Next →
+            </button>
+          </div>
+        </div>
+      )}
     </Card>
   );
 }

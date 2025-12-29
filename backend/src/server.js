@@ -48,6 +48,9 @@ const testDashboardHelmet = helmet({
         "https://api-ppl.vinmedia.my.id",
         "wss://api-ppl.vinmedia.my.id",
         "ws://api-ppl.vinmedia.my.id",
+        "https://bekenppl.vinmedia.my.id",
+        "wss://bekenppl.vinmedia.my.id",
+        "ws://bekenppl.vinmedia.my.id",
       ],
     },
   },
@@ -114,6 +117,7 @@ app.use((req, res, next) => {
 const allowedOrigins = [
   "http://localhost:3000",
   "https://ppl.vinmedia.my.id",
+  "https://frontenppl.vinmedia.my.id",
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 

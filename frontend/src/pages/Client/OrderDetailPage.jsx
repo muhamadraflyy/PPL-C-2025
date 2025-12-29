@@ -19,7 +19,6 @@ const OrderDetailPage = () => {
   const [error, setError] = useState('')
   const [showRefundModal, setShowRefundModal] = useState(false)
   const [refundReason, setRefundReason] = useState('')
-  const [refundAmount, setRefundAmount] = useState(0)
   const [processingPayment, setProcessingPayment] = useState(false)
 
   const loadOrder = async () => {
@@ -218,15 +217,14 @@ const OrderDetailPage = () => {
     try {
       const result = await paymentService.requestRefund({
         payment_id: order.payment_id,
-        reason: refundReason,
-        amount: refundAmount || order.total_bayar
+        reason: refundReason
+        // amount not sent - backend will auto use payment amount
       })
 
       if (result.success) {
         alert('✅ Permintaan refund berhasil diajukan! Tim kami akan segera memprosesnya.')
         setShowRefundModal(false)
         setRefundReason('')
-        setRefundAmount(0)
         await loadOrder()
       } else {
         alert(`❌ Gagal mengajukan refund: ${result.message}`)
@@ -292,6 +290,15 @@ const OrderDetailPage = () => {
     }
   }
 
+  const handleBack = () => {
+    const user = authService.getCurrentUser()
+    if (user?.role === 'freelancer') {
+      navigate('/dashboard')
+    } else {
+      navigate('/orders')
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -310,7 +317,7 @@ const OrderDetailPage = () => {
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Gagal Memuat Pesanan</h2>
           <p className="text-gray-600 mb-4">{error || `Order dengan ID "${id}" tidak ditemukan.`}</p>
           <button
-            onClick={() => navigate('/orders')}
+            onClick={handleBack}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             Kembali ke Daftar Pesanan
@@ -372,7 +379,7 @@ const OrderDetailPage = () => {
       <div className="container mx-auto px-4 py-8 flex-1">
         {/* Back button */}
         <button
-          onClick={() => navigate('/orders')}
+          onClick={handleBack}
           className="flex items-center text-gray-600 hover:text-gray-900 mb-6 transition-colors"
         >
           <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -613,18 +620,37 @@ const OrderDetailPage = () => {
             {isClient && ['dibayar', 'dikerjakan', 'dispute'].includes(order.status) && (
               <div className="bg-white rounded-lg border border-gray-200 shadow p-6">
                 <h3 className="font-semibold text-lg mb-2">Refund</h3>
-                <p className="text-sm text-gray-600 mb-4">
-                  Ada masalah dengan pesanan ini?
-                </p>
-                <button
-                  onClick={() => {
-                    setRefundAmount(order.total_bayar)
-                    setShowRefundModal(true)
-                  }}
-                  className="w-full px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
-                >
-                  Request Refund
-                </button>
+                {order.refund_status === 'pending' || order.refund_status === 'processing' ? (
+                  <div>
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-3">
+                      <p className="text-sm font-medium text-yellow-800 mb-1">
+                        🕐 Refund Sedang Diproses
+                      </p>
+                      <p className="text-xs text-yellow-700">
+                        Permintaan refund Anda sedang dievaluasi oleh tim admin dan akan disampaikan ke freelancer. Kami akan memberitahu Anda segera setelah ada keputusan.
+                      </p>
+                    </div>
+                    {order.refund_reason && (
+                      <p className="text-xs text-gray-600">
+                        <span className="font-medium">Alasan:</span> {order.refund_reason}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Ada masalah dengan pesanan ini?
+                    </p>
+                    <button
+                      onClick={() => {
+                        setShowRefundModal(true)
+                      }}
+                      className="w-full px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
+                    >
+                      Request Refund
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -669,18 +695,18 @@ const OrderDetailPage = () => {
           <div className="bg-white rounded-lg max-w-md w-full p-6">
             <h3 className="text-xl font-bold mb-4">Request Refund</h3>
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Jumlah Refund
-                </label>
-                <input
-                  type="number"
-                  value={refundAmount}
-                  onChange={(e) => setRefundAmount(Number(e.target.value))}
-                  max={order.total_bayar}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  placeholder={`Max: Rp ${order.total_bayar.toLocaleString('id-ID')}`}
-                />
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-gray-700">
+                    Jumlah yang akan di-refund:
+                  </span>
+                  <span className="text-lg font-bold text-blue-600">
+                    Rp {order.total_bayar.toLocaleString('id-ID')}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-600 mt-2">
+                  Full refund dari total pembayaran Anda
+                </p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -700,7 +726,6 @@ const OrderDetailPage = () => {
                   onClick={() => {
                     setShowRefundModal(false)
                     setRefundReason('')
-                    setRefundAmount(0)
                   }}
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
                   disabled={processingPayment}

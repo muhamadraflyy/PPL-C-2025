@@ -12,7 +12,8 @@ import {
   TrendingUp,
   ChevronDown,
   ChevronUp,
-  Settings
+  Settings,
+  RefreshCcw
 } from 'lucide-react'; 
 import Logo from '../../Elements/Navigation/Logo';
 import { NavItem } from '../Dashboard/NavItem';
@@ -69,6 +70,7 @@ export const Sidebar = ({ activeMenu = 'dashboard' }) => {
     { id: 'services-group', icon: <Wrench size={18} />, label: 'Manajemen Layanan', path: '/admin/services', hasDropdown: true},
     { id: 'transactions', icon: <ArrowLeftRight size={18} />, label: 'Daftar Transaksi', path: '/admin/transactions'},
     { id: 'transaction-trends', icon: <TrendingUp size={18} />, label: 'Tren Transaksi', path: '/admin/transaction-trends'},
+    { id: 'refunds', icon: <RefreshCcw size={18} />, label: 'Manajemen Refund', path: '/admin/refunds'},
     { id: 'reviews', icon: <Eye size={18} />, label: 'Review', path: '/admin/reviews'},
     { id: 'recommendations', icon: <Star size={18} />, label: 'Rekomendasi', path: '/admin/recommendations'},
     { id: 'platform-settings', icon: <Settings size={18} />, label: 'Pengaturan Platform', path: '/admin/platform-settings'},

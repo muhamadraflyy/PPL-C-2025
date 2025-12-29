@@ -54,6 +54,7 @@ import TransactionTrendsPage from "./pages/Admin/TransactionTrendsPage";
 import AdminTransactionsPage from "./pages/Admin/TransactionsPage";
 import EscrowManagementPage from "./pages/Admin/EscrowManagementPage";
 import WithdrawalManagementPage from "./pages/Admin/WithdrawalManagementPage";
+import RefundManagementPage from "./pages/Admin/RefundManagementPage";
 import AllNotificationsPage from "./pages/Admin/AllNotificationsPage";
 import FraudReportDetailPage from "./pages/Admin/FraudReportDetailPage";
 import RecommendationMonitoringPage from "./pages/Admin/RecommendationMonitoringPage";
@@ -202,6 +203,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <WithdrawalManagementPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/refunds"
+        element={
+          <ProtectedRoute>
+            <RefundManagementPage />
           </ProtectedRoute>
         }
       />

@@ -75,12 +75,7 @@ const faqs = [
   {
     category: 'account',
     question: 'Bagaimana cara mengubah password?',
-    answer: 'Masuk ke menu Profil > Edit Profil > Keamanan. Di sana Anda dapat mengubah password dengan memasukkan password lama dan password baru.'
-  },
-  {
-    category: 'account',
-    question: 'Bagaimana cara menghapus akun?',
-    answer: 'Untuk menghapus akun, silakan hubungi tim support kami melalui email. Pastikan tidak ada transaksi yang sedang berjalan sebelum mengajukan penghapusan akun.'
+    answer: 'Masuk ke halaman login > lupa password > masukkan email yang terdaftar > kirim otp > masukkan otp > masukkan password baru > konfirmasi password baru > submit. Anda akan menerima notifikasi bahwa password berhasil diubah.'
   },
   {
     category: 'account',

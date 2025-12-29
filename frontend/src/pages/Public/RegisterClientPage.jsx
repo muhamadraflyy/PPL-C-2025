@@ -80,12 +80,6 @@ export default function RegisterClientPage() {
         ketentuan_agree: form.ketentuan_agree,
       });
       
-      // Show OTP in development
-      if (result?.otp) {
-        console.log("🔧 Development OTP:", result.otp);
-        toast.show(`Dev OTP: ${result.otp}`, "info");
-      }
-      
       toast.show("Account created. Please verify your email.", "success");
       navigate("/verify-email", { 
         state: { email: form.email },

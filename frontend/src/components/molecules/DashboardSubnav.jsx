@@ -1,19 +1,25 @@
 import { useNavigate } from "react-router-dom";
-import Icon from "../../Elements/Icons/Icon";
+import Icon from "../atoms/Icon";
 
 const ITEMS = [
   {
     key: "dashboard",
     label: "Dashboard",
     icon: "home",
-    to: "/freelance/orders",
+    to: "/dashboard",
   },
   { key: "produk", label: "Produk", icon: "box", to: "/freelance/service" },
   {
-    key: "analisis",
-    label: "Analisis",
+    key: "Pesanan",
+    label: "Pesanan",
     icon: "chart",
-    to: "/analytics/earnings",
+    to: "/orders",
+  },
+  {
+    key: "Profil",
+    label: "Profil",
+    icon: "settings",
+    to: "/profile",
   },
 ];
 

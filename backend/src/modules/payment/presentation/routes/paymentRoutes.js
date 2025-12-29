@@ -872,7 +872,7 @@ router.put(
  *         description: Refund list
  */
 router.get(
-  '/refund/all',
+  '/refunds',
   authMiddleware,
   paymentController.getAllRefunds.bind(paymentController)
 );

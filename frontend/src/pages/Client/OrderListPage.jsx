@@ -145,6 +145,8 @@ const OrderListPage = () => {
           onOrderClick={handleOrderClick}
           onReviewClick={handleReviewClick} // [ADD 4] Kirim handler ke list
           loading={isLoading}
+          // Ganti label tombol utama hanya di halaman ini
+          primaryActionLabel="Lihat Pesanan"
         />
 
         {/* Pagination */}
