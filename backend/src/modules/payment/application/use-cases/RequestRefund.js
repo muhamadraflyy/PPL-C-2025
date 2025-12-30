@@ -5,7 +5,6 @@
 
 const PaymentModel = require('../../infrastructure/models/PaymentModel');
 const EscrowModel = require('../../infrastructure/models/EscrowModel');
-const RefundModel = require('../../infrastructure/models/RefundModel');
 const { v4: uuidv4 } = require('uuid');
 
 class RequestRefund {
@@ -19,25 +18,15 @@ class RequestRefund {
       }
 
       // Validasi status pembayaran
-      // Status: 'berhasil' = paid/success, 'menunggu' = pending, 'gagal' = failed, 'kadaluarsa' = expired
-      if (!['berhasil', 'paid', 'success', 'settlement'].includes(payment.status)) {
+      if (!['paid', 'success', 'settlement'].includes(payment.status)) {
         throw new Error('Payment belum dibayar atau sudah direfund');
       }
 
-      // Get escrow record first (required for refund)
-      const escrow = await EscrowModel.findOne({
-        where: { pembayaran_id }
-      });
-
-      if (!escrow) {
-        throw new Error('Escrow tidak ditemukan untuk payment ini');
-      }
-
       // Check if already refunded
-      const existingRefund = await RefundModel.findOne({
+      const existingRefund = await payment.sequelize.models.refund.findOne({
         where: {
           pembayaran_id,
-          status: ['pending', 'processing']
+          status: ['pending', 'disetujui']
         }
       });
 
@@ -54,20 +43,23 @@ class RequestRefund {
       }
 
       // Create refund record
-      const refund = await RefundModel.create({
+      const refund = await payment.sequelize.models.refund.create({
         id: uuidv4(),
         pembayaran_id,
-        escrow_id: escrow.id,
         user_id,
         alasan,
-        jumlah_refund: refundAmount,
+        jumlah: refundAmount,
         status: 'pending'
       });
 
-      // Escrow status: 'held' = ditahan, 'released' = dirilis, 'refunded' = dikembalikan
-      if (escrow.status === 'held') {
+      // If there's escrow, update status
+      const escrow = await EscrowModel.findOne({
+        where: { pembayaran_id }
+      });
+
+      if (escrow && escrow.status === 'ditahan') {
         await escrow.update({
-          status: 'disputed'
+          status: 'refund_pending'
         });
       }
 

@@ -28,7 +28,6 @@ class SearchServices {
     // ==========================
     // 2) Sorting
     // ==========================
-    // sortBy yang valid disesuaikan dengan this.SORTABLE di repo:
     // [created_at, harga, rating_rata_rata, total_pesanan, updated_at]
     const sortBy = filters.sortBy || "created_at";
 
@@ -59,7 +58,6 @@ class SearchServices {
 
     // ==========================
     // 5) Rating minimum
-    //    (UI kirim angka threshold, mis: 4.8 / 4.5 / 4.0)
     // ==========================
     const ratingMinRaw =
       filters.rating_min !== undefined && filters.rating_min !== ""
@@ -79,7 +77,6 @@ class SearchServices {
     // 7) Build filters & options
     // ==========================
     const repoFilters = {
-      // filter kategori (dropdown di UI sidebar)
       kategori_id: filters.kategori_id,
       // filter status (default aktif)
       status,
@@ -107,7 +104,6 @@ class SearchServices {
     );
 
     // repository.search() sudah mengembalikan:
-    // { items: [...], pagination: {...} }
     const services = result.items || [];
     const pagination = result.pagination || {
       page,

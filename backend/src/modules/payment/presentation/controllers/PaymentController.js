@@ -129,33 +129,13 @@ class PaymentController {
         throw new Error('Failed to create order: ' + dbError.message);
       }
 
-      // Fetch user data from database for Midtrans customer details
-      const [userData] = await PaymentModel.sequelize.query(
-        "SELECT email, nama_depan, nama_belakang, no_telepon FROM users WHERE id = ? LIMIT 1",
-        {
-          replacements: [user_id],
-          type: Sequelize.QueryTypes.SELECT
-        }
-      );
-
-      const customerName = userData 
-        ? `${userData.nama_depan || ""} ${userData.nama_belakang || ""}`.trim()
-        : (customer_name || "Customer");
-      
-      const customerEmail = userData?.email || customer_email || "customer@example.com";
-      const customerPhone = userData?.no_telepon || "";
-
       // Now create payment
       const result = await this.createPaymentUseCase.execute({
         pesanan_id,
         user_id,
         jumlah,
         metode_pembayaran,
-        channel,
-        customer_name: customerName,
-        customer_email: customerEmail,
-        customer_phone: customerPhone,
-        order_title: order_title || "SkillConnect Service"
+        channel
       });
 
       res.status(201).json({
@@ -404,22 +384,6 @@ class PaymentController {
     try {
       const { escrow_id, payment_id, reason } = req.body;
       const user_id = req.user?.userId || req.user?.id || req.body.user_id;
-      const user_role = req.user?.role;
-
-      // Validate user_id and role are present
-      if (!user_id) {
-        return res.status(401).json({
-          success: false,
-          message: 'User authentication required'
-        });
-      }
-
-      if (!user_role) {
-        return res.status(403).json({
-          success: false,
-          message: 'User role not found in token. Please login again.'
-        });
-      }
 
       // Validate that at least one of escrow_id or payment_id is provided
       if (!escrow_id && !payment_id) {
@@ -433,7 +397,6 @@ class PaymentController {
         escrow_id,
         payment_id,
         user_id,
-        user_role,
         reason
       });
 
@@ -444,13 +407,7 @@ class PaymentController {
       });
     } catch (error) {
       console.error('[PAYMENT CONTROLLER] Release escrow error:', error);
-
-      // Return 403 for authorization errors, 400 for other errors
-      const statusCode = error.message.includes('not authorized') || error.message.includes('Unauthorized')
-        ? 403
-        : 400;
-
-      res.status(statusCode).json({
+      res.status(400).json({
         success: false,
         message: error.message
       });
@@ -488,75 +445,6 @@ class PaymentController {
   }
 
   /**
-   * GET /api/payments/escrow
-   * Get all escrow records (Admin only)
-   */
-  async getAllEscrows(req, res) {
-    try {
-      const { status, limit = 50, offset = 0 } = req.query;
-      const userRole = req.user?.role;
-
-      // Admin-only endpoint
-      if (userRole !== 'admin') {
-        return res.status(403).json({
-          success: false,
-          message: 'Only admins can access all escrow records'
-        });
-      }
-
-      const where = {};
-      if (status) {
-        where.status = status;
-      }
-
-      // Get escrows with related order and payment data
-      const escrows = await EscrowModel.sequelize.query(
-        `SELECT
-          e.*,
-          p.transaction_id,
-          p.jumlah as payment_amount,
-          o.nomor_pesanan,
-          o.judul as order_title,
-          o.client_id,
-          o.freelancer_id,
-          u_client.email as client_email,
-          u_freelancer.email as freelancer_email
-        FROM escrow e
-        INNER JOIN pembayaran p ON e.pembayaran_id = p.id
-        INNER JOIN pesanan o ON e.pesanan_id = o.id
-        LEFT JOIN users u_client ON o.client_id = u_client.id
-        LEFT JOIN users u_freelancer ON o.freelancer_id = u_freelancer.id
-        ${status ? 'WHERE e.status = ?' : ''}
-        ORDER BY e.created_at DESC
-        LIMIT ? OFFSET ?`,
-        {
-          replacements: status ? [status, parseInt(limit), parseInt(offset)] : [parseInt(limit), parseInt(offset)],
-          type: Sequelize.QueryTypes.SELECT
-        }
-      );
-
-      const total = await EscrowModel.count({ where });
-
-      res.status(200).json({
-        success: true,
-        data: {
-          escrows,
-          total,
-          limit: parseInt(limit),
-          offset: parseInt(offset)
-        }
-      });
-
-    } catch (error) {
-      console.error('[PAYMENT CONTROLLER] Get all escrows error:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message
-      });
-    }
-  }
-
-  /**
    * POST /api/payments/withdraw
    * Create withdrawal request (freelancer)
    */
@@ -564,11 +452,6 @@ class PaymentController {
     try {
       const {
         escrow_id,
-        jumlah,
-        bank_name,
-        bank_account_number,
-        bank_account_name,
-        catatan,
         metode_pembayaran_id,
         metode_pencairan,
         nomor_rekening,
@@ -721,7 +604,7 @@ class PaymentController {
     try {
       const { id } = req.params;
 
-      const withdrawal = await WithdrawalModel.findByPk(id, { raw: true });
+      const withdrawal = await WithdrawalModel.findByPk(id);
 
       if (!withdrawal) {
         return res.status(404).json({
@@ -730,20 +613,9 @@ class PaymentController {
         });
       }
 
-      // Map field names to match frontend expectations
-      const mappedWithdrawal = {
-        ...withdrawal,
-        bank_account_number: withdrawal.nomor_rekening,
-        bank_account_name: withdrawal.nama_pemilik,
-        // Sequelize with raw:true returns camelCase dates even with underscored:true
-        created_at: withdrawal.createdAt ? new Date(withdrawal.createdAt).toISOString() : null,
-        updated_at: withdrawal.updatedAt ? new Date(withdrawal.updatedAt).toISOString() : null,
-        dicairkan_pada: withdrawal.dicairkan_pada ? new Date(withdrawal.dicairkan_pada).toISOString() : null
-      };
-
       res.status(200).json({
         success: true,
-        data: mappedWithdrawal
+        data: withdrawal
       });
     } catch (error) {
       console.error('[PAYMENT CONTROLLER] Get withdrawal error:', error);
@@ -1470,12 +1342,6 @@ class PaymentController {
         }
       );
 
-      // Disable caching for analytics
-      res.set({
-        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-        "Pragma": "no-cache",
-        "Expires": "0"
-      });
       res.status(200).json({
         success: true,
         data: {
@@ -1589,12 +1455,6 @@ class PaymentController {
         }
       );
 
-      // Disable caching for analytics
-      res.set({
-        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-        "Pragma": "no-cache",
-        "Expires": "0"
-      });
       res.status(200).json({
         success: true,
         data: {
@@ -1658,19 +1518,7 @@ class PaymentController {
         `SELECT SUM(e.jumlah_ditahan) as amount
         FROM escrow e
         INNER JOIN pesanan o ON e.pesanan_id = o.id
-        WHERE o.freelancer_id = ? AND e.status = 'held'`,
-        {
-          replacements: [userId],
-          type: Sequelize.QueryTypes.SELECT
-        }
-      );
-
-      // Get released escrow (available to withdraw)
-      const [escrowReleasedData] = await PaymentModel.sequelize.query(
-        `SELECT SUM(e.jumlah_ditahan) as amount
-        FROM escrow e
-        INNER JOIN pesanan o ON e.pesanan_id = o.id
-        WHERE o.freelancer_id = ? AND e.status = 'released'`,
+        WHERE o.freelancer_id = ? AND e.status = 'ditahan'`,
         {
           replacements: [userId],
           type: Sequelize.QueryTypes.SELECT
@@ -1686,21 +1534,10 @@ class PaymentController {
 
       const totalEarned = parseFloat(earnedData.total || 0);
       const platformFees = parseFloat(earnedData.fees || 0);
-      const pendingEscrow = parseFloat(escrowHeldData.amount || 0);
-      const releasedEscrow = parseFloat(escrowReleasedData.amount || 0);
-      const withdrawn = parseFloat(withdrawnData?.total || 0); // FIX: withdrawnData is already first element
+      const pendingEscrow = parseFloat(escrowData.amount || 0);
+      const withdrawn = parseFloat(withdrawnData[0]?.total || 0);
+      const available = Math.max(0, totalEarned - platformFees - pendingEscrow - withdrawn);
 
-      // Available balance = released escrow only
-      // When withdrawal is completed, escrow moves from 'released' to 'completed'
-      // So withdrawn amount is already NOT in releasedEscrow
-      const available = releasedEscrow;
-
-      // Disable caching for analytics
-      res.set({
-        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-        "Pragma": "no-cache",
-        "Expires": "0"
-      });
       res.status(200).json({
         success: true,
         data: {
@@ -1800,27 +1637,105 @@ class PaymentController {
     try {
       const { status, limit = 50, offset = 0 } = req.query;
 
-      const RefundModel = PaymentModel.sequelize.models.refund;
+      // Build WHERE clause for status filter
+      const statusFilter = status ? `WHERE r.status = :status` : '';
 
-      const where = {};
-      if (status) {
-        where.status = status;
-      }
+      // Raw SQL query with JOINs to get all related data
+      const query = `
+        SELECT
+          r.id,
+          r.pembayaran_id,
+          r.user_id,
+          r.alasan,
+          r.jumlah_refund as jumlah,
+          r.status,
+          r.created_at,
+          r.diproses_pada,
+          r.selesai_pada,
+          r.catatan_admin,
+          u.email as user_email,
+          u.nama_depan as user_nama_depan,
+          u.nama_belakang as user_nama_belakang,
+          p.id as payment_id,
+          p.total_bayar,
+          p.status as payment_status,
+          ps.id as pesanan_id,
+          ps.judul as pesanan_judul,
+          l.id as layanan_id,
+          l.judul as layanan_judul,
+          l.slug as layanan_slug
+        FROM refund r
+        LEFT JOIN users u ON r.user_id = u.id
+        LEFT JOIN pembayaran p ON r.pembayaran_id = p.id
+        LEFT JOIN pesanan ps ON p.pesanan_id = ps.id
+        LEFT JOIN layanan l ON ps.layanan_id = l.id
+        ${statusFilter}
+        ORDER BY r.created_at DESC
+        LIMIT :limit OFFSET :offset
+      `;
 
-      const refunds = await RefundModel.findAll({
-        where,
-        limit: parseInt(limit),
-        offset: parseInt(offset),
-        order: [['created_at', 'DESC']]
+      const countQuery = `
+        SELECT COUNT(*) as total
+        FROM refund r
+        ${statusFilter}
+      `;
+
+      const replacements = status
+        ? { status, limit: parseInt(limit), offset: parseInt(offset) }
+        : { limit: parseInt(limit), offset: parseInt(offset) };
+
+      const refunds = await PaymentModel.sequelize.query(query, {
+        replacements,
+        type: PaymentModel.sequelize.QueryTypes.SELECT
       });
 
-      const total = await RefundModel.count({ where });
+      const countResult = await PaymentModel.sequelize.query(countQuery, {
+        replacements: status ? { status } : {},
+        type: PaymentModel.sequelize.QueryTypes.SELECT
+      });
+
+      const total = countResult[0]?.total || 0;
+
+      // Transform flat results into nested structure for frontend compatibility
+      const formattedRefunds = Array.isArray(refunds) ? refunds : [refunds];
+      const transformedRefunds = formattedRefunds.filter(r => r).map(r => ({
+        id: r.id,
+        pembayaran_id: r.pembayaran_id,
+        user_id: r.user_id,
+        alasan: r.alasan,
+        jumlah: parseFloat(r.jumlah),
+        status: r.status,
+        created_at: r.created_at,
+        diproses_pada: r.diproses_pada,
+        selesai_pada: r.selesai_pada,
+        catatan_admin: r.catatan_admin,
+        user: {
+          id: r.user_id,
+          email: r.user_email,
+          nama_depan: r.user_nama_depan,
+          nama_belakang: r.user_nama_belakang
+        },
+        pembayaran: {
+          id: r.payment_id,
+          total_bayar: parseFloat(r.total_bayar),
+          status: r.payment_status,
+          pesanan: {
+            id: r.pesanan_id,
+            judul: r.pesanan_judul,
+            layanan: {
+              id: r.layanan_id,
+              judul: r.layanan_judul,
+              slug: r.layanan_slug
+            }
+          }
+        }
+      }));
 
       res.status(200).json({
         success: true,
         data: {
-          refunds,
-          total,
+          refunds: transformedRefunds,
+          total: parseInt(total) || 0,
           limit: parseInt(limit),
           offset: parseInt(offset)
         }
@@ -1877,7 +1792,7 @@ class PaymentController {
    */
   async requestRefundAlt(req, res) {
     try {
-      const { payment_id, alasan, reason, jumlah_refund, amount } = req.body;
+      const { payment_id, alasan, jumlah_refund } = req.body;
       const user_id = req.user?.userId || req.user?.id;
 
       if (!payment_id) {
@@ -1887,15 +1802,11 @@ class PaymentController {
         });
       }
 
-      // Support both 'alasan' and 'reason', 'jumlah_refund' and 'amount'
-      const refundReason = alasan || reason;
-      const refundAmount = jumlah_refund || amount;
-
       const result = await this.requestRefundUseCase.execute({
         pembayaran_id: payment_id,
         user_id,
-        alasan: refundReason,
-        jumlah_refund: refundAmount
+        alasan,
+        jumlah_refund
       });
 
       res.status(201).json({
@@ -1920,55 +1831,28 @@ class PaymentController {
   async getWithdrawalHistory(req, res) {
     try {
       const user_id = req.user?.userId || req.user?.id;
-      const { status, limit = 50, offset = 0, page } = req.query;
+      const { status, limit = 50, offset = 0 } = req.query;
 
-      const where = { freelancer_id: user_id };
+      const where = { user_id };
       if (status) {
         where.status = status;
       }
 
       const WithdrawalModel = require('../../infrastructure/models/WithdrawalModel');
-
-      // Calculate offset from page if provided
-      const actualLimit = parseInt(limit);
-      const actualOffset = page ? (parseInt(page) - 1) * actualLimit : parseInt(offset);
-
       const withdrawals = await WithdrawalModel.findAll({
         where,
-        limit: actualLimit,
-        offset: actualOffset,
-        order: [['created_at', 'DESC']],
-        raw: true
-      });
-
-      // Get total count for pagination
-      const totalCount = await WithdrawalModel.count({ where });
-
-      // Map field names to match frontend expectations
-      const mappedWithdrawals = withdrawals.map(w => {
-        return {
-          ...w,
-          bank_account_number: w.nomor_rekening,
-          bank_account_name: w.nama_pemilik,
-          // Sequelize with raw:true returns camelCase dates even with underscored:true
-          created_at: w.createdAt ? new Date(w.createdAt).toISOString() : null,
-          updated_at: w.updatedAt ? new Date(w.updatedAt).toISOString() : null,
-          dicairkan_pada: w.dicairkan_pada ? new Date(w.dicairkan_pada).toISOString() : null
-        };
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        order: [['created_at', 'DESC']]
       });
 
       res.status(200).json({
         success: true,
-        data: {
-          withdrawals: mappedWithdrawals,
-          totalPages: Math.ceil(totalCount / actualLimit),
-          totalItems: totalCount,
-          currentPage: page ? parseInt(page) : Math.floor(actualOffset / actualLimit) + 1
-        },
+        data: withdrawals,
         pagination: {
-          limit: actualLimit,
-          offset: actualOffset,
-          total: totalCount
+          limit: parseInt(limit),
+          offset: parseInt(offset),
+          total: withdrawals.length
         }
       });
 

@@ -187,7 +187,7 @@ const listServicesQueryValidator = [
 
   query("sortBy")
     .optional()
-    .isIn(["created_at", "harga", "rating", "rating_rata_rata", "total_pesanan"])
+    .isIn(["created_at", "harga", "rating_rata_rata", "total_pesanan"])
     .withMessage("sortBy tidak valid"),
 
   query("sortDir")
@@ -237,7 +237,7 @@ const searchServicesQueryValidator = [
 
   query("sortBy")
     .optional()
-    .isIn(["created_at", "harga", "rating", "rating_rata_rata", "total_pesanan"])
+    .isIn(["created_at", "harga", "rating_rata_rata", "total_pesanan"])
     .withMessage("sortBy tidak valid"),
 
   query("sortDir")

@@ -36,9 +36,7 @@ export default function ServiceDetailPage() {
         service: {
           id: serviceData.id,
           title: serviceData.title,
-          harga: serviceData.price,
-          waktu_pengerjaan: serviceData.waktu_pengerjaan,
-          batas_revisi: serviceData.batas_revisi,
+          price: serviceData.price,
           category: serviceData.category || "Lainnya",
           freelancer: serviceData.freelancer.name,
           thumbnail: serviceData.thumbnail,

@@ -256,45 +256,6 @@ router.post(
 
 /**
  * @swagger
- * /api/payments/escrow:
- *   get:
- *     tags: [Escrow]
- *     summary: Get all escrow records (Admin)
- *     description: Retrieve all escrow records with filtering
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: status
- *         schema:
- *           type: string
- *           enum: [held, released, refunded, disputed, completed]
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 50
- *       - in: query
- *         name: offset
- *         schema:
- *           type: integer
- *           default: 0
- *     responses:
- *       200:
- *         description: Escrow list
- *       401:
- *         $ref: '#/components/responses/UnauthorizedError'
- *       500:
- *         $ref: '#/components/responses/ServerError'
- */
-router.get(
-  '/escrow',
-  authMiddleware,
-  paymentController.getAllEscrows.bind(paymentController)
-);
-
-/**
- * @swagger
  * /api/payments/escrow/{id}:
  *   get:
  *     tags: [Escrow]
@@ -379,44 +340,6 @@ router.post(
 
 /**
  * @swagger
- * /api/payments/withdrawal/history:
- *   get:
- *     tags: [Withdrawals]
- *     summary: Get withdrawal history
- *     description: Get user's withdrawal history
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: status
- *         schema:
- *           type: string
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 50
- *       - in: query
- *         name: offset
- *         schema:
- *           type: integer
- *           default: 0
- *     responses:
- *       200:
- *         description: Withdrawal history
- *       401:
- *         $ref: '#/components/responses/UnauthorizedError'
- *       500:
- *         $ref: '#/components/responses/ServerError'
- */
-router.get(
-  '/withdrawal/history',
-  authMiddleware,
-  paymentController.getWithdrawalHistory.bind(paymentController)
-);
-
-/**
- * @swagger
  * /api/payments/withdrawals/{id}:
  *   get:
  *     tags: [Withdrawals]
@@ -456,6 +379,44 @@ router.get(
   '/withdrawal/:id',
   authMiddleware,
   paymentController.getWithdrawalById.bind(paymentController)
+);
+
+/**
+ * @swagger
+ * /api/payments/withdrawal/history:
+ *   get:
+ *     tags: [Withdrawals]
+ *     summary: Get withdrawal history
+ *     description: Get user's withdrawal history
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *       - in: query
+ *         name: offset
+ *         schema:
+ *           type: integer
+ *           default: 0
+ *     responses:
+ *       200:
+ *         description: Withdrawal history
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       500:
+ *         $ref: '#/components/responses/ServerError'
+ */
+router.get(
+  '/withdrawal/history',
+  authMiddleware,
+  paymentController.getWithdrawalHistory.bind(paymentController)
 );
 
 /**
@@ -911,7 +872,7 @@ router.put(
  *         description: Refund list
  */
 router.get(
-  '/refund/all',
+  '/refunds',
   authMiddleware,
   paymentController.getAllRefunds.bind(paymentController)
 );

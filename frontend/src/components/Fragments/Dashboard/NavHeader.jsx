@@ -10,11 +10,11 @@ import { useToast } from "../Common/ToastProvider";
 import NotificationBell from "../Common/NotificationBell";
 
 const ROLE_HOME = {
-  client: "/dashboard",
+  client: "/orders",
   freelancer: "/dashboard",
 };
 
-function ProfileDropdown({ name, email, avatarUrl, role, hasFreelancerProfile, onProfile, onDashboard, onFavorites, onBookmarks, onOrders, onSwitchRole, onRegisterFreelancer, onLogout }) {
+function ProfileDropdown({ name, email, avatarUrl, role, hasFreelancerProfile, onProfile, onFavorites, onBookmarks, onOrders, onSwitchRole, onLogout }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -59,12 +59,17 @@ function ProfileDropdown({ name, email, avatarUrl, role, hasFreelancerProfile, o
           </div>
 
           <button type="button" role="menuitem" onClick={onProfile} className="w-full px-4 py-2.5 text-left text-sm hover:bg-neutral-50 transition-colors">
+            <i className="far fa-user mr-2 text-gray-500"></i>
             Profile
           </button>
-          <button type="button" role="menuitem" onClick={onDashboard} className="w-full px-4 py-2.5 text-left text-sm hover:bg-neutral-50 transition-colors">
-            Dashboard
-          </button>
-          
+
+          {role === "freelancer" && (
+            <button type="button" role="menuitem" onClick={() => window.location.href = '/dashboard'} className="w-full px-4 py-2.5 text-left text-sm hover:bg-neutral-50 transition-colors">
+              <i className="fas fa-chart-line mr-2 text-gray-500"></i>
+              Dashboard
+            </button>
+          )}
+
           {/* Section Ganti Role */}
           {hasFreelancerProfile && (
             <>
@@ -108,21 +113,7 @@ function ProfileDropdown({ name, email, avatarUrl, role, hasFreelancerProfile, o
               </div>
             </>
           )}
-          
-          {/* Tombol untuk user yang belum punya profil freelancer tapi ingin daftar */}
-          {!hasFreelancerProfile && role === "client" && (
-            <>
-              <div className="my-1 h-px bg-neutral-200" />
-              <button
-                type="button"
-                role="menuitem"
-                onClick={onRegisterFreelancer}
-                className="w-full px-4 py-2.5 text-left text-sm text-[#1D375B] hover:bg-[#E8F4FD] font-medium transition-colors"
-              >
-                <span className="truncate">Daftar sebagai Freelancer →</span>
-              </button>
-            </>
-          )}
+
           {role === "client" && (
             <>
               <div className="my-1 h-px bg-neutral-200" />
@@ -207,7 +198,7 @@ export default function NavHeader() {
   const handleRegister = () => navigate("/register/client");
   const handleRegisterFreelancer = () => navigate("/register/freelancer");
   const handleProfile = () => navigate("/profile");
-  const handleDashboard = () => navigate("/dashboard");
+  const handleDashboard = () => navigate(userRole === "client" ? "/orders" : "/dashboard");
   const handleFavorites = () => navigate("/favorit");
   const handleBookmarks = () => navigate("/bookmarks");
   const handleOrders = () => navigate("/orders");
@@ -292,17 +283,6 @@ export default function NavHeader() {
             <div className="h-9 sm:h-10 w-20 sm:w-24 animate-pulse rounded-full bg-neutral-200" />
           ) : isLoggedIn ? (
             <>
-              {/* Bookmark button - only for client */}
-              {userRole === "client" && (
-                <button
-                  onClick={handleBookmarks}
-                  className="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-neutral-700 hover:bg-neutral-100 transition-colors"
-                  title="Lihat Bookmark"
-                >
-                  <i className="far fa-bookmark text-lg" />
-                  <span className="hidden lg:inline">Disimpan</span>
-                </button>
-              )}
               {!hasFreelancerProfile && (
                 <Button
                   onClick={handleRegisterFreelancer}
@@ -333,12 +313,10 @@ export default function NavHeader() {
                 role={userRole}
                 hasFreelancerProfile={hasFreelancerProfile}
                 onProfile={handleProfile}
-                onDashboard={handleDashboard}
                 onFavorites={handleFavorites}
                 onBookmarks={handleBookmarks}
                 onOrders={handleOrders}
                 onSwitchRole={handleSwitchRole}
-                onRegisterFreelancer={handleRegisterFreelancer}
                 onLogout={() => setShowLogoutModal(true)}
               />
             </>

@@ -38,7 +38,9 @@ class SocketService {
             "http://localhost:5001",
             "http://localhost:5137",
             "https://api-ppl.vinmedia.my.id",
-            "http://api-ppl.vinmedia.my.id"
+            "http://api-ppl.vinmedia.my.id",
+            "https://bekenppl.vinmedia.my.id",
+            "https://frontenppl.vinmedia.my.id"
         ];
 
         this.io = new Server(httpServer, {

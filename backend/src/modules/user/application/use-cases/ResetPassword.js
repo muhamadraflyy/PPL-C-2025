@@ -51,12 +51,14 @@ class ResetPassword {
       throw err;
     }
 
-    // Check if new password is same as old password
-    const isSamePassword = await this.hashService.compare(newPassword, user.password);
-    if (isSamePassword) {
-      const err = new Error('New password cannot be the same as old password');
-      err.statusCode = 400;
-      throw err;
+    // Check if new password is same as old password (only if user has a password)
+    if (user.password) {
+      const isSamePassword = await this.hashService.compare(newPassword, user.password);
+      if (isSamePassword) {
+        const err = new Error('New password cannot be the same as old password');
+        err.statusCode = 400;
+        throw err;
+      }
     }
 
     // Hash and update password

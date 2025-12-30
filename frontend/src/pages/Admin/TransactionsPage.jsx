@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
 import { useToast } from '../../components/Fragments/Common/ToastProvider';
 import { Sidebar } from '../../components/Fragments/Admin/Sidebar';
 import { Header } from '../../components/Fragments/Admin/Header';
@@ -219,8 +218,6 @@ function TransactionToolbar({
 }
 
 export default function AdminTransactionsPage() {
-  const navigate = useNavigate();
-  const location = useLocation();
   const toast = useToast();
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);

@@ -22,36 +22,27 @@ class ProcessRefund {
       }
 
       if (action === 'approve') {
-        // Approve refund - set to 'completed'
+        // Approve refund - set to 'processing' (waiting for freelancer to transfer)
         await refund.update({
-          status: 'completed',
+          status: 'processing',
           diproses_pada: new Date(),
-          selesai_pada: new Date()
+          catatan_admin: catatan_admin || null
         });
 
-        // Note: Payment status stays 'berhasil' - refund table tracks the refund
-        // Release escrow if exists
-        const escrow = await EscrowModel.findOne({
-          where: { pembayaran_id: refund.pembayaran_id }
-        });
-
-        if (escrow) {
-          await escrow.update({
-            status: 'refunded',
-            dirilis_pada: new Date()
-          });
-        }
+        // Note: Escrow status will be updated when freelancer actually transfers the money
+        // For now, just mark the refund as approved and in processing state
 
         return {
           refund,
-          message: 'Refund berhasil disetujui dan dana telah dikembalikan'
+          message: 'Refund disetujui. Menunggu freelancer untuk mentransfer dana'
         };
 
       } else if (action === 'reject') {
         // Reject refund - set to 'failed'
         await refund.update({
           status: 'failed',
-          diproses_pada: new Date()
+          diproses_pada: new Date(),
+          catatan_admin: catatan_admin || null
         });
 
         // Restore escrow status if exists

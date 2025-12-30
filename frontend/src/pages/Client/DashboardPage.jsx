@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 
 // Components - Fragments
 import Navbar from "../../components/Fragments/Common/Navbar";
@@ -302,6 +302,6 @@ export default function DashboardPage() {
     return <FreelancerDashboard user={user} />;
   }
 
-  // Default to client dashboard
-  return <ClientDashboard user={user} />;
+  // Client users are redirected to /orders
+  return <Navigate to="/orders" replace />;
 }

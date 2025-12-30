@@ -13,6 +13,7 @@ import UnsaveConfirmModal from "../../components/Fragments/Common/UnsaveConfirmM
 import { useServiceDetail } from "../../hooks/useServiceDetail";
 import { bookmarkService } from "../../services/bookmarkService";
 import { authService } from "../../services/authService";
+import { reviewService } from "../../services/reviewService";
 import NotFoundPage from "../Public/NotFoundPage";
 
 export default function ServiceDetailPage() {
@@ -21,7 +22,7 @@ export default function ServiceDetailPage() {
 
   const [selectedPortfolio, setSelectedPortfolio] = useState(null);
   const [showPortfolioModal, setShowPortfolioModal] = useState(false);
-  
+
   // Bookmark state
   const [user, setUser] = useState(() => authService.getCurrentUser());
   const isClient = user?.role === "client";
@@ -30,6 +31,10 @@ export default function ServiceDetailPage() {
   const [showBookmarkToast, setShowBookmarkToast] = useState(false);
   const [showUnbookmarkModal, setShowUnbookmarkModal] = useState(false);
   const [isProcessingBookmark, setIsProcessingBookmark] = useState(false);
+
+  // Reviews state
+  const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
 
   // Listen to user role changes
   useEffect(() => {
@@ -160,9 +165,7 @@ export default function ServiceDetailPage() {
         service: {
           id: serviceData.id,
           title: serviceData.title,
-          harga: serviceData.price,
-          waktu_pengerjaan: serviceData.waktu_pengerjaan,
-          batas_revisi: serviceData.batas_revisi,
+          price: serviceData.price,
           category: serviceData.category || "Lainnya",
           freelancer: serviceData.freelancer.name,
           thumbnail: serviceData.thumbnail,
@@ -202,8 +205,40 @@ export default function ServiceDetailPage() {
     navigate(`/messages?userId=${freelancerId}`);
   }
 
-  // Untuk sekarang ulasan belum diambil dari API → kosong dulu
-  const reviews = [];
+  // Fetch reviews from API
+  useEffect(() => {
+    if (!serviceData?.id) return;
+
+    let cancelled = false;
+
+    const fetchReviews = async () => {
+      setReviewsLoading(true);
+      try {
+        const res = await reviewService.getServiceReviews(serviceData.id);
+        if (cancelled) return;
+
+        if (res?.success || res?.status === 'success') {
+          // Map reviews to format expected by ReviewsSection
+          const reviewsData = res?.data?.reviews || res?.data || [];
+          const mappedReviews = Array.isArray(reviewsData) ? reviewsData.map(r => ({
+            rating: r.rating || 5,
+            title: r.judul || r.title || '',
+            content: r.komentar || r.content || r.comment || '',
+            avatar: r.client_avatar || r.avatar || '/asset/default-avatar.png',
+            name: r.client_name || r.nama || r.name || 'Anonymous',
+          })) : [];
+          setReviews(mappedReviews);
+        }
+      } catch (err) {
+        console.error('[ServiceDetailPage] Error fetching reviews:', err);
+      } finally {
+        if (!cancelled) setReviewsLoading(false);
+      }
+    };
+
+    fetchReviews();
+    return () => { cancelled = true; };
+  }, [serviceData?.id]);
 
   // ========================
   // UI: Loading skeleton
@@ -258,38 +293,42 @@ export default function ServiceDetailPage() {
   // Pastikan thumbnail selalu menjadi gambar pertama, kemudian diikuti gambar galeri
   const headerImages = (() => {
     if (!serviceData) return [];
-    
+
     const thumbnail = serviceData.thumbnail;
     const galleryImages = Array.isArray(serviceData.gambar) ? serviceData.gambar : [];
-    
+
     // Jika tidak ada thumbnail, gunakan gambar galeri saja
     if (!thumbnail) {
       return galleryImages.length > 0 ? galleryImages : [];
     }
-    
+
     // Normalisasikan URL untuk perbandingan yang lebih akurat
     const normalizeForComparison = (url) => {
       const str = String(url || '').trim();
       // Extract filename/path untuk perbandingan (hilangkan query params dan fragment)
       return str.split('?')[0].split('#')[0].toLowerCase();
     };
-    
+
     const thumbnailNormalized = normalizeForComparison(thumbnail);
-    
+
     // Hapus duplikat thumbnail dari gallery images
     const filteredGallery = galleryImages.filter(img => {
       const imgNormalized = normalizeForComparison(img);
       return imgNormalized !== thumbnailNormalized;
     });
-    
+
     // Thumbnail selalu di posisi pertama, diikuti gambar galeri (tanpa duplikat thumbnail)
     return [thumbnail, ...filteredGallery];
   })();
 
   // Portfolio harus ambil dari portofolio freelancer, bukan gambar layanan
-  const portfolioItems = Array.isArray(serviceData?.freelancer?.portfolio)
+  const allPortfolioItems = Array.isArray(serviceData?.freelancer?.portfolio)
     ? serviceData.freelancer.portfolio
     : [];
+
+  // Limit portfolio display to 4 items
+  const portfolioItems = allPortfolioItems.slice(0, 4);
+  const hasMorePortfolio = allPortfolioItems.length > 4;
 
   // ========================
   // Render utama
@@ -351,16 +390,16 @@ export default function ServiceDetailPage() {
               {/* Portfolio */}
               <PortfolioGrid
                 items={portfolioItems}
-                showViewAll
+                showViewAll={hasMorePortfolio || allPortfolioItems.length > 0}
                 onViewAll={() => {
-                  if (import.meta.env.DEV) {
-                    console.log(
-                      "[ServiceDetailPage] View all portfolio clicked"
-                    );
+                  // Navigate to freelancer profile to see all portfolio
+                  if (serviceData?.freelancer?.id) {
+                    navigate(`/freelancer/${serviceData.freelancer.id}`);
                   }
                 }}
                 onItemClick={(item) => {
-                  setSelectedPortfolio(item);
+                  // Store the index relative to allPortfolioItems for navigation
+                  setSelectedPortfolio({ ...item, index: item.index });
                   setShowPortfolioModal(true);
                 }}
               />
@@ -401,7 +440,7 @@ export default function ServiceDetailPage() {
                 isBookmarkLoading={isBookmarkLoading}
               />
 
-              <InteractionBar />
+              <InteractionBar serviceId={serviceData.id} />
 
               <ReviewsSection items={reviews} />
             </div>
@@ -435,34 +474,87 @@ export default function ServiceDetailPage() {
             className="relative w-full max-w-3xl p-6 bg-white rounded-2xl"
             onClick={(e) => e.stopPropagation()}
           >
+            {/* Close button */}
             <button
               type="button"
               onClick={() => setShowPortfolioModal(false)}
-              className="absolute right-4 top-4 text-neutral-600"
+              className="absolute right-4 top-4 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-neutral-600 hover:bg-gray-200 transition-colors"
               aria-label="Close"
             >
               <i className="text-xl fas fa-times"></i>
             </button>
 
+            {/* Image */}
             <img
               src={selectedPortfolio.url}
               alt="Portfolio"
-              className="mb-4 w-full max-h-[55vh] rounded object-contain"
+              className="mb-4 w-full max-h-[55vh] rounded-lg object-contain bg-gray-50"
               onError={(e) => {
                 e.currentTarget.src =
                   "https://via.placeholder.com/600x400?text=No+Image";
               }}
             />
 
+            {/* Navigation and Counter */}
+            <div className="flex items-center justify-between mb-4">
+              {/* Previous button */}
+              <button
+                type="button"
+                onClick={() => {
+                  const prevIndex = selectedPortfolio.index - 1;
+                  if (prevIndex >= 0) {
+                    const prevItem = allPortfolioItems[prevIndex];
+                    setSelectedPortfolio({
+                      ...prevItem,
+                      url: prevItem.url,
+                      index: prevIndex,
+                    });
+                  }
+                }}
+                disabled={selectedPortfolio.index === 0}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100 transition-colors"
+              >
+                <i className="fas fa-arrow-left"></i>
+                <span className="hidden sm:inline">Sebelumnya</span>
+              </button>
+
+              {/* Counter */}
+              <span className="text-sm text-gray-600 font-medium">
+                {selectedPortfolio.index + 1} dari {allPortfolioItems.length} portfolio
+              </span>
+
+              {/* Next button */}
+              <button
+                type="button"
+                onClick={() => {
+                  const nextIndex = selectedPortfolio.index + 1;
+                  if (nextIndex < allPortfolioItems.length) {
+                    const nextItem = allPortfolioItems[nextIndex];
+                    setSelectedPortfolio({
+                      ...nextItem,
+                      url: nextItem.url,
+                      index: nextIndex,
+                    });
+                  }
+                }}
+                disabled={selectedPortfolio.index === allPortfolioItems.length - 1}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100 transition-colors"
+              >
+                <span className="hidden sm:inline">Selanjutnya</span>
+                <i className="fas fa-arrow-right"></i>
+              </button>
+            </div>
+
+            {/* Title and Description */}
             {(selectedPortfolio.judul || selectedPortfolio.deskripsi) && (
-              <div>
+              <div className="border-t border-gray-200 pt-4">
                 {selectedPortfolio.judul && (
                   <h2 className="text-lg font-semibold text-neutral-900">
                     {selectedPortfolio.judul}
                   </h2>
                 )}
                 {selectedPortfolio.deskripsi && (
-                  <p className="mt-2 text-sm text-neutral-700">
+                  <p className="mt-2 text-sm text-neutral-700 leading-relaxed">
                     {selectedPortfolio.deskripsi}
                   </p>
                 )}

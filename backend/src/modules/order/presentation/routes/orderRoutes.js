@@ -7,8 +7,6 @@ const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../../../../shared/middleware/authMiddleware');
 const orderValidation = require('../middleware/orderValidation');
-const uploadClientAttachments = require('../middleware/uploadAttachments');
-const uploadFreelancerAttachments = require('../middleware/uploadFreelancerAttachments');
 
 module.exports = (orderController) => {
   /**
@@ -26,13 +24,7 @@ module.exports = (orderController) => {
    *       401:
    *         $ref: '#/components/responses/UnauthorizedError'
    */
-  router.post(
-    '/',
-    authMiddleware,
-    uploadClientAttachments,
-    orderValidation.createOrder,
-    (req, res) => orderController.createOrder(req, res)
-  );
+  router.post('/', authMiddleware, orderValidation.createOrder, (req, res) => orderController.createOrder(req, res));
 
   /**
    * @swagger
@@ -162,14 +154,7 @@ module.exports = (orderController) => {
    *       401:
    *         $ref: '#/components/responses/UnauthorizedError'
    */
-  router.patch(
-    '/:id/complete',
-    authMiddleware,
-    orderValidation.validateUUID,
-    uploadFreelancerAttachments,
-    orderValidation.completeOrder,
-    (req, res) => orderController.completeOrder(req, res)
-  );
+  router.patch('/:id/complete', authMiddleware, orderValidation.validateUUID, (req, res) => orderController.completeOrder(req, res));
 
   /**
    * @swagger

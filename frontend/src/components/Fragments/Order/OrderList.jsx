@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import OrderCard from './OrderCard'
 
-const OrderList = ({ orders = [], onOrderClick, onReviewClick, loading }) => {
+const OrderList = ({ orders = [], onOrderClick, onReviewClick, loading, primaryActionLabel = 'Pesan Sekarang' }) => {
   const [filter, setFilter] = useState('all')
 
   const filteredOrders = filter === 'all'
@@ -18,7 +18,7 @@ const OrderList = ({ orders = [], onOrderClick, onReviewClick, loading }) => {
   ]
 
   return (
-    <div>
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
       {/* Filter tabs */}
       <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
         {filterOptions.map(option => (
@@ -122,6 +122,7 @@ const OrderList = ({ orders = [], onOrderClick, onReviewClick, loading }) => {
                   onOrder={() => onOrderClick && onOrderClick(order.id)}
                   onContact={() => onOrderClick && onOrderClick(order.id)}
                   onReview={() => onReviewClick && onReviewClick(order)} // Kirim fungsi ulasan
+                  primaryLabel={primaryActionLabel}
                 />
               </div>
             );

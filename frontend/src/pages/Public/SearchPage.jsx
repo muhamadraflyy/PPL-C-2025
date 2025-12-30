@@ -100,22 +100,6 @@ export default function SearchPage() {
     return () => clearTimeout(handler);
   }, [keyword, activeKeyword, searchParams, setSearchParams]);
 
-  // Enter → langsung tembak search tanpa nunggu debounce
-  const handleSearchSubmit = (e) => {
-    e.preventDefault();
-    const params = new URLSearchParams(searchParams);
-    const trimmed = keyword.trim();
-
-    if (trimmed) {
-      params.set("q", trimmed);
-    } else {
-      params.delete("q");
-    }
-
-    setSearchParams(params);
-    setPage(1);
-  };
-
   // Handlers filter
   const handleToggleCategory = (category) => {
     setSelectedCategories((prev) =>
@@ -159,6 +143,17 @@ export default function SearchPage() {
   };
 
   const handleApplyPriceFilter = () => {
+    setPage(1);
+  };
+
+  // Reset all filters to default
+  const handleResetFilters = () => {
+    setSelectedCategories([]);
+    setSelectedPriceId("any");
+    setPriceMin("");
+    setPriceMax("");
+    setMinRating(null);
+    setPriceSort("");
     setPage(1);
   };
 
@@ -254,29 +249,29 @@ export default function SearchPage() {
         typeof svc.harga === "number"
           ? svc.harga
           : typeof svc.price === "number"
-          ? svc.price
-          : Number(svc.harga || svc.price || 0);
+            ? svc.price
+            : Number(svc.harga || svc.price || 0);
 
       const ratingNumber =
         typeof svc.rating_rata_rata === "number"
           ? svc.rating_rata_rata
           : typeof svc.rating === "number"
-          ? svc.rating
-          : 0;
+            ? svc.rating
+            : 0;
 
       const reviewsNumber =
         typeof svc.jumlah_rating === "number"
           ? svc.jumlah_rating
           : typeof svc.reviews === "number"
-          ? svc.reviews
-          : 0;
+            ? svc.reviews
+            : 0;
 
       const ordersCount =
         typeof svc.total_pesanan === "number"
           ? svc.total_pesanan
           : typeof svc.ordersCount === "number"
-          ? svc.ordersCount
-          : 0;
+            ? svc.ordersCount
+            : 0;
 
       // Resolve thumbnail URL
       const rawThumb =
@@ -371,25 +366,6 @@ export default function SearchPage() {
     <div className="min-h-screen bg-[#F7F8FA]">
       <Navbar />
 
-      {/* Search input di bagian atas halaman */}
-      <div className="border-b bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
-          <form
-            onSubmit={handleSearchSubmit}
-            className="flex w-full max-w-xl items-center gap-3 rounded-full border border-neutral-200 bg-[#F9FAFB] px-4 py-2 shadow-sm"
-          >
-            <i className="fas fa-search text-neutral-400" />
-            <input
-              type="text"
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              placeholder="Cari layanan (contoh: UI/UX Desainer Website)"
-              className="w-full border-none bg-transparent text-sm text-neutral-800 outline-none placeholder:text-neutral-400"
-            />
-          </form>
-        </div>
-      </div>
-
       {/* Main content */}
       <main className="mx-auto flex max-w-7xl flex-col gap-8 px-4 py-8 lg:flex-row lg:py-10">
         {/* Sidebar Filter */}
@@ -407,15 +383,18 @@ export default function SearchPage() {
           onChangePriceMin={handleChangePriceMin}
           onChangePriceMax={handleChangePriceMax}
           onApplyPriceFilter={handleApplyPriceFilter}
+          priceSort={priceSort}
+          onChangePriceSort={handleChangePriceSort}
+          onResetFilters={handleResetFilters}
         />
 
         {/* Right side: hasil + cards */}
         <section className="flex-1">
           {/* Header hasil pencarian */}
           <div className="mb-4 flex flex-col gap-1">
-            <p className="  font-bold ">
+            <p className="text-xs text-neutral-500">
               Hasil pencarian untuk:{" "}
-              <span className="font-semibold text-[#2261fe]">
+              <span className="font-semibold text-[#111827]">
                 {queryLabel}
               </span>
             </p>
@@ -428,8 +407,6 @@ export default function SearchPage() {
           <SearchSortBar
             sortBy={sortBy}
             onChangeSortTab={handleChangeSortTab}
-            priceSort={priceSort}
-            onChangePriceSort={handleChangePriceSort}
           />
 
           {/* Grid layanan */}
