@@ -49,9 +49,8 @@ export default function ServiceDetailPage() {
 
   function handleContact() {
     if (!serviceData) return;
-    navigate(
-      `/messages/new?to=${encodeURIComponent(serviceData.freelancer.name)}`
-    );
+    // Navigate dengan userId untuk create conversation, tapi autoSelect=false agar tidak langsung masuk room
+    navigate(`/messages?userId=${serviceData.freelancer.id}&autoSelect=false`);
   }
 
   // Untuk sekarang ulasan belum diambil dari API → kosong dulu
@@ -61,7 +60,7 @@ export default function ServiceDetailPage() {
   // UI: Loading skeleton
   // ========================
   const renderSkeleton = () => (
-    <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+    <div className="grid grid-cols-1 gap-4 mt-4 lg:grid-cols-3">
       <div className="space-y-4 lg:col-span-2">
         <div className="h-64 rounded-xl bg-neutral-200 animate-pulse" />
         <div className="h-40 rounded-xl bg-neutral-200 animate-pulse" />
@@ -79,7 +78,7 @@ export default function ServiceDetailPage() {
   // UI: Error (non-404)
   // ========================
   const renderErrorState = () => (
-    <div className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-700">
+    <div className="px-4 py-4 mt-6 text-sm text-red-700 border border-red-200 rounded-xl bg-red-50">
       <p className="mb-1 font-semibold">Gagal memuat detail layanan</p>
       <p className="mb-3">
         {error?.message ||
@@ -125,12 +124,12 @@ export default function ServiceDetailPage() {
     <div className="min-h-screen bg-[#F3F4F6]">
       <Navbar />
 
-      <main className="mx-auto max-w-6xl px-4 py-5 md:py-7">
+      <main className="max-w-6xl px-4 py-5 mx-auto md:py-7">
         {/* Tombol kembali */}
         <button
           type="button"
           onClick={handleBack}
-          className="mb-1 inline-flex items-center gap-2 text-xs text-neutral-500 hover:text-neutral-700"
+          className="inline-flex items-center gap-2 mb-1 text-xs text-neutral-500 hover:text-neutral-700"
         >
           <span className="text-lg leading-none">←</span>
         </button>
@@ -153,7 +152,7 @@ export default function ServiceDetailPage() {
 
         {/* Konten utama: hanya render kalau punya data & tidak error */}
         {!isLoading && !isError && serviceData && (
-          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 mt-4 lg:grid-cols-3">
             {/* Kolom kiri */}
             <div className="space-y-4 lg:col-span-2">
               {/* Header card: gambar + info freelancer */}
@@ -166,11 +165,11 @@ export default function ServiceDetailPage() {
               />
 
               {/* Deskripsi */}
-              <section className="rounded-xl border border-neutral-200 bg-white shadow-sm">
-                <div className="border-b border-neutral-200 px-4 py-3 text-sm font-semibold text-neutral-900">
+              <section className="bg-white border shadow-sm rounded-xl border-neutral-200">
+                <div className="px-4 py-3 text-sm font-semibold border-b border-neutral-200 text-neutral-900">
                   Deskripsi
                 </div>
-                <div className="px-4 py-4 whitespace-pre-line text-sm leading-6 text-neutral-800">
+                <div className="px-4 py-4 text-sm leading-6 whitespace-pre-line text-neutral-800">
                   {serviceData.description}
                 </div>
               </section>

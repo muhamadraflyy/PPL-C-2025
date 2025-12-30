@@ -18,6 +18,7 @@ export const ChatProvider = ({ children }) => {
   const [activeConversation, setActiveConversation] = useState(null);
   const [typingUsers, setTypingUsers] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState(new Set());
 
@@ -38,6 +39,47 @@ export const ChatProvider = ({ children }) => {
       };
     }
   }, []);
+
+  // Setup listeners for online status - separate from message listeners
+  // This needs to be registered as soon as socket connects, not dependent on activeConversation
+  useEffect(() => {
+    if (!socketService.socket) return;
+
+    console.log('[ChatContext] Setting up online status listeners');
+
+    // Dengarkan daftar online users saat pertama kali connect
+    socketService.onUserOnlineList((data) => {
+      console.log('[ChatContext] Received online users list:', data.users);
+      setOnlineUsers(new Set(data.users));
+    });
+
+    // Dengarkan user online status
+    socketService.onUserOnline((data) => {
+      console.log('[ChatContext] User came online:', data.userId);
+      setOnlineUsers(prev => {
+        const newSet = new Set([...prev, data.userId]);
+        console.log('[ChatContext] Online users:', Array.from(newSet));
+        return newSet;
+      });
+    });
+
+    // Dengarkan user offline status
+    socketService.onUserOffline((data) => {
+      console.log('[ChatContext] User went offline:', data.userId);
+      setOnlineUsers(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(data.userId);
+        return newSet;
+      });
+    });
+
+    // Cleanup listeners on unmount
+    return () => {
+      socketService.off('user:online');
+      socketService.off('user:online-list');
+      socketService.off('user:offline');
+    };
+  }, []); // Empty dependency - register once when component mounts
 
   // Setup listener socket untuk pesan baru
   useEffect(() => {
@@ -74,18 +116,28 @@ export const ChatProvider = ({ children }) => {
         };
       });
 
-      // Update conversation's last message
-      setConversations(prev => 
-        prev.map(conv => 
+      // Update conversation's last message, unread count, and move to top
+      setConversations(prev => {
+        const isViewingConversation = activeConversation?.id === conversationId;
+        
+        const updated = prev.map(conv =>
           conv.id === conversationId
-            ? { 
-                ...conv, 
+            ? {
+                ...conv,
                 pesan_terakhir: message.pesan || message.isi_pesan,
-                pesan_terakhir_pada: message.created_at || new Date().toISOString()
+                pesan_terakhir_pada: message.created_at || new Date().toISOString(),
+                // Increment unread count only if NOT viewing this conversation
+                unread_count: isViewingConversation ? 0 : (conv.unread_count || 0) + 1
               }
             : conv
-        )
-      );
+        );
+        // Sort by latest message (newest first)
+        return updated.sort((a, b) => {
+          const dateA = new Date(a.pesan_terakhir_pada || 0);
+          const dateB = new Date(b.pesan_terakhir_pada || 0);
+          return dateB - dateA;
+        });
+      });
 
       // Send delivered confirmation if user is viewing this conversation
       if (activeConversation?.id === conversationId) {
@@ -116,26 +168,6 @@ export const ChatProvider = ({ children }) => {
       }
     });
 
-    // Dengarkan user online status
-    socketService.onUserOnline((data) => {
-      console.log('[ChatContext] User came online:', data.userId);
-      setOnlineUsers(prev => {
-        const newSet = new Set([...prev, data.userId]);
-        console.log('[ChatContext] Online users:', Array.from(newSet));
-        return newSet;
-      });
-    });
-
-    // Dengarkan user offline status
-    socketService.onUserOffline((data) => {
-      console.log('[ChatContext] User went offline:', data.userId);
-      setOnlineUsers(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(data.userId);
-        return newSet;
-      });
-    });
-
     // Listen for delivery status updates
     socketService.onDeliveryStatus((data) => {
       console.log('[ChatContext] Delivery status update:', data);
@@ -153,13 +185,11 @@ export const ChatProvider = ({ children }) => {
       }));
     });
 
-    // Cleanup listeners on unmount
+    // Cleanup listeners on unmount (only chat-related, online status is in separate useEffect)
     return () => {
       socketService.off('chat:new-message');
       socketService.off('chat:typing-indicator');
       socketService.off('chat:delivery-status');
-      socketService.off('user:online');
-      socketService.off('user:offline');
     };
   }, [activeConversation]);
 
@@ -191,7 +221,7 @@ export const ChatProvider = ({ children }) => {
   }, []);
 
   const fetchMessages = useCallback(async (conversationId, page = 1, limit = 50) => {
-    setIsLoading(true);
+    setIsLoadingMessages(true);
     try {
       const response = await chatService.getMessages(conversationId, page, limit);
       
@@ -206,7 +236,7 @@ export const ChatProvider = ({ children }) => {
       console.error('[ChatContext] Error fetching messages:', error);
       throw error;
     } finally {
-      setIsLoading(false);
+      setIsLoadingMessages(false);
     }
   }, []);
 
@@ -246,13 +276,19 @@ export const ChatProvider = ({ children }) => {
           socketService.sendMessage(conversationId, pesan, tipe, lampiran, (response) => {
             if (response.status === 'success') {
               console.log('[ChatContext] Message sent via socket, updating optimistic message');
+              console.log('[ChatContext] Server response.data:', response.data);
               
               // Update optimistic message dengan data real dari server
               setMessages(prev => ({
                 ...prev,
                 [conversationId]: (prev[conversationId] || []).map(msg => 
                   msg.id === optimisticMessage.id 
-                    ? { ...response.data, status: 'sent' } // Replace dengan real message
+                    ? { 
+                        ...response.data, 
+                        status: 'sent',
+                        // Preserve created_at dari optimistic jika server tidak kirim
+                        created_at: response.data.created_at || msg.created_at
+                      }
                     : msg
                 )
               }));
@@ -279,7 +315,11 @@ export const ChatProvider = ({ children }) => {
             ...prev,
             [conversationId]: (prev[conversationId] || []).map(msg => 
               msg.id === optimisticMessage.id 
-                ? { ...response.data, status: 'sent' }
+                ? { 
+                    ...response.data, 
+                    status: 'sent',
+                    created_at: response.data.created_at || msg.created_at
+                  }
                 : msg
             )
           }));
@@ -303,7 +343,7 @@ export const ChatProvider = ({ children }) => {
     try {
       await chatService.markAsRead(conversationId);
       
-      // Update local state
+      // Update messages as read
       setMessages(prev => ({
         ...prev,
         [conversationId]: (prev[conversationId] || []).map(msg => ({
@@ -311,6 +351,17 @@ export const ChatProvider = ({ children }) => {
           is_read: true
         }))
       }));
+
+      // IMPORTANT: Update conversation list to clear unread badge
+      setConversations(prev => prev.map(conv => 
+        conv.id === conversationId 
+          ? { ...conv, unread_count: 0, user1_unread_count: 0, user2_unread_count: 0 }
+          : conv
+      ));
+
+      // Dispatch event to notify NavHeader to refresh badge count
+      window.dispatchEvent(new CustomEvent('chat:messages-read'));
+      console.log('[ChatContext] Dispatched chat:messages-read event');
     } catch (error) {
       console.error('[ChatContext] Error marking as read:', error);
       throw error;
@@ -384,6 +435,7 @@ export const ChatProvider = ({ children }) => {
     activeConversation,
     typingUsers,
     isLoading,
+    isLoadingMessages,
     isConnected,
     onlineUsers,
     fetchConversations,

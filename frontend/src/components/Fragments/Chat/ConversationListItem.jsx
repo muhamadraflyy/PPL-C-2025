@@ -1,5 +1,4 @@
 import Avatar from "../../Elements/Common/Avatar";
-import Button from "../../Elements/Buttons/Button";
 import { Text } from "../../Elements/Text/Text";
 import { useChatContext } from '../../../contexts/ChatContext';
 
@@ -64,18 +63,23 @@ export default function ConversationListItem({ conversation, isActive, onClick }
   };
 
   return (
-    <Button 
-      variant="neutral"
-      className={`w-full rounded-none !justify-start transition-colors ${
-        isActive 
-          ? 'bg-blue-50 hover:bg-blue-50' 
-          : 'hover:bg-gray-100'
-      }`}
+    <button 
+      type="button"
+      className={`
+        w-full p-3 text-left transition-all duration-200 ease-in-out
+        border-l-4 relative
+        ${isActive 
+          ? 'bg-blue-50 border-l-blue-500 shadow-sm' 
+          : 'border-l-transparent hover:bg-gray-50 hover:border-l-gray-300 hover:shadow-sm'
+        }
+        ${!isActive && 'hover:translate-x-1'}
+        focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-inset
+      `}
       onClick={onClick}
     >
-      <div className="flex gap-2 justify-between items-center w-full">
-        <div className="flex gap-2 items-center flex-1 min-w-0">
-          <div className="relative">
+      <div className="flex gap-3 justify-between items-center w-full">
+        <div className="flex gap-3 items-center flex-1 min-w-0">
+          <div className="relative flex-shrink-0">
             <Avatar
               src={otherUser?.avatar || "https://placehold.co/200"}
               alt={formatName(otherUser)}
@@ -83,30 +87,36 @@ export default function ConversationListItem({ conversation, isActive, onClick }
             />
             {/* Online indicator - small green dot */}
             {otherUser && onlineUsers.has(otherUser.id) && (
-              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full"></span>
+              <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full shadow-sm"></span>
             )}
           </div>
           <div className="flex flex-col flex-1 min-w-0">
-            <Text variant="h2" className="truncate">
+            <Text variant="h2" className={`truncate ${isActive ? 'text-blue-700' : ''}`}>
               {formatName(otherUser)}
             </Text>
-            <span className="text-sm text-slate-500 truncate">
+            <span className={`text-sm truncate ${isActive ? 'text-blue-600' : 'text-slate-500'}`}>
               {truncateMessage(conversation.pesan_terakhir)}
             </span>
           </div>
         </div>
         
-        <div className="flex flex-col items-end">
-          <span className="text-xs text-slate-400">
-            {formatTime(conversation.pesan_terakhir_pada)}
+        <div className="flex flex-col items-end flex-shrink-0">
+          <span className={`text-xs ${isActive ? 'text-blue-500' : 'text-slate-400'}`}>
+            {formatTime(conversation.pesan_terakhir_pada || conversation.created_at)}
           </span>
           {conversation.unread_count > 0 && (
-            <span className="px-2 py-0.5 mt-1 text-xs text-white bg-blue-500 rounded-full">
+            <span className="px-2 py-0.5 mt-1 text-xs text-white bg-blue-500 rounded-full font-medium shadow-sm animate-pulse">
               {conversation.unread_count}
             </span>
           )}
         </div>
       </div>
-    </Button>
+      
+      {/* Active indicator bar at bottom */}
+      {isActive && (
+        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-500 to-blue-400"></div>
+      )}
+    </button>
   );
 }
+

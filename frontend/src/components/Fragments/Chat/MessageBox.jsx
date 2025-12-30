@@ -5,6 +5,32 @@ import MessageBubble from "./MessageBubble";
 import { Text } from "../../Elements/Text/Text";
 import { useChatContext } from '../../../contexts/ChatContext';
 
+// Skeleton component for loading messages
+function MessageSkeleton() {
+  return (
+    <div className="px-4 pt-2 space-y-4">
+      {/* Skeleton bubbles - alternating left and right */}
+      {[...Array(6)].map((_, i) => (
+        <div
+          key={i}
+          className={`flex ${i % 2 === 0 ? 'justify-start' : 'justify-end'}`}
+        >
+          <div
+            className={`rounded-2xl bg-gray-200 animate-pulse ${
+              i % 2 === 0 ? 'rounded-tl-none' : 'rounded-tr-none'
+            }`}
+            style={{
+              width: `${Math.random() * 30 + 40}%`,
+              height: '44px',
+              minWidth: '120px'
+            }}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function MessageBox({ userData }) {
   const { 
     activeConversation, 
@@ -13,6 +39,7 @@ export default function MessageBox({ userData }) {
     sendTypingIndicator,
     typingUsers,
     isConnected,
+    isLoadingMessages,
     onlineUsers
   } = useChatContext();
   
@@ -98,12 +125,12 @@ export default function MessageBox({ userData }) {
   // If no conversation selected
   if (!activeConversation) {
     return (
-      <div className="flex flex-col justify-center items-center w-full h-full bg-gray-50">
-        <svg className="mb-4 w-24 h-24 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="flex flex-col items-center justify-center w-full h-full bg-gray-50">
+        <svg className="w-24 h-24 mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
         </svg>
         <Text variant="h2" className="text-gray-400">Select a conversation to start chatting</Text>
-        <Text className="text-sm text-gray-400 mt-2">Choose a conversation from the list</Text>
+        <Text className="mt-2 text-sm text-gray-400">Choose a conversation from the list</Text>
       </div>
     );
   }
@@ -114,30 +141,6 @@ export default function MessageBox({ userData }) {
   console.log('[MessageBox] User ID:', userId);
   console.log('[MessageBox] Is connected:', isConnected);
 
-  // Check if otherUser data is missing
-  if (!otherUser) {
-    return (
-      <div className="flex flex-col justify-center items-center w-full h-full bg-gray-50">
-        <div className="text-center p-6">
-          <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-sm text-yellow-800 font-medium">⚠️ Loading conversation data...</p>
-            <p className="text-xs text-yellow-700 mt-2">
-              Conversation ID: {activeConversation.id}
-            </p>
-            <p className="text-xs text-yellow-700 mt-1">
-              Please wait or try refreshing the page
-            </p>
-          </div>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 text-sm text-white bg-blue-500 rounded-lg hover:bg-blue-600"
-          >
-            Refresh Page
-          </button>
-        </div>
-      </div>
-    );
-  }
   // Check if other user is typing
   const isOtherUserTyping = otherUser && typingUsers[otherUser.id];
 
@@ -170,7 +173,11 @@ export default function MessageBox({ userData }) {
   };
 
   // Group messages by date
-  const groupedMessages = conversationMessages.reduce((acc, message) => {
+  // First, reverse and sort to get oldest-first (backend sends DESC order)
+  const sortedMessages = [...conversationMessages]
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+  const groupedMessages = sortedMessages.reduce((acc, message) => {
     const messageDate = new Date(message.created_at).toLocaleDateString('id-ID');
     const lastGroup = acc[acc.length - 1];
     
@@ -183,9 +190,9 @@ export default function MessageBox({ userData }) {
   }, []);
 
   return (
-    <div className="flex relative flex-col w-full h-full bg-gray-200">
+    <div className="relative flex flex-col w-full h-full bg-gray-200">
       {/* Header */}
-      <div className="flex gap-2 items-center px-4 py-4 w-full rounded-none bg-primary-500/30 border-b">
+      <div className="flex items-center w-full gap-2 px-4 py-4 border-b rounded-none bg-primary-500/30">
         <div className="relative">
           <Avatar
             src={otherUser?.avatar || "https://placehold.co/200"}
@@ -224,10 +231,12 @@ export default function MessageBox({ userData }) {
       </div>
 
       {/* Messages */}
-      <div className="overflow-y-auto flex-1 pb-20 min-h-0">
-        {conversationMessages.length === 0 ? (
-          <div className="flex flex-col justify-center items-center h-full text-gray-400">
-            <svg className="mb-2 w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="flex-1 min-h-0 pb-20 overflow-y-auto">
+        {isLoadingMessages ? (
+          <MessageSkeleton />
+        ) : conversationMessages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-gray-400">
+            <svg className="w-16 h-16 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
             </svg>
             <Text>No messages yet</Text>
@@ -246,6 +255,7 @@ export default function MessageBox({ userData }) {
                   // Format timestamp dengan error handling
                   let timestamp = '';
                   try {
+                    console.log('[MessageBox] Raw created_at:', message.created_at, 'Type:', typeof message.created_at);
                     const date = new Date(message.created_at);
                     if (!isNaN(date.getTime())) {
                       timestamp = date.toLocaleTimeString('id-ID', { 
@@ -282,12 +292,12 @@ export default function MessageBox({ userData }) {
       </div>
 
       {/* Input form */}
-      <form onSubmit={handleSendMessage} className="absolute bottom-0 px-2 pb-2 w-full bg-gray-200">
-        <div className="flex gap-2 items-center">
+      <form onSubmit={handleSendMessage} className="absolute bottom-0 w-full px-2 pb-2 bg-gray-200">
+        <div className="flex items-center gap-2">
           <textarea
             value={messageInput}
             onChange={handleInputChange}
-            className="py-3 pr-12 pl-4 w-full rounded-2xl shadow-md resize-none bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="w-full py-3 pl-4 pr-12 bg-white shadow-md resize-none rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-400"
             placeholder="Type your message..."
             rows="1"
             onKeyDown={(e) => {

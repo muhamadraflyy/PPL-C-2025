@@ -71,6 +71,8 @@ class GetConversations {
           pesan_terakhir_pada: serializeDate(conv.pesan_terakhir_pada),
           user1_unread_count: conv.user1_unread_count,
           user2_unread_count: conv.user2_unread_count,
+          // IMPORTANT: Add unified unread_count for frontend based on current user
+          unread_count: conv.user1_id === userId ? conv.user1_unread_count : conv.user2_unread_count,
           created_at: serializeDate(conv.created_at),
           updated_at: serializeDate(conv.updated_at),
           // Frontend expects User1 and User2 (capitalized)

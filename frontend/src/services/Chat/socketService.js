@@ -121,6 +121,15 @@ class SocketService {
     });
   }
 
+  onUserOnlineList(callback) {
+    if (!this.socket) return;
+
+    this.socket.on('user:online-list', (data) => {
+      console.log('[SocketService] Received online users list:', data.users);
+      callback(data);
+    });
+  }
+
   sendTypingIndicator(conversationId, isTyping) {
     if (!this.socket) return;
 

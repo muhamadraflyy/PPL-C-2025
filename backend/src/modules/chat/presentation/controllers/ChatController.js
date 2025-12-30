@@ -115,9 +115,47 @@ class ChatController {
         { page, limit }
       );
 
+      // Helper untuk safely serialize date
+      const serializeDate = (dateValue) => {
+        if (!dateValue) return null;
+        try {
+          const date = new Date(dateValue);
+          return isNaN(date.getTime()) ? null : date.toISOString();
+        } catch (e) {
+          return null;
+        }
+      };
+
+      // Serialize timestamps in messages
+      const serializedMessages = data.messages.map(msg => {
+        // Handle both Sequelize Model instance and plain object
+        const plainMsg = msg.toJSON ? msg.toJSON() : msg;
+        
+        // DEBUG: Log both possible timestamp properties
+        console.log('[ChatController] Message ID:', plainMsg.id);
+        console.log('  - created_at:', plainMsg.created_at, 'createdAt:', plainMsg.createdAt);
+        
+        // IMPORTANT: Sequelize with underscored:true returns createdAt (camelCase)
+        // So we need to check BOTH properties
+        const rawCreatedAt = plainMsg.created_at || plainMsg.createdAt;
+        const rawUpdatedAt = plainMsg.updated_at || plainMsg.updatedAt;
+        
+        return {
+          ...plainMsg,
+          // Use whichever timestamp property is available
+          created_at: serializeDate(rawCreatedAt),
+          updated_at: serializeDate(rawUpdatedAt),
+          dibaca_pada: serializeDate(plainMsg.dibaca_pada),
+          terkirim_pada: serializeDate(plainMsg.terkirim_pada)
+        };
+      });
+
       return res.status(200).json({
         status: 'success',
-        data: data
+        data: {
+          ...data,
+          messages: serializedMessages
+        }
       });
 
     } catch (error) {

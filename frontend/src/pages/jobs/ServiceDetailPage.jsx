@@ -178,9 +178,8 @@ export default function ServiceDetailPage() {
 
   async function handleContact() {
     if (!serviceData) return;
-    navigate(
-      `/messages/new?to=${encodeURIComponent(serviceData.freelancer.name)}`
-    );
+    // Navigate dengan userId untuk create conversation, tapi autoSelect=false agar tidak langsung masuk room
+    navigate(`/messages?userId=${serviceData.freelancer.id}&autoSelect=false`);
   }
 
   // Fetch reviews from API
@@ -224,14 +223,14 @@ export default function ServiceDetailPage() {
   const renderSkeleton = () => (
     <div className="grid grid-cols-1 gap-4 mt-4 lg:grid-cols-3">
       <div className="space-y-4 lg:col-span-2">
-        <div className="h-64 rounded-xl bg-neutral-200 animate-pulse" />
-        <div className="h-40 rounded-xl bg-neutral-200 animate-pulse" />
-        <div className="h-40 rounded-xl bg-neutral-200 animate-pulse" />
+        <div className="h-64 rounded-xl animate-pulse bg-neutral-200" />
+        <div className="h-40 rounded-xl animate-pulse bg-neutral-200" />
+        <div className="h-40 rounded-xl animate-pulse bg-neutral-200" />
       </div>
       <div className="space-y-3 lg:col-span-1">
-        <div className="h-64 rounded-xl bg-neutral-200 animate-pulse" />
-        <div className="h-12 rounded-xl bg-neutral-200 animate-pulse" />
-        <div className="h-40 rounded-xl bg-neutral-200 animate-pulse" />
+        <div className="h-64 rounded-xl animate-pulse bg-neutral-200" />
+        <div className="h-12 rounded-xl animate-pulse bg-neutral-200" />
+        <div className="h-40 rounded-xl animate-pulse bg-neutral-200" />
       </div>
     </div>
   );
@@ -240,7 +239,7 @@ export default function ServiceDetailPage() {
   // UI: Error (non-404)
   // ========================
   const renderErrorState = () => (
-    <div className="px-4 py-4 mt-6 text-sm text-red-700 border border-red-200 rounded-xl bg-red-50">
+    <div className="px-4 py-4 mt-6 text-sm text-red-700 bg-red-50 rounded-xl border border-red-200">
       <p className="mb-1 font-semibold">Gagal memuat detail layanan</p>
       <p className="mb-3">
         {error?.message ||
@@ -315,12 +314,12 @@ export default function ServiceDetailPage() {
     <div className="min-h-screen bg-[#F3F4F6]">
       <Navbar />
 
-      <main className="max-w-6xl px-4 py-5 mx-auto md:py-7">
+      <main className="px-4 py-5 mx-auto max-w-6xl md:py-7">
         {/* Tombol kembali */}
         <button
           type="button"
           onClick={handleBack}
-          className="inline-flex items-center gap-2 mb-1 text-xs text-neutral-500 hover:text-neutral-700"
+          className="inline-flex gap-2 items-center mb-1 text-xs text-neutral-500 hover:text-neutral-700"
         >
           <span className="text-lg leading-none">←</span>
         </button>
@@ -356,7 +355,7 @@ export default function ServiceDetailPage() {
               />
 
               {/* Deskripsi */}
-              <section className="bg-white border shadow-sm rounded-xl border-neutral-200">
+              <section className="bg-white rounded-xl border shadow-sm border-neutral-200">
                 <div className="px-4 py-3 text-sm font-semibold border-b border-neutral-200 text-neutral-900">
                   Deskripsi
                 </div>
@@ -445,18 +444,18 @@ export default function ServiceDetailPage() {
 
       {showPortfolioModal && selectedPortfolio && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75"
+          className="flex fixed inset-0 z-50 justify-center items-center p-4 bg-black/75"
           onClick={() => setShowPortfolioModal(false)}
         >
           <div
-            className="relative w-full max-w-4xl p-6 bg-white rounded-2xl"
+            className="relative p-6 w-full max-w-4xl bg-white rounded-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Close button */}
             <button
               type="button"
               onClick={() => setShowPortfolioModal(false)}
-              className="absolute z-10 flex items-center justify-center w-10 h-10 transition-colors bg-gray-100 rounded-full right-4 top-4 text-neutral-600 hover:bg-gray-200"
+              className="flex absolute top-4 right-4 z-10 justify-center items-center w-10 h-10 bg-gray-100 rounded-full transition-colors text-neutral-600 hover:bg-gray-200"
               aria-label="Close"
             >
               <i className="text-lg fas fa-times"></i>
@@ -474,7 +473,7 @@ export default function ServiceDetailPage() {
             />
 
             {/* Navigation and Counter */}
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex justify-between items-center mb-4">
               {/* Previous button */}
               <button
                 type="button"
@@ -490,7 +489,7 @@ export default function ServiceDetailPage() {
                   }
                 }}
                 disabled={selectedPortfolio.index === 0}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100"
+                className="flex gap-2 items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100"
               >
                 <i className="fas fa-arrow-left"></i>
                 <span className="hidden sm:inline">Sebelumnya</span>
@@ -516,7 +515,7 @@ export default function ServiceDetailPage() {
                   }
                 }}
                 disabled={selectedPortfolio.index === allPortfolioItems.length - 1}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100"
+                className="flex gap-2 items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100"
               >
                 <span className="hidden sm:inline">Selanjutnya</span>
                 <i className="fas fa-arrow-right"></i>

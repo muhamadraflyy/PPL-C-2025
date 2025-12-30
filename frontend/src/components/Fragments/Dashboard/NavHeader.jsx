@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import SearchBar from "../Search/SearchBar";
 import Button from "../../Elements/Buttons/Button";
 import Avatar from "../../Elements/Common/Avatar";
@@ -8,6 +8,8 @@ import useUserIdentity from "../../../hooks/useUserIdentity";
 import { authService } from "../../../services/authService";
 import { useToast } from "../Common/ToastProvider";
 import NotificationBell from "../Common/NotificationBell";
+import chatService from "../../../services/Chat/chatService";
+import socketService from "../../../services/Chat/socketService";
 
 const ROLE_HOME = {
   client: "/orders",
@@ -152,12 +154,106 @@ function ProfileDropdown({ name, email, avatarUrl, role, hasFreelancerProfile, o
 
 export default function NavHeader() {
   const navigate = useNavigate();
+  const location = useLocation();
   const toast = useToast();
   const { loading, fullName, email, avatarUrl } = useUserIdentity();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userRole, setUserRole] = useState(null);
   const [hasFreelancerProfile, setHasFreelancerProfile] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0);
+
+  // Fetch total unread message count
+  useEffect(() => {
+    const fetchUnreadCount = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+      
+      try {
+        const response = await chatService.getConversations(1, 50);
+        console.log('[NavHeader] Conversations response:', response);
+        if (response.data && Array.isArray(response.data)) {
+          const totalUnread = response.data.reduce((sum, conv) => {
+            console.log('[NavHeader] Conversation unread_count:', conv.id, conv.unread_count);
+            return sum + (conv.unread_count || 0);
+          }, 0);
+          console.log('[NavHeader] Total unread messages:', totalUnread);
+          setUnreadMessageCount(totalUnread);
+        }
+      } catch (error) {
+        console.error('[NavHeader] Error fetching unread count:', error);
+      }
+    };
+
+    // Initial fetch
+    fetchUnreadCount();
+
+    // Poll every 30 seconds as backup
+    const pollInterval = setInterval(fetchUnreadCount, 30000);
+
+    // Setup socket listener - may need to retry if socket not ready
+    const setupSocketListener = () => {
+      if (socketService.socket) {
+        console.log('[NavHeader] Setting up socket listener for new messages');
+        socketService.socket.on('chat:new-message', () => {
+          console.log('[NavHeader] New message received, incrementing badge');
+          setUnreadMessageCount(prev => prev + 1);
+        });
+        return true;
+      }
+      return false;
+    };
+
+    // Try to setup socket listener, retry if not ready
+    if (!setupSocketListener()) {
+      const retryInterval = setInterval(() => {
+        if (setupSocketListener()) {
+          clearInterval(retryInterval);
+        }
+      }, 1000);
+
+      // Cleanup retry interval
+      setTimeout(() => clearInterval(retryInterval), 10000);
+    }
+
+    return () => {
+      clearInterval(pollInterval);
+      socketService.socket?.off('chat:new-message');
+    };
+  }, []);
+
+  // Refetch badge count when navigating or when messages are read
+  useEffect(() => {
+    const fetchUnreadCount = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+      
+      try {
+        const response = await chatService.getConversations(1, 50);
+        if (response.data && Array.isArray(response.data)) {
+          const totalUnread = response.data.reduce((sum, conv) => sum + (conv.unread_count || 0), 0);
+          setUnreadMessageCount(totalUnread);
+        }
+      } catch (error) {
+        console.error('[NavHeader] Error fetching unread count:', error);
+      }
+    };
+
+    // Refetch when navigating
+    fetchUnreadCount();
+
+    // Listen for custom event when messages are read
+    const handleMessagesRead = () => {
+      console.log('[NavHeader] Messages read event received, refetching count');
+      fetchUnreadCount();
+    };
+    
+    window.addEventListener('chat:messages-read', handleMessagesRead);
+    
+    return () => {
+      window.removeEventListener('chat:messages-read', handleMessagesRead);
+    };
+  }, [location.pathname]);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -304,7 +400,10 @@ export default function NavHeader() {
               
               {/* Messages/Chat Button */}
               <button
-                onClick={() => navigate('/messages')}
+                onClick={() => {
+                  setUnreadMessageCount(0); // Clear badge when opening messages
+                  navigate('/messages');
+                }}
                 className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors"
                 title="Messages"
                 aria-label="Open messages"
@@ -312,6 +411,12 @@ export default function NavHeader() {
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
+                {/* Unread message badge */}
+                {unreadMessageCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-500 rounded-full shadow-sm">
+                    {unreadMessageCount > 99 ? '99+' : unreadMessageCount}
+                  </span>
+                )}
               </button>
               
               <NotificationBell />

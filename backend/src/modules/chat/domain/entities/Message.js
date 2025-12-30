@@ -17,6 +17,9 @@ class Message {
     terkirim_pada,
     created_at,
     updated_at,
+    // Support Sequelize camelCase aliases
+    createdAt,
+    updatedAt,
     // Support database column names (Indonesian)
     pesan,
     tipe,
@@ -35,8 +38,10 @@ class Message {
     this.is_read = is_read;
     this.dibaca_pada = dibaca_pada;
     this.terkirim_pada = terkirim_pada;
-    this.created_at = created_at;
-    this.updated_at = updated_at;
+    
+    // IMPORTANT: Handle both Sequelize camelCase (createdAt) and snake_case (created_at)
+    this.created_at = created_at || createdAt;
+    this.updated_at = updated_at || updatedAt;
 
     // Aliases for compatibility (database column names)
     this.pesan = this.isi_pesan;

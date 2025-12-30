@@ -107,6 +107,14 @@ class SocketService {
             // user join room pribadi
             socket.join(`user:${socket.userId}`);
             
+            // Kirim daftar online users ke user yang baru connect
+            const onlineUsersList = Array.from(this.onlineUsers.keys());
+            socket.emit('user:online-list', {
+                users: onlineUsersList,
+                timestamp: new Date()
+            });
+            console.log(`[SocketService] Sent online users list to ${socket.userId}:`, onlineUsersList);
+            
             // Broadcast ke semua user bahwa user ini online
             socket.broadcast.emit('user:online', {
                 userId: socket.userId,
@@ -183,10 +191,31 @@ class SocketService {
                             { pesan, tipe, lampiran }
                         );
 
+                        // Serialize dates for frontend
+                        const serializeDate = (dateValue) => {
+                            if (!dateValue) return null;
+                            try {
+                                const date = new Date(dateValue);
+                                return isNaN(date.getTime()) ? null : date.toISOString();
+                            } catch (e) {
+                                return null;
+                            }
+                        };
+
+                        // IMPORTANT: Sequelize returns createdAt (camelCase), check both
+                        const rawCreatedAt = message.created_at || message.createdAt;
+                        const rawUpdatedAt = message.updated_at || message.updatedAt;
+                        
+                        const serializedMessage = {
+                            ...message,
+                            created_at: serializeDate(rawCreatedAt) || new Date().toISOString(),
+                            updated_at: serializeDate(rawUpdatedAt)
+                        };
+
                         callback?.({
                             status: 'success',
                             message: 'Pesan berhasil dikirim',
-                            data: message
+                            data: serializedMessage
                         });
                     } else {
                         // Fallback jika use case belum di-inject
@@ -246,11 +275,15 @@ class SocketService {
             }
         };
 
+        // IMPORTANT: Sequelize returns createdAt (camelCase), check both
+        const rawCreatedAt = message.created_at || message.createdAt;
+        const rawUpdatedAt = message.updated_at || message.updatedAt;
+        
         // Serialize date fields to ISO string untuk frontend
         const serializedMessage = {
             ...message,
-            created_at: serializeDate(message.created_at),
-            updated_at: serializeDate(message.updated_at)
+            created_at: serializeDate(rawCreatedAt) || new Date().toISOString(),
+            updated_at: serializeDate(rawUpdatedAt)
         };
 
         // WhatsApp pattern: Broadcast hanya ke RECEIVER, BUKAN ke sender
