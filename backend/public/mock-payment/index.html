@@ -714,7 +714,9 @@
 
         console.log('[MOCK PAYMENT] Sending webhook:', webhookPayload);
 
-        const response = await fetch('https://api-ppl.vinmedia.my.id/api/payments/webhook', {
+        // Use current backend domain (works with any domain)
+        const backendUrl = window.location.origin;
+        const response = await fetch(`${backendUrl}/api/payments/webhook`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -759,9 +761,16 @@
     }
 
     // Redirect back
-    function redirectBack() {
-      // Redirect to frontend app
-      window.location.href = 'https://ppl.vinmedia.my.id/orders';
+    async function redirectBack() {
+      // Fetch frontend URL from config server
+      try {
+        const configResponse = await fetch('https://config.vinmedia.my.id/config.json');
+        const config = await configResponse.json();
+        window.location.href = `${config.frontend}/orders`;
+      } catch (error) {
+        console.error('Failed to load config, using fallback URL');
+        window.location.href = 'https://frontenppl.vinmedia.my.id/orders';
+      }
     }
 
     // Initialize on load

@@ -103,15 +103,12 @@ export default function PaymentProcessingPage() {
   // Auto check payment status every 10 seconds
   useEffect(() => {
     let isActive = true
-    let interval = null
 
     const checkStatus = async () => {
       if (!isActive) return
 
       try {
         const transactionId = paymentData?.transaction_id || paymentId
-        if (!transactionId) return
-
         const response = await api.get(`/payments/check-status/${transactionId}`)
         const status = response.data.data.status
 
@@ -123,13 +120,10 @@ export default function PaymentProcessingPage() {
 
         // Redirect based on status
         if (status === 'berhasil' || status === 'paid' || status === 'success' || status === 'settlement') {
-          clearInterval(interval)
           navigate(`/payment/success?order_id=${transactionId}&transaction_id=${transactionId}&gross_amount=${amount}`)
         } else if (status === 'kadaluarsa' || status === 'expired') {
-          clearInterval(interval)
           navigate(`/payment/expired?order_id=${transactionId}&transaction_id=${transactionId}&gross_amount=${amount}`)
         } else if (status === 'gagal' || status === 'failed' || status === 'deny') {
-          clearInterval(interval)
           navigate(`/payment/error?order_id=${transactionId}&gross_amount=${amount}&message=Pembayaran%20gagal`)
         }
         // Note: Don't redirect on 'menunggu'/'pending' - keep user on processing page
@@ -138,22 +132,17 @@ export default function PaymentProcessingPage() {
       }
     }
 
-    // Only start polling if we have payment data
-    if (paymentData?.transaction_id || paymentId) {
-      // Check immediately
-      checkStatus()
+    // Check immediately
+    checkStatus()
 
-      // Then check every 10 seconds
-      interval = setInterval(checkStatus, 10000)
-    }
+    // Then check every 10 seconds
+    const interval = setInterval(checkStatus, 10000)
 
     return () => {
       isActive = false
-      if (interval) {
-        clearInterval(interval)
-      }
+      clearInterval(interval)
     }
-  }, [paymentId]) // Only depend on paymentId - it doesn't change
+  }, [paymentId, paymentData?.transaction_id, paymentData?.total_bayar, orderData?.amount, navigate])
 
   // Manual check payment status function
   const handleManualCheckStatus = async () => {

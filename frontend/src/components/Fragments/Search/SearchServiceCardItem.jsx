@@ -192,14 +192,13 @@ export default function SearchServiceCardItem({
       transition={{ duration: 0.25 }}
       onClick={onClick}
       className="group h-full w-full cursor-pointer text-left"
-      aria-label={`Buka layanan: ${titleLine}`}
     >
       <div className="flex h-full flex-col overflow-hidden rounded-[22px] border border-[#E5E7EB] bg-white shadow-[0_4px_20px_rgba(0,0,0,0.06)] transition-all duration-300 group-hover:shadow-[0_12px_40px_rgba(0,0,0,0.12)] group-hover:border-[#3B82F6]/30">
         {/* === IMAGE BLOCK === */}
         <div className="relative h-48 w-full overflow-hidden bg-gradient-to-br from-neutral-100 to-neutral-50">
           <img
             src={thumbnailSrc}
-            alt={titleLine}
+            alt={service.title}
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
             loading="lazy"
             onError={(e) => {
@@ -220,6 +219,11 @@ export default function SearchServiceCardItem({
             <span className="rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-slate-800 shadow-md">
               {badgeLabel}
             </span>
+          </div>
+
+          {/* Icon bookmark di pojok kanan atas (non-functional / optional) */}
+          <div className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-[0_4px_12px_rgba(15,23,42,0.16)]">
+            <i className="far fa-bookmark text-sm text-slate-700 group-hover:text-slate-900" />
           </div>
         </div>
 
@@ -273,6 +277,9 @@ export default function SearchServiceCardItem({
               <span className="font-bold text-slate-900">{rating.toFixed(1)}</span>
               <span className="text-slate-500">({reviews.toLocaleString("id-ID")})</span>
             </div>
+            <span className="text-xs text-slate-600">
+              {service.freelancer}
+            </span>
           </div>
 
           {/* Price row + favorite/bookmark icons */}

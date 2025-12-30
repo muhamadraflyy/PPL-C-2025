@@ -9,7 +9,8 @@
       "Bash(ls:*)",
       "Bash(lsof:*)",
       "Bash(xargs kill:*)",
-      "Bash(npm start)"
+      "Bash(npm start)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []

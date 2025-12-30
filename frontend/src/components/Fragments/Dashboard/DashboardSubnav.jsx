@@ -15,12 +15,6 @@ const ITEMS = [
     icon: "chart",
     to: "/analytics/earnings",
   },
-  {
-    key: "settings",
-    label: "Settings",
-    icon: "settings",
-    to: "/profile/edit",
-  },
 ];
 
 export default function DashboardSubnav({ active = "produk" }) {

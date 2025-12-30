@@ -43,8 +43,6 @@ import ServiceCreatePage from "./pages/Freelancer/ServiceCreatePage";
 import ServiceEditPage from "./pages/Freelancer/ServiceEditPage";
 import OrdersIncomingPage from "./pages/Freelancer/OrdersIncomingPage";
 import FreelancerEarningsPage from "./pages/Freelancer/FreelancerEarningsPage";
-import WithdrawalPage from "./pages/freelancer/WithdrawalPage";
-import WithdrawalHistoryPage from "./pages/freelancer/WithdrawalHistoryPage";
 
 // Admin pages
 import AdminDashboardPage from "./pages/Admin/DashboardPage";
@@ -56,6 +54,7 @@ import TransactionTrendsPage from "./pages/Admin/TransactionTrendsPage";
 import AdminTransactionsPage from "./pages/Admin/TransactionsPage";
 import EscrowManagementPage from "./pages/Admin/EscrowManagementPage";
 import WithdrawalManagementPage from "./pages/Admin/WithdrawalManagementPage";
+import RefundManagementPage from "./pages/Admin/RefundManagementPage";
 import AllNotificationsPage from "./pages/Admin/AllNotificationsPage";
 import FraudReportDetailPage from "./pages/Admin/FraudReportDetailPage";
 import RecommendationMonitoringPage from "./pages/Admin/RecommendationMonitoringPage";
@@ -204,6 +203,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <WithdrawalManagementPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/refunds"
+        element={
+          <ProtectedRoute>
+            <RefundManagementPage />
           </ProtectedRoute>
         }
       />
@@ -403,23 +410,10 @@ export default function App() {
         }
       />
 
-      {/* Withdrawal (Freelancer) */}
+      {/* Chat */}
       <Route
-        path="/withdrawal/create"
-        element={
-          <ProtectedRoute>
-            <WithdrawalPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/withdrawal/history"
-        element={
-          <ProtectedRoute>
-            <WithdrawalHistoryPage />
-          </ProtectedRoute>
-        }
-      />
+        path="/chat"
+        element={<MessagesPage />} />
 
       {/* Chat & Messages */}
       <Route

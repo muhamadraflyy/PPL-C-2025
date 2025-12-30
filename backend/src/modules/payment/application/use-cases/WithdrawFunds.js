@@ -22,7 +22,6 @@ class WithdrawFunds {
       freelancer_id,
       metode_pembayaran_id,
       metode_pencairan,
-      bank_name,
       nomor_rekening,
       nama_pemilik,
       requested_amount, // NEW: Support partial withdrawal
@@ -55,7 +54,6 @@ class WithdrawFunds {
       freelancer_id,
       metode_pembayaran_id,
       metode_pencairan,
-      bank_name,
       nomor_rekening,
       nama_pemilik,
       requested_amount // Pass through to service

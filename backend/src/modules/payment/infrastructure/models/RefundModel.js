@@ -83,4 +83,22 @@ const RefundModel = sequelize.define('refund', {
   ]
 });
 
+// Define associations
+RefundModel.associate = (models) => {
+  RefundModel.belongsTo(models.pembayaran, {
+    foreignKey: 'pembayaran_id',
+    as: 'pembayaran'
+  });
+
+  RefundModel.belongsTo(models.users, {
+    foreignKey: 'user_id',
+    as: 'user'
+  });
+
+  RefundModel.belongsTo(models.escrow, {
+    foreignKey: 'escrow_id',
+    as: 'escrow'
+  });
+};
+
 module.exports = RefundModel;

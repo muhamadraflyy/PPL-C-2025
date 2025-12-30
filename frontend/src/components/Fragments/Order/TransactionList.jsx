@@ -2,7 +2,7 @@
  * TransactionList - List transaksi dengan filter tabs
  * Digunakan di halaman OrdersIncomingPage
  */
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Card from "../../Elements/Layout/Card";
 import Badge from "../../Elements/Common/Badge";
@@ -23,19 +23,18 @@ const formatDate = (dateStr) => {
   });
 };
 
-// Normalize backend status to UI status keys
-const normalizeStatus = (status) => {
-  if (status === "menunggu_pembayaran") return "pending";
-  if (status === "menunggu_review") return "in_review";
-  return status;
-};
-
 // Status configuration with badge variants
 const getStatusConfig = (status) => {
-  const normalized = normalizeStatus(status);
   const statusMap = {
+    menunggu_pembayaran: {
+      label: "Menunggu Pembayaran",
+      variant: "warning",
+      bgCard: "bg-yellow-50",
+      borderCard: "border-l-yellow-400",
+      textColor: "text-yellow-700",
+    },
     pending: {
-      label: "Pending / Menunggu Bayar",
+      label: "Pending",
       variant: "warning",
       bgCard: "bg-orange-50",
       borderCard: "border-l-orange-400",
@@ -77,8 +76,8 @@ const getStatusConfig = (status) => {
       textColor: "text-red-700",
     },
   };
-  return statusMap[normalized] || {
-    label: normalized || "Unknown",
+  return statusMap[status] || {
+    label: status || "Unknown",
     variant: "default",
     bgCard: "bg-gray-50",
     borderCard: "border-l-gray-400",
@@ -88,8 +87,8 @@ const getStatusConfig = (status) => {
 
 // Status message for each order
 const getStatusMessage = (status) => {
-  const normalized = normalizeStatus(status);
   const messages = {
+    menunggu_pembayaran: "Menunggu pembayaran dari klien",
     pending: "Dana ditahan hingga pekerjaan selesai",
     dibayar: "Dana ditahan hingga pekerjaan selesai",
     dikerjakan: "Dana ditahan hingga pekerjaan selesai",
@@ -97,7 +96,7 @@ const getStatusMessage = (status) => {
     selesai: "Dana berhasil masuk ke saldo",
     dibatalkan: "Pesanan dibatalkan",
   };
-  return messages[normalized] || "";
+  return messages[status] || "";
 };
 
 // Default tab filters
@@ -115,7 +114,6 @@ const defaultTabFilters = [
 function TransactionItem({ order, onClick }) {
   const statusConfig = getStatusConfig(order.status);
   const statusMessage = getStatusMessage(order.status);
-  const normalizedStatus = normalizeStatus(order.status);
 
   return (
     <div
@@ -135,7 +133,7 @@ function TransactionItem({ order, onClick }) {
           </p>
           {statusMessage && (
             <p className={`text-sm mt-1 ${statusConfig.textColor}`}>
-              {normalizedStatus === "selesai" ? "✓" : normalizedStatus === "dibatalkan" ? "✗" : "○"} {statusMessage}
+              {order.status === "selesai" ? "✓" : order.status === "dibatalkan" ? "✗" : "○"} {statusMessage}
             </p>
           )}
         </div>
@@ -163,12 +161,26 @@ export default function TransactionList({
 }) {
   const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // Filtered orders based on active tab
   const filteredOrders = useMemo(() => {
     if (activeFilter === "all") return orders;
-    return orders.filter((order) => normalizeStatus(order.status) === activeFilter);
+    return orders.filter((order) => order.status === activeFilter);
   }, [orders, activeFilter]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
+  const paginatedOrders = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredOrders.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredOrders, currentPage]);
+
+  // Reset to page 1 when filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeFilter]);
 
   const handleOrderClick = (order) => {
     if (onOrderClick) {
@@ -225,7 +237,7 @@ export default function TransactionList({
           </div>
         )}
 
-        {!loading && !error && filteredOrders.map((order) => (
+        {!loading && !error && paginatedOrders.map((order) => (
           <TransactionItem
             key={order.id}
             order={order}
@@ -233,6 +245,52 @@ export default function TransactionList({
           />
         ))}
       </div>
+
+      {/* Pagination - Only show if more than 10 items */}
+      {!loading && !error && filteredOrders.length > itemsPerPage && (
+        <div className="p-4 border-t border-gray-200 flex items-center justify-between">
+          <div className="text-sm text-gray-600">
+            Menampilkan {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredOrders.length)} dari {filteredOrders.length} transaksi
+          </div>
+          <div className="flex gap-1">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                currentPage === 1
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
+            >
+              ← Prev
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  currentPage === page
+                    ? "bg-blue-500 text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                currentPage === totalPages
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
+            >
+              Next →
+            </button>
+          </div>
+        </div>
+      )}
     </Card>
   );
 }

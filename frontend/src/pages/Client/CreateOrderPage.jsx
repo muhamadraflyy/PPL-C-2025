@@ -5,21 +5,6 @@ import Navbar from '../../components/Fragments/Common/Navbar'
 import Footer from '../../components/Fragments/Common/Footer'
 import { orderService } from '../../services/orderService'
 
-// Normalize media URL (align with service list/detail mapping)
-const buildMediaUrl = (raw) => {
-  const fallback = '/asset/layanan/Layanan.png'
-  if (!raw) return fallback
-  const url = String(raw).trim()
-  if (!url) return fallback
-  if (/^https?:\/\//i.test(url)) return url
-  if (url.startsWith('/asset/') || url.startsWith('/assets/')) return url
-
-  const apiBase = import.meta.env.VITE_API_BASE_URL || ''
-  const backendBase = apiBase.replace(/\/api\/?$/, '') || 'http://localhost:5000'
-  const cleanPath = url.replace(/^\/+/, '').replace(/^public\//, '')
-  return `${backendBase}/public/${cleanPath}`
-}
-
 const CreateOrderPage = () => {
   const location = useLocation()
   const navigate = useNavigate()
@@ -126,8 +111,7 @@ const CreateOrderPage = () => {
       const response = await orderService.createOrder({
         serviceId: service.id,
         paketId: service.paket_id || null,
-        catatanClient: formData.catatan_client,
-        attachments,
+        catatanClient: formData.catatan_client
       })
 
       if (response.success && response.data) {
@@ -187,9 +171,9 @@ const CreateOrderPage = () => {
                 </h2>
                 <div className="flex items-start gap-4 p-4 bg-gradient-to-br from-[#D8E3F3] to-[#9DBBDD] rounded-xl">
                   <img
-                    src={buildMediaUrl(service.thumbnail || service.image || service.thumbnail_url || (service.gambar?.[0]))}
+                    src="/asset/layanan/Layanan.png"
                     alt={service.title}
-                    className="w-24 h-24 object-cover rounded-lg border-2 border-[#E4ECF7] shadow-sm"
+                    className="w-24 h-24 object-cover rounded-lg"
                   />
                   <div className="flex-1">
                     <h3 className="font-bold text-neutral-900 mb-2">{service.title}</h3>
@@ -319,7 +303,7 @@ const CreateOrderPage = () => {
                     Harga layanan
                   </span>
                   <span className="font-semibold text-neutral-900">
-                    {formatRupiah(Number(service?.harga || 0))}
+                    {formatRupiah(service?.price || 0)}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
@@ -346,7 +330,7 @@ const CreateOrderPage = () => {
                     Waktu pengerjaan
                   </span>
                   <span className="font-semibold text-neutral-900">
-                    {service?.waktu_pengerjaan || '1–3 Minggu'}
+                    {service?.duration || 7} hari
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
@@ -355,7 +339,7 @@ const CreateOrderPage = () => {
                     Batas revisi
                   </span>
                   <span className="font-semibold text-neutral-900">
-                    {service?.batas_revisi || '3x revisi besar'}
+                    {service?.revisions === 99 ? 'Unlimited' : `${service?.revisions || 3}x`}
                   </span>
                 </div>
               </div>

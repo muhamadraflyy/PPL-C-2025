@@ -10,7 +10,6 @@ import { SaldoTersediaCard, DanaDitahanCard, InfoPembayaranCard } from "../../co
 
 // Services
 import { orderService } from "../../services/orderService";
-import paymentService from "../../services/paymentService";
 
 export default function OrdersIncomingPage() {
   const [incomingOrders, setIncomingOrders] = useState([]);
@@ -28,7 +27,6 @@ export default function OrdersIncomingPage() {
 
   useEffect(() => {
     fetchOrders();
-    fetchBalance();
   }, []);
 
   const fetchOrders = async () => {
@@ -84,6 +82,7 @@ export default function OrdersIncomingPage() {
         const amount = Number(order.total || 0);
         if (order.status === "selesai") {
           akumulasi += amount;
+          siapTransfer += amount;
         } else if (order.status === "dikerjakan" || order.status === "dibayar") {
           akumulasi += amount;
           inProgress += amount;
@@ -93,13 +92,13 @@ export default function OrdersIncomingPage() {
         }
       });
 
-      // Don't calculate siapTransfer here - it will be fetched from payment API
-      setSummary((prev) => ({
-        ...prev,
+      setSummary({
         akumulasiSaldo: akumulasi,
+        siapTransfer: siapTransfer,
+        saldoTersedia: siapTransfer,
         danaInProgress: inProgress,
         danaPendingReview: pendingReview,
-      }));
+      });
 
       setLoading(false);
     } catch (err) {
@@ -109,24 +108,9 @@ export default function OrdersIncomingPage() {
     }
   };
 
-  const fetchBalance = async () => {
-    try {
-      const result = await paymentService.getUserBalance();
-      if (result.success) {
-        setSummary((prev) => ({
-          ...prev,
-          siapTransfer: result.data.available_balance || 0,
-          saldoTersedia: result.data.available_balance || 0,
-        }));
-      }
-    } catch (err) {
-      console.error("Error fetching balance:", err);
-    }
-  };
-
   const handleTarikSaldo = () => {
-    // Navigate to withdrawal page
-    window.location.href = '/withdrawal/create';
+    // TODO: Implement tarik saldo functionality
+    console.log("Tarik saldo clicked");
   };
 
   return (

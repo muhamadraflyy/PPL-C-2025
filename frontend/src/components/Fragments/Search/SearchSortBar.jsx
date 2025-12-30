@@ -11,9 +11,9 @@ export default function SearchSortBar({
   onChangeSortTab,
 }) {
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-neutral-200 bg-[#112c4f] p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium uppercase tracking-wide text-white">
+        <span className="text-xs font-medium uppercase tracking-wide text-neutral-500">
           Urutkan
         </span>
         {SORT_TABS.map((tab) => (

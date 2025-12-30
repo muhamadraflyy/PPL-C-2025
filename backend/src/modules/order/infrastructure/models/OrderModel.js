@@ -46,14 +46,6 @@ const OrderModel = sequelize.define('pesanan', {
     type: DataTypes.TEXT,
     allowNull: true
   },
-  lampiran_client: {
-    type: DataTypes.JSON,
-    allowNull: true,
-  },
-  lampiran_freelancer: {
-    type: DataTypes.JSON,
-    allowNull: true,
-  },
   harga: {
     type: DataTypes.DECIMAL(10, 2),
     allowNull: false

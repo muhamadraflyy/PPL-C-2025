@@ -35,7 +35,7 @@ class OrderController {
         return res.status(401).json({ success: false, message: 'Unauthorized' });
       }
 
-      const { layanan_id, paket_id, catatan_client, lampiran_client } = req.body;
+      const { layanan_id, paket_id, catatan_client } = req.body;
 
       if (!layanan_id) {
         return res.status(400).json({ success: false, message: 'layanan_id wajib diisi' });
@@ -44,8 +44,7 @@ class OrderController {
       const order = await this.createOrderUseCase.execute(user.userId, {
         layanan_id,
         paket_id,
-        catatan_client,
-        lampiran_client,
+        catatan_client
       });
 
       return res.status(201).json({
@@ -232,14 +231,7 @@ class OrderController {
       }
 
       const { id } = req.params;
-      const { lampiranFreelancer, catatanFreelancer } = req.body;
-
-      const order = await this.completeOrderUseCase.execute(
-        id,
-        user.userId,
-        lampiranFreelancer,
-        catatanFreelancer,
-      );
+      const order = await this.completeOrderUseCase.execute(id, user.userId);
 
       return res.json({
         success: true,

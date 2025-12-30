@@ -19,24 +19,9 @@ const orderValidation = {
       paket_id: Joi.string().uuid().allow(null, '').optional().messages({
         'string.uuid': 'paket_id harus berformat UUID'
       }),
-      // Wajib diisi minimal beberapa karakter supaya deskripsi order tidak kosong total
-      catatan_client: Joi.string().trim().min(10).max(1000).required().messages({
-        'string.empty': 'Catatan tidak boleh kosong!',
-        'string.min': 'Catatan minimal 10 karakter!',
-        'string.max': 'Catatan maksimal 1000 karakter!',
-        'any.required': 'Catatan wajib diisi!'
-      }),
-      // Lampiran client berupa array string (biasanya URL/file path)
-      lampiran_client: Joi.array()
-        .items(Joi.string().trim().max(500).messages({
-          'string.max': 'Setiap lampiran maksimal 500 karakter',
-        }))
-        .max(10)
-        .optional()
-        .allow(null)
-        .messages({
-          'array.max': 'Maksimal 10 lampiran yang boleh dikirim',
-        }),
+      catatan_client: Joi.string().max(1000).allow(null, '').optional().messages({
+        'string.max': 'catatan_client maksimal 1000 karakter'
+      })
     });
 
     const { error } = schema.validate(req.body, { abortEarly: false });
@@ -47,72 +32,12 @@ const orderValidation = {
         message: detail.message
       }));
 
-      // Pakai pesan error pertama sebagai message utama agar FE langsung dapat info yang jelas
-      const firstMessage = errors[0]?.message || 'Data pesanan tidak valid';
-
       return res.status(400).json({
         success: false,
-        message: firstMessage,
+        message: 'Validasi gagal',
         errors
       });
     }
-
-    next();
-  },
-
-  /**
-   * Validasi untuk complete order (freelancer kirim hasil pekerjaan)
-   */
-  completeOrder: (req, res, next) => {
-    const schema = Joi.object({
-      // FE mengirim lampiranFreelancer berupa array objek { name, url, size }
-      lampiranFreelancer: Joi.array()
-        .items(
-          Joi.object({
-            name: Joi.string().trim().max(255).allow(null, ''),
-            url: Joi.string().trim().max(500).required().messages({
-              'string.empty': 'URL lampiran tidak boleh kosong',
-              'any.required': 'Setiap lampiran harus memiliki URL yang valid',
-            }),
-            size: Joi.number().integer().min(0).allow(null),
-          })
-        )
-        .min(1)
-        .required()
-        .messages({
-          'array.base': 'Lampiran hasil pekerjaan harus berupa array',
-          'array.min': 'Minimal 1 file hasil pekerjaan harus diunggah',
-          'any.required': 'Lampiran hasil pekerjaan wajib diisi',
-        }),
-      // Catatan untuk client (wajib diisi minimal beberapa karakter)
-      catatanFreelancer: Joi.string().trim().min(10).max(2000).required().messages({
-        'string.empty': 'Catatan untuk client tidak boleh kosong',
-        'string.min': 'Catatan untuk client minimal 10 karakter',
-        'string.max': 'Catatan untuk client maksimal 2000 karakter',
-        'any.required': 'Catatan untuk client wajib diisi',
-      }),
-    });
-
-    const { error, value } = schema.validate(req.body, { abortEarly: false });
-
-    if (error) {
-      const errors = error.details.map((detail) => ({
-        field: detail.path[0],
-        message: detail.message,
-      }));
-
-      const firstMessage = errors[0]?.message || 'Data penyelesaian pesanan tidak valid';
-
-      return res.status(400).json({
-        success: false,
-        message: firstMessage,
-        errors,
-      });
-    }
-
-    // Normalisasi payload agar konsisten ke layer berikutnya
-    req.body.lampiranFreelancer = value.lampiranFreelancer;
-    req.body.catatanFreelancer = value.catatanFreelancer;
 
     next();
   },
@@ -135,11 +60,9 @@ const orderValidation = {
         message: detail.message
       }));
 
-      const firstMessage = errors[0]?.message || 'Data pembatalan pesanan tidak valid';
-
       return res.status(400).json({
         success: false,
-        message: firstMessage,
+        message: 'Validasi gagal',
         errors
       });
     }
@@ -200,11 +123,9 @@ const orderValidation = {
         message: detail.message
       }));
 
-      const firstMessage = errors[0]?.message || 'Parameter pencarian pesanan tidak valid';
-
       return res.status(400).json({
         success: false,
-        message: firstMessage,
+        message: 'Validasi gagal',
         errors
       });
     }
