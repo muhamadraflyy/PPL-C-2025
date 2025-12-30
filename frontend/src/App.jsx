@@ -415,6 +415,16 @@ export default function App() {
         path="/chat"
         element={<MessagesPage />} />
 
+      {/* Chat & Messages */}
+      <Route
+        path="/messages"
+        element={
+          <ProtectedRoute>
+            <MessagesPage />
+          </ProtectedRoute>
+        }
+      />
+
       {/* 404 */}
       <Route path="*" element={<NotFoundPage />} />
     </Routes>

@@ -47,19 +47,54 @@ class ChatController {
    */
   async getConversations(req, res) {
     try {
-      const userId = req.user.userId;
-      const { page, limit } = req.query;
+      const userId = req.user?.userId || req.user?.id;
+      
+      if (!userId) {
+        console.error('[ChatController] userId not found in req.user:', req.user);
+        return res.status(401).json({
+          status: 'error',
+          message: 'Autentikasi gagal. Silakan login kembali.'
+        });
+      }
+
+      console.log('[ChatController] Getting conversations for user:', userId);
+      
+      // Convert query params to integers (req.query values are always strings)
+      const page = parseInt(req.query.page, 10) || 1;
+      const limit = parseInt(req.query.limit, 10) || 20;
+      
       const conversations = await this.getConversationsUseCase.execute(userId, { page, limit });
+      
+      console.log('[ChatController] Retrieved', conversations.length, 'conversations');
+      
+      // Debug: Check if first conversation has User1/User2 data
+      if (conversations.length > 0) {
+        console.log('[ChatController] First conversation:', {
+          id: conversations[0].id,
+          has_User1: !!conversations[0].User1,
+          has_User2: !!conversations[0].User2,
+          User1: conversations[0].User1,
+          User2: conversations[0].User2
+        });
+      }
+      
+      // Prevent caching - always get fresh data
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      
       return res.status(200).json({
         status: 'success',
         data: conversations
       });
 
     } catch (error) {
-      console.error('Error getting conversations:', error)
+      console.error('[ChatController] Error getting conversations:', error);
+      console.error('[ChatController] Error stack:', error.stack);
       return res.status(500).json({
         status: 'error',
-        message: error.message
+        message: 'Gagal mengambil daftar percakapan',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
   }
@@ -121,9 +156,27 @@ class ChatController {
       const messageData = { pesan, tipe, lampiran };
       const newMessage = await this.sendMessageUseCase.execute(userId, percakapanId, messageData);
 
+      // Helper untuk safely serialize date
+      const serializeDate = (dateValue) => {
+        if (!dateValue) return null;
+        try {
+          const date = new Date(dateValue);
+          return isNaN(date.getTime()) ? null : date.toISOString();
+        } catch (e) {
+          return null;
+        }
+      };
+
+      // Serialize date fields untuk frontend
+      const serializedMessage = {
+        ...newMessage,
+        created_at: serializeDate(newMessage.created_at),
+        updated_at: serializeDate(newMessage.updated_at)
+      };
+
       return res.status(201).json({
         status: 'success',
-        data: newMessage
+        data: serializedMessage
       });
 
     } catch (error) {
@@ -169,13 +222,39 @@ class ChatController {
   async createConversation(req, res) {
     try {
       const { user2_id } = req.body;
-      const user1_id = req.user.userId;
+      const user1_id = req.user?.userId;
 
-      if (!user2_id) {
-        return res.status(400).json({ status: 'error', message: 'user2_id diperlukan' });
+      // Enhanced validation
+      if (!user1_id) {
+        console.error('[ChatController] user1_id not found in req.user:', req.user);
+        return res.status(401).json({ 
+          status: 'error', 
+          message: 'Autentikasi gagal. Silakan login kembali.' 
+        });
       }
 
+      if (!user2_id) {
+        console.error('[ChatController] user2_id missing from request body');
+        return res.status(400).json({ 
+          status: 'error', 
+          message: 'user2_id diperlukan' 
+        });
+      }
+
+      // Prevent self-conversation
+      if (user1_id === user2_id) {
+        console.warn('[ChatController] User trying to create conversation with self:', user1_id);
+        return res.status(400).json({ 
+          status: 'error', 
+          message: 'Tidak dapat membuat percakapan dengan diri sendiri' 
+        });
+      }
+
+      console.log('[ChatController] Creating conversation:', { user1_id, user2_id });
+
       const conversation = await this.conversationRepository.createOrFind(user1_id, user2_id);
+
+      console.log('[ChatController] Conversation created/found:', conversation.id);
 
       return res.status(200).json({
         status: 'success',
@@ -184,10 +263,28 @@ class ChatController {
       });
 
     } catch (error) {
-      console.error('Error creating conversation:', error);
+      console.error('[ChatController] Error creating conversation:', error);
+      console.error('[ChatController] Error stack:', error.stack);
+      
+      // Handle specific Sequelize errors
+      if (error.name === 'SequelizeForeignKeyConstraintError') {
+        return res.status(400).json({
+          status: 'error',
+          message: 'User ID tidak valid atau tidak ditemukan'
+        });
+      }
+
+      if (error.name === 'SequelizeValidationError') {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Data tidak valid: ' + error.message
+        });
+      }
+
       return res.status(500).json({
         status: 'error',
-        message: error.message
+        message: 'Gagal membuat percakapan. Silakan coba lagi.',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
   }

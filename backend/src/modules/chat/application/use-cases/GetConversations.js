@@ -22,42 +22,84 @@ class GetConversations {
    */
 
   async execute(userId, filters = {}) {
-    const { page = 1, limit = 20 } = filters;
+    try {
+      const { page = 1, limit = 20 } = filters;
 
-    const conversation = await this.conversationRepository.findByUserId(userId, {
-      page,
-      limit,
-      order: 'DESC',
-      includeOtherUser: true // PENTING: Include user1 dan user2 data
-    });
+      console.log('[GetConversations] Fetching conversations for user:', userId);
 
-    const result = conversation.map(conv => {
-      const otherUser = conv.user1_id === userId ? conv.user2 : conv.user1;
-      const unreadCount = conv.getUnreadCountFor(userId);
+      const conversation = await this.conversationRepository.findByUserId(userId, {
+        page,
+        limit,
+        order: 'DESC',
+        includeOtherUser: true // PENTING: Include user1 dan user2 data
+      });
 
-      // Format data lawan bicara
-      const participant = {
-        userId: otherUser.id,
-        name: `${otherUser.nama_depan} ${otherUser.nama_belakang}`,
-        avatar: otherUser.avatar
-      };
+      console.log('[GetConversations] Found', conversation.length, 'conversations');
 
-      // Format pesan terakhir
-      const lastMessage = {
-        text: conv.pesan_terakhir,
-        timestamp: conv.pesan_terakhir_pada,
-        // Read akan diimplementasikan nanti
-      };
+      // IMPORTANT: Return raw conversation objects with user data
+      // Frontend expects conversation.User1 and conversation.User2 format
+      const result = conversation.map((conv, idx) => {
+        // Debug first conversation
+        if (idx === 0) {
+          console.log('[GetConversations] First conversation user data:', {
+            has_user1: !!conv.user1,
+            has_user2: !!conv.user2,
+            user1_data: conv.user1,
+            user2_data: conv.user2
+          });
+        }
+        
+        // Helper function untuk safely serialize date
+        const serializeDate = (dateValue) => {
+          if (!dateValue) return null;
+          try {
+            const date = new Date(dateValue);
+            return isNaN(date.getTime()) ? null : date.toISOString();
+          } catch (e) {
+            console.warn('[GetConversations] Invalid date value:', dateValue);
+            return null;
+          }
+        };
+        
+        // Convert to plain object and rename user properties to match frontend expectation
+        const mapped = {
+          id: conv.id,
+          user1_id: conv.user1_id,
+          user2_id: conv.user2_id,
+          pesan_terakhir: conv.pesan_terakhir,
+          // Serialize Date to ISO string untuk frontend
+          pesan_terakhir_pada: serializeDate(conv.pesan_terakhir_pada),
+          user1_unread_count: conv.user1_unread_count,
+          user2_unread_count: conv.user2_unread_count,
+          created_at: serializeDate(conv.created_at),
+          updated_at: serializeDate(conv.updated_at),
+          // Frontend expects User1 and User2 (capitalized)
+          // Extract profesi from freelancerProfile if exists
+          User1: conv.user1 ? {
+            ...conv.user1,
+            profesi: conv.user1.freelancerProfile?.judul_profesi || null
+          } : null,
+          User2: conv.user2 ? {
+            ...conv.user2,
+            profesi: conv.user2.freelancerProfile?.judul_profesi || null
+          } : null
+        };
+        
+        if (idx === 0) {
+          console.log('[GetConversations] Mapped result has User1?', !!mapped.User1);
+          console.log('[GetConversations] Mapped result has User2?', !!mapped.User2);
+        }
+        
+        return mapped;
+      });
 
-      return {
-        conversationId: conv.id,
-        participant: participant,
-        lastMessage: lastMessage,
-        unreadCount: unreadCount
-      };
-    });
-
-    return result;
+      console.log('[GetConversations] Mapped', result.length, 'conversations successfully');
+      return result;
+    } catch (error) {
+      console.error('[GetConversations] Error in execute:', error);
+      console.error('[GetConversations] Error stack:', error.stack);
+      throw error;
+    }
   }
 }
 
